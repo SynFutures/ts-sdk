@@ -3,7 +3,6 @@ import { ZERO } from '../constants';
 import {
     Errors,
     ErrorCode,
-    Order,
     PairSnapshot,
     QuotationWithSize,
     Side,

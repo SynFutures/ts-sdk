@@ -81,7 +81,7 @@ export function sortQueryString(queryString: string): string {
     const sortedParams: string[] = [];
 
     // Sort and rebuild
-    const sortedKeys = Array.from(params.keys()).sort();
+    const sortedKeys = Array.from(new Set(params.keys())).sort();
     for (const key of sortedKeys) {
         const values = params.getAll(key);
         for (const value of values) {

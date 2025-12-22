@@ -18,31 +18,36 @@ export const DEFAULT_HISTORY_PAGE_SIZE = 60;
 export const MAX_HISTORY_PAGE_SIZE = 1000;
 export const DEFAULT_PAGE = 1;
 export const DEFAULT_HISTORY_PAGE_SIZE_LOCAL = 30;
+
+// api request paths, v4 endpoints
 export const API_URLS = {
+    PUBLIC: {
+        PORTFOLIO: '/v4/public/portfolio',
+    },
     MARKET: {
         PAIR_INFO: '/v4/public/market/marketPairInfo',
         PAIR_LIST: '/v4/public/market/marketList',
+        GATE_BALANCE: '/v4/public/market/user/gateValue',
+        USER_VOLUME: '/v4/public/market/user/volumes',
+        INSTRUMENT: '/v4/public/market/instrument',
+        INQUIRE: '/v4/public/market/inquire',
+        INQUIRE_BY_TICK: '/v4/public/market/inquireByTick',
+        INQUIRE_BY_NOTIONAL: '/v4/public/market/inquireByNotional',
+        ONCHAIN_CONTEXT: '/v4/public/market/getOnChainContext',
+        ONCHAIN_CONTEXT_QUERY: '/v4/public/market/getOnChainContext/onChainQuery',
+        ORDER_BOOK: '/v4/public/market/orderBook',
+        KLINE_CHARTS: '/v4/public/market/kline',
+        DEPTH_CHARTS: '/v4/public/market/depth',
+    },
+    MM: {
         MM_ORDER_BOOK: '/v4/public/mm/orderBook',
         MM_WALLET_BALANCE: '/v4/public/mm/account/wallet-balance',
         MM_POSITION_LIST: '/v4/public/mm/position/list',
         MM_SERVER_TIME: '/v4/public/mm/serverTime',
     },
-    // v4 endpoints
-    INSTRUMENT: '/v4/public/market/instrument',
-    INQUIRE: '/v4/public/market/inquire',
-    INQUIRE_BY_TICK: '/v4/public/market/inquireByTick',
-    INQUIRE_BY_NOTIONAL: '/v4/public/market/inquireByNotional',
-    ONCHAIN_CONTEXT: '/v4/public/market/getOnChainContext',
-    ONCHAIN_CONTEXT_QUERY: '/v4/public/market/getOnChainContext/onChainQuery',
-    ORDER_BOOK: '/v4/public/market/orderBook',
-    KLINE_CHARTS: '/v4/public/market/kline',
-    DEPTH_CHARTS: '/v4/public/market/depth',
-    //portfolio
-    PORTFOLIO: '/v4/public/portfolio',
-    GATE_BALANCE: '/v4/public/market/user/gateValue',
-    USER_VOLUME: `/v4/public/market/user/volumes`,
-
-    TOKEN_ALL_PRICE: '/v4/public/token/tokensWithAddress',
+    TOKEN: {
+        TOKEN_ALL_PRICE: '/v4/public/token/tokensWithAddress',
+    },
     // chart related
     HISTORY: {
         TRADE: '/v4/public/history/trade',
