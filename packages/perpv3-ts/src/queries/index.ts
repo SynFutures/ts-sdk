@@ -92,7 +92,7 @@ export async function fetchOrderBook(
                 address: instrument,
                 expiry: expiry,
             },
-            config.authInfo
+            config.authInfo!
         );
     }
 

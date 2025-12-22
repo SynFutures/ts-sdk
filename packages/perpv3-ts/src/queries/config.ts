@@ -11,7 +11,7 @@ export interface ReadOptions {
 // Configuration types for API and RPC
 export interface ApiConfig {
     chainId: number;
-    authInfo: AuthInfo;
+    authInfo?: AuthInfo;
 }
 
 export interface RpcConfig {

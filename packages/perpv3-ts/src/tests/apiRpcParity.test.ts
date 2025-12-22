@@ -210,19 +210,21 @@ beforeAll(async () => {
             continue;
         }
 
-        const apiKeyEnv = scenario.apiKeyEnv ?? 'SYNF_PARITY_API_KEY';
-        const apiKey = process.env[apiKeyEnv];
-        const passphrase = process.env.SYNF_PARITY_PASSPHRASE;
-        const secretKey = process.env.SYNF_PARITY_SECRET_KEY;
-        if (!apiKey || !passphrase || !secretKey) {
-            entry.skipReason = `Missing API auth info (${apiKeyEnv}/SYNF_PARITY_PASSPHRASE/SYNF_PARITY_SECRET_KEY)`;
-            continue;
-        }
-
         const apiConfig: ApiConfig = {
             chainId: scenario.chainId,
-            authInfo: { apiKey, passphrase, secretKey },
         };
+
+        const apiKeyEnv = scenario.apiKeyEnv ?? 'SYNF_PARITY_API_KEY';
+        const apiKey = process.env[apiKeyEnv];
+        if (apiKey) {
+            // Note: AuthInfo requires apiKey, passphrase, and secretKey
+            // For tests, we may only have apiKey, so we skip authInfo if not all fields are available
+            const passphrase = process.env.SYNF_PARITY_PASSPHRASE;
+            const secretKey = process.env.SYNF_PARITY_SECRET_KEY;
+            if (passphrase && secretKey) {
+                apiConfig.authInfo = { apiKey, passphrase, secretKey };
+            }
+        }
 
         entry.apiConfig = apiConfig;
         entry.instrumentAddress = scenario.instrumentAddress;
