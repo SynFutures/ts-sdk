@@ -75,22 +75,20 @@ export function bigInitObjectCheckByKeys(obj: any, bigIntKeys?: string[]): any {
 
     const cloneObj = Array.isArray(obj) ? [...obj] : { ...obj };
     if (cloneObj) {
-        if (cloneObj) {
-            try {
-                Object.keys(cloneObj).forEach((key) => {
-                    const val = cloneObj[key];
-                    // If bigNumberKeys is provided, only convert keys that are in the array
-                    if (bigIntKeys?.includes(key)) {
-                        cloneObj[key] = BigInt(val || 0);
-                    } else if (typeof val === 'object' && val && Object.keys(val).length > 0) {
-                        const newVal = bigInitObjectCheckByKeys(val, bigIntKeys);
-                        cloneObj[key] = newVal;
-                    }
-                });
-            } catch {
-                // Silently handle conversion errors and return the original cloned object
-                // This prevents the function from throwing while maintaining data integrity
-            }
+        try {
+            Object.keys(cloneObj).forEach((key) => {
+                const val = cloneObj[key];
+                // If bigNumberKeys is provided, only convert keys that are in the array
+                if (bigIntKeys?.includes(key)) {
+                    cloneObj[key] = BigInt(val || 0);
+                } else if (typeof val === 'object' && val && Object.keys(val).length > 0) {
+                    const newVal = bigInitObjectCheckByKeys(val, bigIntKeys);
+                    cloneObj[key] = newVal;
+                }
+            });
+        } catch {
+            // Silently handle conversion errors and return the original cloned object
+            // This prevents the function from throwing while maintaining data integrity
         }
     }
     return cloneObj;
