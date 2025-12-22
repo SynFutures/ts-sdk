@@ -30,10 +30,10 @@ const secretKey = process.env.SYNF_PARITY_SECRET_KEY;
 const authInfo: AuthInfo | undefined =
     apiKey && passphrase && secretKey
         ? {
-              apiKey,
-              passphrase,
-              secretKey,
-          }
+            apiKey,
+            passphrase,
+            secretKey,
+        }
         : undefined;
 
 jest.setTimeout(120_000);
@@ -62,7 +62,7 @@ describe('orderBook parity (API vs observer)', () => {
     test.each(INSTRUMENTS)('matches public API response for ABC testnet pair: %s', async (instrument) => {
         const params = { chainId: CHAIN_ID, address: instrument, expiry: EXPIRY };
         const rawApiResponse = await axiosGet({
-            url: API_URLS.ORDER_BOOK,
+            url: API_URLS.MARKET.ORDER_BOOK,
             config: { params },
             authInfo,
         });
