@@ -17,22 +17,18 @@ import {
 // Trade Input Classes
 // ============================================================================
 
-export interface TradeInputOptions {
-    /**
-     * If provided, uses this margin directly (WAD). If omitted, margin is computed from `userSetting.leverage`.
-     */
-    margin?: bigint;
-}
-
 export class TradeInput {
     public readonly traderAddress: Address;
 
     public readonly side: Side;
     public readonly baseQuantity: bigint;
 
+    /**
+     * If provided, uses this margin directly (WAD). If omitted, margin is computed from `userSetting.leverage`.
+     */
     public readonly margin?: bigint;
 
-    constructor(traderAddress: Address, baseQuantity: bigint, side: Side, options?: TradeInputOptions) {
+    constructor(traderAddress: Address, baseQuantity: bigint, side: Side, margin?: bigint) {
         if (baseQuantity <= 0n) {
             throw Errors.validation('Trade quantity must be positive', ErrorCode.INVALID_SIZE, {
                 baseQuantity: baseQuantity.toString(),
@@ -41,7 +37,7 @@ export class TradeInput {
         this.traderAddress = traderAddress;
         this.baseQuantity = baseQuantity;
         this.side = side;
-        this.margin = options?.margin;
+        this.margin = margin;
     }
 
     /**

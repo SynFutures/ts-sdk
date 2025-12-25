@@ -206,8 +206,7 @@ describe('trade simulations (ABC fixture data)', () => {
                     data.traderAddress,
                     data.baseQuantity,
                     data.side as Side,
-                    data.userSetting,
-                    { margin: data.margin }
+                    data.margin
                 );
 
                 const [, simulation] = input.simulate(context, quotationWithSize, data.userSetting);
@@ -256,7 +255,7 @@ describe('trade simulations (ABC fixture data)', () => {
                     data.traderAddress,
                     abs(data.signedSize), // positive quantity from signedSize
                     closeSide, // side determined from signedSize
-                    { margin: 0n } // no margin for closing
+                    0n // no margin for closing
                 );
 
                 const [, simulation] = input.simulate(context, quotationWithSize, data.userSetting);

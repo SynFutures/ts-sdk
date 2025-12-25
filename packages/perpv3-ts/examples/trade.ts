@@ -53,7 +53,7 @@ export async function demoTradeByMargin(context: DemoContext): Promise<void> {
     const quotationWithSize = new QuotationWithSize(signedSize, quotation);
 
     // Create TradeInput (by margin) and simulate
-    const tradeInput = new TradeInput(walletAddress, baseQuantity, side, { margin: marginAmountInWad });
+    const tradeInput = new TradeInput(walletAddress, baseQuantity, side, marginAmountInWad);
 
     const [tradeParam, simulation] = tradeInput.simulate(snapshot, quotationWithSize, perpClient.userSetting);
 

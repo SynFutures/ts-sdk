@@ -161,7 +161,7 @@ const tradeInput = new TradeInput(
     traderAddress,
     parseUnits('1', 18), // baseQuantity in WAD
     Side.LONG,
-    { margin: parseUnits('100', 18) } // margin in WAD (optional)
+    parseUnits('100', 18) // margin in WAD (optional)
 );
 
 const quotationWithSize = new QuotationWithSize(signedSize, onchainContextWithQuotation.quotation!);
@@ -188,7 +188,7 @@ const tradeByMargin = new TradeInput(
     traderAddress,
     parseUnits('1', 18), // baseQuantity in WAD
     Side.LONG,
-    { margin: parseUnits('100', 18) } // margin in WAD
+    parseUnits('100', 18) // margin in WAD (optional)
 );
 // First fetch quotation, then simulate
 const quotationWithSize = new QuotationWithSize(signedSize, quotation);

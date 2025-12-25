@@ -459,7 +459,7 @@ async function runMarketByMarginScenario(
         portfolioContext
     );
 
-    const tradeInput = new TradeInput(traderAddress, bigAbs(signedSize), side, { margin: marginAmount });
+    const tradeInput = new TradeInput(traderAddress, bigAbs(signedSize), side, marginAmount);
 
     // Use the original onchainContext for API side (it was passed to loadMarketArtifacts)
     const apiOnchainContextWithQuotation = onchainContext.with({
