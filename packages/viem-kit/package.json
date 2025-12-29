@@ -1,6 +1,6 @@
 {
     "name": "@synfutures/viem-kit",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "Viem-based web3 kit with address book, contract parsers, and tx handling",
     "main": "dist/index.cjs",
     "module": "dist/index.mjs",
@@ -91,7 +91,7 @@
         "typescript": "^5.9.3"
     },
     "peerDependencies": {
-        "@synfutures/viem-ledger": "^0.0.2"
+        "@synfutures/viem-ledger": "^0.0.3"
     },
     "peerDependenciesMeta": {
         "@synfutures/viem-ledger": {
