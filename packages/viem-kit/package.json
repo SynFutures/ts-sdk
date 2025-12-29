@@ -91,7 +91,7 @@
         "typescript": "^5.9.3"
     },
     "peerDependencies": {
-        "@synfutures/viem-ledger": "^0.0.3"
+        "@synfutures/viem-ledger": "^0.0.4"
     },
     "peerDependenciesMeta": {
         "@synfutures/viem-ledger": {
