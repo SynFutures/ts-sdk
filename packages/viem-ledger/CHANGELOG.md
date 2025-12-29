@@ -1,5 +1,11 @@
 # @synfutures/viem-ledger
 
+## 0.0.3
+
+### Patch Changes
+
+- 8f28b07: version update
+
 ## 0.0.2
 
 ### Patch Changes
