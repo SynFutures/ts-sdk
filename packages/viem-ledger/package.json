@@ -1,6 +1,6 @@
 {
     "name": "@synfutures/viem-ledger",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "description": "Ledger helpers for viem accounts",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
