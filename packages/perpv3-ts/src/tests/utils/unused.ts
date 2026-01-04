@@ -541,7 +541,7 @@ export function calcOrderLeverageByMargin(targetTick: number, baseQuantity: bigi
 
 // === FROM types/tx.ts ===
 import type { Address, PublicClient, WalletClient, TransactionReceipt, TransactionRequest, Hash } from 'viem';
-import type { ChainKit, TxRequest } from '@synfutures/viem-kit';
+import type { ChainKit, TxRequest } from '@derivation-tech/viem-kit';
 
 // Extend viem's TransactionRequest with custom context field
 export interface BaseTxOptions extends Omit<TransactionRequest, 'to' | 'from'> {

@@ -1,4 +1,4 @@
-import type { Address, ContractParser, Hex } from '@synfutures/viem-kit';
+import type { Address, ContractParser, Hex } from '@derivation-tech/viem-kit';
 import { decodeAbiParameters } from 'viem';
 import { decodeAddParam, decodeParamForDepositAndWithdraw } from '../utils/decode';
 import {

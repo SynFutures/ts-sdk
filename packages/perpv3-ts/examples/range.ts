@@ -54,7 +54,7 @@ export async function demoAddLiquidity(context: DemoContext): Promise<void> {
 
     // Add liquidity
     console.log(`📝 Adding liquidity...`);
-    const { sendTxWithLog } = await import('@synfutures/viem-kit');
+    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
     await sendTxWithLog(publicClient, walletClient, kit, {
         address: perpClient.instrumentAddress,
         abi: CURRENT_INSTRUMENT_ABI,
@@ -100,7 +100,7 @@ export async function demoRemoveLiquidity(context: DemoContext): Promise<void> {
     console.log(`ℹ️ Post position size: ${formatWad(simulation.postPosition.size)}`);
     console.log(`ℹ️ Post position margin: ${formatWad(simulation.postPosition.balance)}`);
 
-    const { sendTxWithLog } = await import('@synfutures/viem-kit');
+    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
     await sendTxWithLog(publicClient, walletClient, kit, {
         address: perpClient.instrumentAddress,
         abi: CURRENT_INSTRUMENT_ABI,

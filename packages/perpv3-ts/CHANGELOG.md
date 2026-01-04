@@ -11,7 +11,7 @@
 
 ### Patch Changes
 
-- @synfutures/viem-kit@0.0.3
+- @derivation-tech/viem-kit@0.0.3
 
 ## 0.1.16
 
@@ -31,7 +31,7 @@
 
 - Update api
 - Updated dependencies
-    - @synfutures/viem-kit@0.0.2
+    - @derivation-tech/viem-kit@0.0.2
 
 ## 0.1.13
 
@@ -39,4 +39,4 @@
 
 - First publish
 - Updated dependencies
-    - @synfutures/viem-kit@0.0.1
+    - @derivation-tech/viem-kit@0.0.1

@@ -1,5 +1,5 @@
-import type { Address, Erc20TokenInfo } from '@synfutures/viem-kit';
-import { formatUnits, getAddress, isAddress, Multicall } from '@synfutures/viem-kit';
+import type { Address, Erc20TokenInfo } from '@derivation-tech/viem-kit';
+import { formatUnits, getAddress, isAddress, Multicall } from '@derivation-tech/viem-kit';
 import { formatInTimeZone } from 'date-fns-tz';
 import { sqrtX96ToWad, tickToSqrtX96 } from '../math';
 import { MAX_UINT_16, MAX_UINT_24, Q24 } from '../constants';

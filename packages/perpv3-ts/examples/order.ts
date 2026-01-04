@@ -85,7 +85,7 @@ export async function demoPlaceAndCancel(context: DemoContext): Promise<void> {
 
     // Execute place order transaction
     console.log(`📝 Placing SHORT limit order at ${formatTick(targetTick)}...`);
-    const { sendTxWithLog } = await import('@synfutures/viem-kit');
+    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
     await sendTxWithLog(publicClient, walletClient, kit, {
         address: perpClient.instrumentAddress,
         abi: CURRENT_INSTRUMENT_ABI,
@@ -199,7 +199,7 @@ export async function demoCrossLimitOrder(context: DemoContext, side: Side = Sid
 
     await ensureMarginAndAllowance(snapshot, publicClient, walletClient, kit, marginNeededInDecimals);
 
-    const { sendTxWithLog } = await import('@synfutures/viem-kit');
+    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
     if (crossResult.tradeParam.size !== 0n) {
         const tradeSize = crossResult.tradeParam.size; // Already correctly signed (positive for LONG, negative for SHORT)
         console.log(
@@ -433,7 +433,7 @@ export async function demoScaledLimitOrder(context: DemoContext): Promise<void> 
     console.log(
         `📝 Executing batch place for ${validTicks.length} orders (total quantity: ${formatWad(adjustedTotalQuantity)}, side: ${side})...`
     );
-    const { sendTxWithLog } = await import('@synfutures/viem-kit');
+    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
     await sendTxWithLog(publicClient, walletClient, kit, {
         address: perpClient.instrumentAddress,
         abi: CURRENT_INSTRUMENT_ABI,

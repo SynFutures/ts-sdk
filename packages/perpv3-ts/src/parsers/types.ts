@@ -1,4 +1,4 @@
-import type { Address, Erc20TokenInfo, PublicClient } from '@synfutures/viem-kit';
+import type { Address, Erc20TokenInfo, PublicClient } from '@derivation-tech/viem-kit';
 
 export interface ParserDeps {
     /**

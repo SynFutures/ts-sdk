@@ -1,6 +1,6 @@
 import type { Address, PublicClient, WalletClient } from 'viem';
 import { createPublicClient, http } from 'viem';
-import { ChainKit, ChainKitRegistry, ERC20, sendTxWithLog } from '@synfutures/viem-kit';
+import { ChainKit, ChainKitRegistry, ERC20, sendTxWithLog } from '@derivation-tech/viem-kit';
 import { abs, wdiv } from '@synfutures/perpv3-ts/math';
 import { WAD, ZERO } from '@synfutures/perpv3-ts/constants';
 import { PlaceInput, RemoveInput } from '@synfutures/perpv3-ts/actions';

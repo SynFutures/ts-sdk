@@ -1,28 +1,24 @@
-# Viem Kit
+# SynFutures TypeScript SDK
 
-A comprehensive viem-based web3 toolkit providing chain utilities, contract interactions, and developer tools for EVM-compatible blockchains.
-
-## 🚀 Features
-
-- **Viem Context**: Robust utilities for EVM chain interactions with singleton management
-- **Chain Kit Registry**: Per-chain utilities with address books and token registries
-- **ERC20 & WETH Utilities**: Simplified token operations with comprehensive logging
-- **Transaction Helpers**: Batch operations and transaction management
-- **Type Safety**: Full TypeScript support with viem types
-- **CLI Tools**: Command-line interface for asset management
-- **Custom Chain Support**: Easy integration with custom EVM chains
+TypeScript SDK monorepo for SynFutures V3 Perpetual Contracts.
 
 ## 📦 Packages
 
-### `@synfutures/viem-kit`
+### `@synfutures/perpv3-ts`
 
-The core package providing:
-- Singleton chain management with `ChainKitRegistry`
-- Address book and token registry
-- ERC20/WETH utilities with reduced boilerplate
-- Transaction helpers with logging
-- Contract parsers for better debugging
-- Batch operations support
+TypeScript SDK for simulating and interacting with SynFutures V3 Perpetual Contracts.
+
+**Key Features:**
+- 🚀 **Type-Safe** - Full TypeScript support with type definitions
+- 🔧 **Viem Integration** - Built on top of viem for Ethereum interactions
+- 📦 **Modular** - Clean, modular architecture
+- 🎯 **Contract-First** - Types mirror Solidity contracts exactly
+- 💼 **Simulation API** - Class-based input classes for trade, order, and range operations
+- 🔄 **Unified Queries** - Single API for fetching data from RPC or API endpoints
+- ✅ **Validation Helpers** - Comprehensive helper methods for order placement, position management, and range operations
+- 🎬 **Demo Framework** - Built-in demo framework for testing and examples
+
+See [packages/perpv3-ts/README.md](./packages/perpv3-ts/README.md) for detailed documentation and usage examples.
 
 ## 🛠️ Development
 
@@ -51,6 +47,12 @@ pnpm run format
 pnpm run clean
 ```
 
+### Run Tests
+
+```shell
+pnpm test
+```
+
 ### Release Workflow
 
 - `make changeset SUMMARY='Describe the change' [BUMP=patch]` writes a non-interactive changeset. With our fixed-version setup, omitting `PACKAGES` automatically includes every workspace package at the specified bump type (default is `patch`). Supply `PACKAGES='pkg:major,...'` only when you need different bumps per package. Use `SUMMARY_FILE=path/to/message.md` if you prefer writing the summary in a file.
@@ -60,77 +62,15 @@ pnpm run clean
 - `make release` performs `make version` followed by `make publish`.
 - Export `SLACK_WEBHOOK_URL` (and optionally `SLACK_MESSAGE_SUFFIX`) so the postpublish hook can notify Slack after each package is published.
 
-## 📖 Quick Start
-
-```typescript
-import { createPublicClient, createWalletClient, http } from 'viem';
-import { base } from 'viem/chains';
-import { ChainKitRegistry, ERC20, WETH } from '@synfutures/viem-kit';
-
-// Setup clients
-const publicClient = createPublicClient({
-    chain: base,
-    transport: http(),
-});
-
-const walletClient = createWalletClient({
-    account: mnemonicToAccount('your mnemonic here'),
-    chain: base,
-    transport: http(),
-});
-
-// Get chain kit instance
-const kit = ChainKitRegistry.for(base);
-
-// Query ERC20 balance
-const usdcAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-const balance = await ERC20.balanceOf(publicClient, usdcAddress, walletClient.account.address);
-const formatted = kit.formatErc20Amount(balance, usdcAddress);
-console.log(`USDC Balance: ${formatted}`);
-```
-
-## 🔧 CLI Usage
-
-The toolkit ships a standalone CLI under `packages/cli`, run with tsx:
-
-```bash
-# Query balances
-pnpm tsx packages/cli/src/asset.ts balance usdc -n base --id neo:0-10
-
-# Transfer tokens
-pnpm tsx packages/cli/src/asset.ts transfer usdc -n base --from neo:0 --to neo:1 --amount 100
-
-# Batch transfers
-pnpm tsx packages/cli/src/asset.ts transfer usdc -n base --from neo:0-5 --to neo:6-11 --amount 10 --batch
-```
-
-## 📚 Examples
-
-Explore the examples in `packages/viem-kit/examples/`:
-
-- `abc-testnet.ts` - Custom chain setup and usage
-- `abc-transfer.ts` - ERC20 transfers on custom chains
-- `batch-transfer.ts` - Batch ERC20 operations
-- `erc20-transfer.ts` - Standard ERC20 interactions
-- `singleton.ts` - Singleton pattern demonstration
-- `weth-deposit-withdraw.ts` - WETH operations
-
-Run examples:
-
-```shell
-cd packages/viem-kit
-npx tsx examples/abc-testnet.ts
-```
-
 ## 🏗️ Project Structure
 
 ```
-viem-kit/
+ts-sdk/
 ├── packages/
-│   ├── viem-kit/             # Core toolkit package
-│   ├── cli/                  # Asset/admin CLI (asset, spot-admin, aggregator-admin, perp-admin)
-│   └── viem-ledger/          # Ledger account helpers
-├── package.json             # Workspace configuration
+│   └── perpv3-ts/          # SynFutures V3 Perpetual Contracts SDK
+├── scripts/                # Build and release scripts
+├── templates/              # Package templates
+├── package.json            # Workspace configuration
 └── README.md               # This file
 ```
 
@@ -172,5 +112,5 @@ MIT License - see LICENSE file for details.
 ## 🔗 Links
 
 - [Viem Documentation](https://viem.sh/)
-- [Package Documentation](./packages/viem-kit/README.md)
-- [Examples](./packages/viem-kit/examples/)
+- [Perpv3-ts Package Documentation](./packages/perpv3-ts/README.md)
+- [Examples](./packages/perpv3-ts/examples/)

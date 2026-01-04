@@ -4,4 +4,5 @@ packages:
   - '!**/test/**'
 
 catalog:
+    "@derivation-tech/viem-kit": "0.2.0"
     "viem": "^2.43.3"

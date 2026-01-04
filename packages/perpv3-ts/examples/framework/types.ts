@@ -1,5 +1,5 @@
 import type { Address, PublicClient, WalletClient } from 'viem';
-import { ChainKit } from '@synfutures/viem-kit';
+import { ChainKit } from '@derivation-tech/viem-kit';
 import type { PerpClient } from '@synfutures/perpv3-ts';
 
 /**
