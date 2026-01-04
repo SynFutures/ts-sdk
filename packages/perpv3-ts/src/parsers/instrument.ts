@@ -1,4 +1,4 @@
-import type { ContractParser, Address, Hex } from '@synfutures/viem-kit';
+import type { ContractParser, Address, Hex } from '@derivation-tech/viem-kit';
 import {
     formatAddress,
     formatExpiry,

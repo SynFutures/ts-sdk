@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, jest, test } from '@jest/globals';
 import type { Address, Chain, PublicClient } from 'viem';
 import { createPublicClient, http } from 'viem';
 import { base as baseChain } from 'viem/chains';
-import { abctest } from '@synfutures/viem-kit';
+import { abctest } from '@derivation-tech/viem-kit';
 import {
     InstrumentSetting,
     PairSnapshot,

@@ -1,7 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { Address } from 'viem';
 import { createPublicClient, http } from 'viem';
-import { abctest } from '@synfutures/viem-kit';
+import { abctest } from '@derivation-tech/viem-kit';
 import { API_URLS, ORDER_DATA_BIGINT_KEYS } from '../apis/constants';
 import type { AuthInfo, IFuturesOrderBookAllSteps, OrderDataFromApi } from '../apis/interfaces';
 import { getPerpInfo } from '../info';

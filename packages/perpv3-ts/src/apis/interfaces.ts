@@ -1,5 +1,5 @@
 import { Address } from 'viem';
-import { Erc20TokenInfo } from '@synfutures/viem-kit';
+import { Erc20TokenInfo } from '@derivation-tech/viem-kit';
 import {
     Amm,
     BlockInfo,

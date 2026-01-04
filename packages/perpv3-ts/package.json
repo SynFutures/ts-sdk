@@ -90,9 +90,7 @@
     "scripts": {
         "request-gemini-review": "./scripts/request-gemini-review.sh",
         "create-pr": "./scripts/create-pr-with-review.sh",
-        "prebuild": "pnpm -C ../viem-kit run build:types",
         "build": "tsup",
-        "prebuild:check": "pnpm -C ../viem-kit run build:types",
         "build:check": "tsc --noEmit",
         "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
         "prepack": "npm run build && npm run build:check",
@@ -104,7 +102,6 @@
         "test:trade": "node --loader ts-node/esm src/tests/simulator/trade/runTradeParity.ts",
         "fixtures:capture:abc": "ts-node --transpile-only scripts/captureAbcFixture.ts",
         "fixtures:capture:trade": "ts-node --transpile-only scripts/captureAbcTradeScenarios.ts",
-        "predemo": "pnpm -C ../viem-ledger run build && pnpm -C ../viem-kit run build && pnpm run build",
         "demo": "tsx examples/index.ts"
     },
     "keywords": [
@@ -116,7 +113,7 @@
     ],
     "dependencies": {
         "@noble/curves": "^1.9.1",
-        "@synfutures/viem-kit": "workspace:*",
+        "@derivation-tech/viem-kit": "catalog:",
         "axios": "^1.12.2",
         "date-fns": "^4.1.0",
         "date-fns-tz": "^3.2.0",

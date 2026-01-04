@@ -1,6 +1,6 @@
 import { encodeAddParam, encodeDepositParam } from '../utils/encode';
 import { createInstrumentParser, createGateParser } from '../parsers';
-import type { ContractParser } from '@synfutures/viem-kit';
+import type { ContractParser } from '@derivation-tech/viem-kit';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 type ParseEventInput = Parameters<NonNullable<ContractParser['parseEvent']>>[0];

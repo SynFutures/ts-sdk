@@ -1,4 +1,4 @@
-import type { Address, ContractParser } from '@synfutures/viem-kit';
+import type { Address, ContractParser } from '@derivation-tech/viem-kit';
 import { formatAddress, formatExpiry, formatRatio, formatTokenAmount } from '../utils/format';
 import { formatFeederType, formatQuoteType } from './enums';
 import type { ParserDeps } from './types';
