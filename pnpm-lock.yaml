@@ -84,9 +84,15 @@ importers:
         specifier: ^8.0.0
         version: 8.18.3
     devDependencies:
+      '@foundry-rs/anvil':
+        specifier: 1.5.1
+        version: 1.5.1
       '@jest/globals':
         specifier: ^30.2.0
         version: 30.2.0
+      '@synfutures/v3-contracts':
+        specifier: ^0.0.1
+        version: 0.0.1
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0
@@ -1247,6 +1253,45 @@ packages:
     resolution: {integrity: sha512-lB05FkqEdUg2AA0xEbUz0SnkXT1LcCTa438W4IWTUh4hdOnVbQyOJ81OrDXsJk/LSiJHubgGEFoR5EHq1NsH1A==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
+  '@foundry-rs/anvil-darwin-amd64@1.5.1':
+    resolution: {integrity: sha512-uIMvV+G8NgPvZ/PKD4/bUAMb1R/AttzB2cmkFQvzPPgfSXza+65xrF+PhckFKRud5WWbq+MW365v5Ds5Y0Y1MQ==}
+    engines: {node: '>=20'}
+    cpu: [x64]
+    os: [darwin]
+    hasBin: true
+
+  '@foundry-rs/anvil-darwin-arm64@1.5.1':
+    resolution: {integrity: sha512-pFELxWnGYS2oIhPKwD+aAy+QXZv1SCl77Np7aqBDp7QTDZf2pcSR8382IkA5c/RbruA++KNWIpAK7bcdp8JqzQ==}
+    engines: {node: '>=20'}
+    cpu: [arm64]
+    os: [darwin]
+    hasBin: true
+
+  '@foundry-rs/anvil-linux-amd64@1.5.1':
+    resolution: {integrity: sha512-17AQOAcW1/iLQ9batoTWNMDp6hcCvh5rH0f5fkEzvsiv50Sq6Q4jyyGB30YEdQnHFkkmmQNKsZz/R1RhuyxJkg==}
+    engines: {node: '>=20'}
+    cpu: [x64]
+    os: [linux]
+    hasBin: true
+
+  '@foundry-rs/anvil-linux-arm64@1.5.1':
+    resolution: {integrity: sha512-4qe+8emZrM9NRg2LPin64aa2lyz6mOWiklu/N0Rw0hWF2nStYuE9L0un7Ud7X1dSmrMDkAHI8rSciOijSfTRNQ==}
+    engines: {node: '>=20'}
+    cpu: [arm64]
+    os: [linux]
+    hasBin: true
+
+  '@foundry-rs/anvil-win32-amd64@1.5.1':
+    resolution: {integrity: sha512-tf5if3seNV43kkx+J5L8NvS+xaE+Sn8mOdOHdJzT1EH95f9qHdwCaK/9Iud1CdcvN+I0orusN07qdwggW/+jhA==}
+    engines: {node: '>=20'}
+    cpu: [x64]
+    os: [win32]
+    hasBin: true
+
+  '@foundry-rs/anvil@1.5.1':
+    resolution: {integrity: sha512-M72VCkqb4S2uShBJUcemD7kjfd3YId7LNYNDqr9RLmgbaEtgZm6XkztefYJX2mouaJtjpL8YGuKczhAIaI79Bw==}
+    hasBin: true
+
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
     engines: {node: '>=18.18.0'}
@@ -1730,6 +1775,9 @@ packages:
 
   '@sinonjs/fake-timers@13.0.5':
     resolution: {integrity: sha512-36/hTbH2uaWuGVERyC6da9YwGWnzUZXuPro/F2LfsdOsLnCojz/iSH8MxUt/FD2S5XBSVPhmArFUXcpCQ2Hkiw==}
+
+  '@synfutures/v3-contracts@0.0.1':
+    resolution: {integrity: sha512-wL6YRWxJNhq08K6UFy6qJlMA9vgOmUQjy7H93kC6nhTvEOzE7AaQNg1nsXGrsn4BNoF9it13IMgcCQiGm2gt+g==}
 
   '@tsconfig/node10@1.0.11':
     resolution: {integrity: sha512-DcRjDCujK/kCk/cUe8Xz8ZSpm8mS3mNNpta+jGCA6USEDfktlNvm1+IuZ9eTcDbNk41BHwpHHeW+N1lKCz4zOw==}
@@ -5508,6 +5556,29 @@ snapshots:
       '@eslint/core': 0.10.0
       levn: 0.4.1
 
+  '@foundry-rs/anvil-darwin-amd64@1.5.1':
+    optional: true
+
+  '@foundry-rs/anvil-darwin-arm64@1.5.1':
+    optional: true
+
+  '@foundry-rs/anvil-linux-amd64@1.5.1':
+    optional: true
+
+  '@foundry-rs/anvil-linux-arm64@1.5.1':
+    optional: true
+
+  '@foundry-rs/anvil-win32-amd64@1.5.1':
+    optional: true
+
+  '@foundry-rs/anvil@1.5.1':
+    optionalDependencies:
+      '@foundry-rs/anvil-darwin-amd64': 1.5.1
+      '@foundry-rs/anvil-darwin-arm64': 1.5.1
+      '@foundry-rs/anvil-linux-amd64': 1.5.1
+      '@foundry-rs/anvil-linux-arm64': 1.5.1
+      '@foundry-rs/anvil-win32-amd64': 1.5.1
+
   '@humanfs/core@0.19.1': {}
 
   '@humanfs/node@0.16.6':
@@ -6267,6 +6338,8 @@ snapshots:
   '@sinonjs/fake-timers@13.0.5':
     dependencies:
       '@sinonjs/commons': 3.0.1
+
+  '@synfutures/v3-contracts@0.0.1': {}
 
   '@tsconfig/node10@1.0.11': {}
 

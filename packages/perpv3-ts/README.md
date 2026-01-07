@@ -19,6 +19,16 @@ TypeScript SDK for simulating and interacting with SynFutures V3 Perpetual Contr
 npm install @synfutures/perpv3-ts
 ```
 
+## Local Devnet Tests
+
+This repo includes a self-contained local devnet harness under `packages/perpv3-ts/devnet/` for integration-style SDK testing.
+
+- Generate/refresh the committed devnet snapshot: `pnpm -C packages/perpv3-ts run devnet:regen`
+- Run devnet tests (starts Anvil, loads `devnet/state.json`, runs Jest with `maxWorkers=1`): `pnpm -C packages/perpv3-ts run test:devnet`
+- Contract artifacts are loaded from `@synfutures/v3-contracts` (including the devnet-only helper contracts used by `devnet:regen`).
+
+If `devnet/state.json` becomes stale (artifacts/preset changed), `test:devnet` will fail fast and instruct you to run `devnet:regen` and commit the updated snapshot files.
+
 ## Architecture
 
 ### Directory Structure

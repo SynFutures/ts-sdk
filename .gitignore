@@ -69,6 +69,7 @@ web_modules/
 
 # Output of 'npm pack'
 *.tgz
+!/synfutures-v3-contracts-*.tgz
 
 # Yarn Integrity file
 .yarn-integrity
@@ -142,3 +143,6 @@ dist
 
 # Local git worktrees (avoid Nx/knip scanning duplicates)
 .worktrees/
+
+# Devnet test runtime files
+packages/perpv3-ts/devnet/.runtime/

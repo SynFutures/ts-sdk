@@ -1,0 +1,10 @@
+{
+    "harnessVersion": 1,
+    "anvilPackageVersion": "1.5.1",
+    "contractsPackageName": "@synfutures/v3-contracts",
+    "contractsPackageVersion": "0.0.1",
+    "presetHash": "f00ff401bf278a2908c84d01f2fa51bf734a6ba73d74440726ff759a406c7574",
+    "contractsArtifactsHash": "424a030655d9c7e9f86218aefd1b1c95bf8f5d9f3f67696203f06a7dbd5391ca",
+    "cacheKey": "369fd9d6215d97fbb764982fbd8b0b54c75ce06b08429d2d6970f333fe9ac009",
+    "generatedAt": "2026-01-06T14:08:12.575Z"
+}

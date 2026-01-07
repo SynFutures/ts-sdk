@@ -1,4 +1,4 @@
-import { getContract, WalletClient, Address, Hex, hexToNumber, isHex, toHex } from 'viem';
+import { getContract, WalletClient, Address, Hex, hexToNumber, isHex, padHex, toHex } from 'viem';
 import { secp256k1 } from '@noble/curves/secp256k1';
 import { ERC20_WITH_PERMIT_ABI } from '../abis';
 
@@ -98,5 +98,5 @@ export function splitSignature(signature: string): { r: Hex; s: Hex; v: number }
     const signatureHex = isHex(signature) ? signature : toHex(signature);
     const sig = secp256k1.Signature.fromCompact(signatureHex.substring(2, 130));
     const v = hexToNumber(`0x${signatureHex.slice(130)}`);
-    return { ...sig, v, r: toHex(sig.r), s: toHex(sig.s) };
+    return { ...sig, v, r: padHex(toHex(sig.r), { size: 32 }), s: padHex(toHex(sig.s), { size: 32 }) };
 }

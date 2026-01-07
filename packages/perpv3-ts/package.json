@@ -97,12 +97,15 @@
         "lint": "eslint",
         "format": "prettier --write \"**/*.{ts,json,md}\"",
         "test": "jest",
+        "test:devnet": "jest --config jest.devnet.config.js",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",
         "test:trade": "node --loader ts-node/esm src/tests/simulator/trade/runTradeParity.ts",
         "fixtures:capture:abc": "ts-node --transpile-only scripts/captureAbcFixture.ts",
         "fixtures:capture:trade": "ts-node --transpile-only scripts/captureAbcTradeScenarios.ts",
-        "demo": "tsx examples/index.ts"
+        "demo": "tsx examples/index.ts",
+        "devnet:check": "node scripts/devnet/check.js",
+        "devnet:regen": "tsx scripts/devnet/regen.ts"
     },
     "keywords": [
         "synfutures",
@@ -112,8 +115,8 @@
         "sdk"
     ],
     "dependencies": {
-        "@noble/curves": "^1.9.1",
         "@derivation-tech/viem-kit": "catalog:",
+        "@noble/curves": "^1.9.1",
         "axios": "^1.12.2",
         "date-fns": "^4.1.0",
         "date-fns-tz": "^3.2.0",
@@ -128,7 +131,9 @@
         }
     },
     "devDependencies": {
+        "@foundry-rs/anvil": "1.5.1",
         "@jest/globals": "^30.2.0",
+        "@synfutures/v3-contracts": "^0.0.1",
         "@types/jest": "^30.0.0",
         "@types/node": "^20.0.0",
         "dotenv": "^17.2.3",
@@ -137,8 +142,8 @@
         "prettier": "^3.0.0",
         "ts-jest": "^29.4.6",
         "ts-node": "^10.9.2",
-        "tsx": "^4.20.6",
         "tsup": "^8.5.1",
+        "tsx": "^4.20.6",
         "typescript": "^5.9.3"
     }
 }
