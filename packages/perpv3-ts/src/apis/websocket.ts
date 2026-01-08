@@ -803,7 +803,7 @@ export class PublicWebsocketClient {
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
             case 'trades': {
-                const normalized = this.normalizeTradesStreamData(merged);
+                const normalized = this.normalizeTradesStreamData(merged, message.stream);
                 if (normalized) {
                     this.notifyTradesSubscribers(normalized);
                 } else {
@@ -1006,9 +1006,8 @@ export class PublicWebsocketClient {
         return typeof userAddress === 'string' && typeof type === 'string';
     }
 
-    private normalizeTradesStreamData(data: GenericStreamData): TradesStreamData | null {
+    private normalizeTradesStreamData(data: GenericStreamData, stream: string): TradesStreamData | null {
         const record = data as TradesStreamData;
-        const stream = record.stream;
         const records = record.data
         const chainId = this.normalizeOptionalNumber(record.chainId);
         const instrument = record.instrument;
