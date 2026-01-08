@@ -149,7 +149,15 @@ export type TradesTokenInfo = {
     price: number;
 };
 
-export type TradesStreamData = GenericStreamData & {
+export type TradesStreamData = {
+    stream: string;
+    chainId: number,
+    instrument: string;
+    expiry: number
+    data: TradeItem[]
+}
+
+export type TradeItem = {
     id: string;
     chainId: number;
     instrument: Address;
@@ -999,12 +1007,37 @@ export class PublicWebsocketClient {
     }
 
     private normalizeTradesStreamData(data: GenericStreamData): TradesStreamData | null {
+        const record = data as TradesStreamData;
+        const records = record.data
+        const chainId = this.normalizeOptionalNumber(record.chainId);
+        const instrument = record.instrument;
+        const expiry = this.normalizeOptionalNumber(record.expiry);
+        if (chainId === undefined || instrument === undefined || expiry === undefined) return null;
+
+        const normalized: TradeItem[] = [];
+        for (const record of records) {
+            const result = this.normalizeTrades(record);
+            if (result) {
+                normalized.push(result)
+            };
+        }
+        if (normalized.length === 0) return null;
+        return {
+            stream: record.stream,
+            chainId,
+            instrument,
+            expiry,
+            data: normalized,
+        };
+    }
+
+    private normalizeTrades(data: GenericStreamData): TradeItem | null {
         const record = data as Record<string, unknown>;
 
         const id = record.id;
         const chainId = this.normalizeOptionalNumber(record.chainId);
-        const instrument = record.instrument;
         const instrumentAddress = record.instrumentAddress;
+        const instrument = record.instrument || record.instrumentAddress;
         const expiry = this.normalizeOptionalNumber(record.expiry);
 
         const size = record.size;
@@ -1110,8 +1143,8 @@ export class PublicWebsocketClient {
     private tradesMatches(record: TradesSubscriptionRecord, data: TradesStreamData): boolean {
         if (data.chainId !== record.params.chainId) return false;
 
-        const instrumentAddress = data.instrumentAddress.toLowerCase();
-        const pair = `${instrumentAddress}_${data.expiry}`;
+        const instrument = data.instrument.toLowerCase();
+        const pair = `${instrument}_${data.expiry}`;
         return record.pairSet.has(pair);
     }
 
@@ -1229,9 +1262,9 @@ export class PublicWebsocketClient {
         const requestParams =
             'params' in params
                 ? (() => {
-                      const { params: extra, ...rest } = params as RawSubscribeParams;
-                      return { ...(rest as unknown as Record<string, unknown>), ...(extra ?? {}) };
-                  })()
+                    const { params: extra, ...rest } = params as RawSubscribeParams;
+                    return { ...(rest as unknown as Record<string, unknown>), ...(extra ?? {}) };
+                })()
                 : { ...(params as unknown as Record<string, unknown>) };
 
         return this.normalizeRequestParams(requestParams);

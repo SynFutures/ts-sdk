@@ -120,8 +120,11 @@ describe('PublicWebsocketClient trades subscription', () => {
 
         socket.message(
             JSON.stringify({
+                chainId: 1,
+                instrument: '0xABC',
+                expiry: 123,
                 stream: 'trades',
-                data: {
+                data: [{
                     id: 't1',
                     instrument: '0xABC',
                     instrumentAddress: '0xABC',
@@ -143,7 +146,7 @@ describe('PublicWebsocketClient trades subscription', () => {
                     event: 'trade',
                     markPrice: '1',
                     fairPrice: '1',
-                },
+                }],
             })
         );
 
@@ -153,8 +156,9 @@ describe('PublicWebsocketClient trades subscription', () => {
 
         socket.message(
             JSON.stringify({
+                chainId: 2,
                 stream: 'trades',
-                data: {
+                data: [{
                     id: 't2',
                     instrument: '0xABC',
                     instrumentAddress: '0xABC',
@@ -176,7 +180,7 @@ describe('PublicWebsocketClient trades subscription', () => {
                     event: 'trade',
                     markPrice: '1',
                     fairPrice: '1',
-                },
+                }],
             })
         );
         expect(handler).toHaveBeenCalledTimes(1);
@@ -184,7 +188,10 @@ describe('PublicWebsocketClient trades subscription', () => {
         socket.message(
             JSON.stringify({
                 stream: 'trades',
-                data: {
+                chainId: 2,
+                instrument: '0xABC',
+                expiry: 123,
+                data: [{
                     id: 't3',
                     instrument: '0xDEF',
                     instrumentAddress: '0xDEF',
@@ -206,7 +213,7 @@ describe('PublicWebsocketClient trades subscription', () => {
                     event: 'trade',
                     markPrice: '1',
                     fairPrice: '1',
-                },
+                }],
             })
         );
         expect(handler).toHaveBeenCalledTimes(1);
@@ -237,13 +244,16 @@ describe('PublicWebsocketClient trades subscription', () => {
 
         socket.message(
             JSON.stringify({
+                chainId: 1,
+                instrument: '0xABC',
+                expiry: 123,
                 stream: 'trades',
-                data: {
+                data: [{
                     id: 't-invalid',
                     instrumentAddress: '0xABC',
                     expiry: 123,
                     chainId: 1,
-                },
+                }],
             })
         );
 
