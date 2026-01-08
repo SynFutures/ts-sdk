@@ -1008,22 +1008,23 @@ export class PublicWebsocketClient {
 
     private normalizeTradesStreamData(data: GenericStreamData): TradesStreamData | null {
         const record = data as TradesStreamData;
+        const stream = record.stream;
         const records = record.data
         const chainId = this.normalizeOptionalNumber(record.chainId);
         const instrument = record.instrument;
         const expiry = this.normalizeOptionalNumber(record.expiry);
         if (chainId === undefined || instrument === undefined || expiry === undefined) return null;
 
-        const normalized: TradeItem[] = [];
-        for (const record of records) {
-            const result = this.normalizeTrades(record);
+        const normalized = records.reduce<TradeItem[]>((acc, tradeRecord) => {
+            const result = this.normalizeTrades(tradeRecord);
             if (result) {
-                normalized.push(result)
-            };
-        }
+                acc.push(result);
+            }
+            return acc;
+        }, []);
         if (normalized.length === 0) return null;
         return {
-            stream: record.stream,
+            stream,
             chainId,
             instrument,
             expiry,
