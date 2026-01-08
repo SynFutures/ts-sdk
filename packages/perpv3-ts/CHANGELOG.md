@@ -1,10 +1,17 @@
 # @synfutures/perpv3-ts
 
+## 0.2.1
+
+### Patch Changes
+
+- • For orderbook, should the server push a full snapshot of the latest orderbook immediately
+  • For trades, should the server push a batch of recent historical trades, before streaming new trade events
+
 ## 0.2.0
 
 ### Minor Changes
 
-- Added `trades` subscription support to the WebSocket API 
+- Added `trades` subscription support to the WebSocket API
 - Renamed `OrderBookLevel.baseQuantity` to `baseSize` and `OrderBookLevel.quoteQuantity` to `quoteSize`.
 
 ## 0.1.17
