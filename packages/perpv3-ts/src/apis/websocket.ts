@@ -849,11 +849,9 @@ export class PublicWebsocketClient {
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
             case 'trades': {
-                const normalizedGroups = this.normalizeTradesStreamData(merged);
-                if (normalizedGroups.length > 0) {
-                    for (const normalized of normalizedGroups) {
-                        this.notifyTradesSubscribers(normalized);
-                    }
+                const normalized = this.normalizeTradesStreamData(merged);
+                if (normalized) {
+                    this.notifyTradesSubscribers(normalized);
                 } else {
                     this.onInvalidStreamData?.({ stream: message.stream, message, merged });
                 }
@@ -1094,22 +1092,28 @@ export class PublicWebsocketClient {
         return typeof userAddress === 'string' && typeof type === 'string';
     }
 
-    private normalizeTradesStreamData(data: GenericStreamData): TradesStreamData[] {
-        if (!data || typeof data !== 'object') return [];
+    private normalizeTradesStreamData(data: GenericStreamData): TradesStreamData | null {
+        if (!data || typeof data !== 'object') return null;
         const record = data as Record<string, unknown>;
 
+        const chainId = this.normalizeOptionalNumber(record.chainId);
+        const expiry = this.normalizeOptionalNumber(record.expiry);
+        const instrument =
+            typeof record.instrument === 'string'
+                ? record.instrument
+                : typeof record.instrumentAddress === 'string'
+                    ? record.instrumentAddress
+                    : undefined;
+
+        if (chainId === undefined || expiry === undefined || typeof instrument !== 'string') return null;
+
         const rawItems = record.data;
-        if (!Array.isArray(rawItems)) return [];
+        if (!Array.isArray(rawItems)) return null;
 
         const defaults: { chainId?: number; expiry?: number; instrument?: string } = {
-            chainId: this.normalizeOptionalNumber(record.chainId),
-            expiry: this.normalizeOptionalNumber(record.expiry),
-            instrument:
-                typeof record.instrument === 'string'
-                    ? record.instrument
-                    : typeof record.instrumentAddress === 'string'
-                        ? record.instrumentAddress
-                        : undefined,
+            chainId,
+            expiry,
+            instrument,
         };
 
         const normalized: TradeItem[] = [];
@@ -1118,26 +1122,14 @@ export class PublicWebsocketClient {
             if (item) normalized.push(item);
         }
 
-        if (normalized.length === 0) return [];
+        if (normalized.length === 0) return null;
 
-        const groups = new Map<string, TradesStreamData>();
-        for (const item of normalized) {
-            const instrumentAddressLower = item.instrumentAddress.toLowerCase();
-            const key = `${item.chainId}_${instrumentAddressLower}_${item.expiry}`;
-            const existing = groups.get(key);
-            if (existing) {
-                existing.data.push(item);
-                continue;
-            }
-            groups.set(key, {
-                chainId: item.chainId,
-                instrument: instrumentAddressLower as Address,
-                expiry: item.expiry,
-                data: [item],
-            });
-        }
-
-        return Array.from(groups.values());
+        return {
+            chainId,
+            instrument: instrument.toLowerCase() as Address,
+            expiry,
+            data: normalized,
+        };
     }
 
     private normalizeTradeItem(

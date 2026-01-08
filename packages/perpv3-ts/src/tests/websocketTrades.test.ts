@@ -297,7 +297,7 @@ describe('PublicWebsocketClient trades subscription', () => {
         client.close();
     });
 
-    it('splits mixed-instrument batches by pair', () => {
+    it('delivers batch trades as a single payload', () => {
         const sockets: FakeWebSocket[] = [];
         const handlerAbc = jest.fn<void, [TradesStreamData]>();
         const handlerDef = jest.fn<void, [TradesStreamData]>();
@@ -354,8 +354,8 @@ describe('PublicWebsocketClient trades subscription', () => {
                         fairPrice: '1',
                     },
                     {
-                        id: 't-def',
-                        instrumentAddress: '0xDEF',
+                        id: 't-abc-2',
+                        instrumentAddress: '0xABC',
                         size: '1',
                         balance: '0',
                         price: '1',
@@ -378,12 +378,11 @@ describe('PublicWebsocketClient trades subscription', () => {
         );
 
         expect(handlerAbc).toHaveBeenCalledTimes(1);
-        expect(handlerAbc.mock.calls[0][0].data).toHaveLength(1);
+        expect(handlerAbc.mock.calls[0][0].data).toHaveLength(2);
         expect(handlerAbc.mock.calls[0][0].data[0].id).toBe('t-abc');
+        expect(handlerAbc.mock.calls[0][0].data[1].id).toBe('t-abc-2');
 
-        expect(handlerDef).toHaveBeenCalledTimes(1);
-        expect(handlerDef.mock.calls[0][0].data).toHaveLength(1);
-        expect(handlerDef.mock.calls[0][0].data[0].id).toBe('t-def');
+        expect(handlerDef).toHaveBeenCalledTimes(0);
 
         client.close();
     });
