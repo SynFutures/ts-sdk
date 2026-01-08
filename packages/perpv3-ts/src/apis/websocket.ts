@@ -150,12 +150,11 @@ export type TradesTokenInfo = {
 };
 
 export type TradesStreamData = {
-    stream: string;
-    chainId: number,
-    instrument: string;
-    expiry: number
-    data: TradeItem[]
-}
+    chainId: number;
+    instrument: Address;
+    expiry: number;
+    data: TradeItem[];
+};
 
 export type TradeItem = {
     id: string;
@@ -185,11 +184,13 @@ export type TradeItem = {
 // Stream messages
 // ---------------------------------------------------------------------------
 
-interface BaseStreamMetadata {
+export type PublicWsStreamMetadata = {
     chainId?: number;
     instrument?: Address;
     expiry?: number | string;
-}
+};
+
+type BaseStreamMetadata = PublicWsStreamMetadata;
 
 type OrderBookStreamMessage = BaseStreamMetadata & {
     stream: 'orderBook';
@@ -233,7 +234,7 @@ type BlockNumChangedStreamMessage = BaseStreamMetadata & {
 
 type TradesStreamMessage = BaseStreamMetadata & {
     stream: 'trades';
-    data: TradesStreamData;
+    data: unknown[];
 };
 
 type RawStreamMessage = BaseStreamMetadata & {
@@ -253,6 +254,35 @@ type KnownStreamMessage =
     | TradesStreamMessage;
 
 export type PublicStreamMessage = KnownStreamMessage | RawStreamMessage;
+
+// ---------------------------------------------------------------------------
+// Wire messages (stream + ACK)
+// ---------------------------------------------------------------------------
+
+export type PublicWsRequestMethod = 'SUBSCRIBE' | 'UNSUBSCRIBE';
+
+export type PublicWsAckMessage = {
+    id: number;
+    result: string;
+};
+
+export type PublicWsWireStreamMessage = BaseStreamMetadata & {
+    stream: string;
+    data?: unknown;
+};
+
+export type PublicWsWireMessage = PublicWsWireStreamMessage | PublicWsAckMessage;
+
+export type PublicWsRequestResultEvent = {
+    id: number;
+    result: string;
+    ok: boolean;
+    method?: PublicWsRequestMethod;
+    params?: Record<string, unknown>;
+    sentAtMs?: number;
+    receivedAtMs: number;
+    latencyMs?: number;
+};
 
 // ---------------------------------------------------------------------------
 // Subscribe params
@@ -360,7 +390,7 @@ export interface OrderBookDepth {
 
 export type InvalidStreamDataEvent = {
     stream: string;
-    message: unknown;
+    message: PublicWsWireStreamMessage;
     merged: GenericStreamData;
 };
 
@@ -373,9 +403,13 @@ export interface PublicWebsocketClientOptions {
     pingIntervalMs?: number;
     maxReconnectAttempts?: number;
     /**
-     * Called with every parsed message (including streams we don't explicitly route).
+     * Called with every parsed WS message (wire): stream payloads and request ACKs.
      */
-    onMessage?: (message: PublicStreamMessage | unknown) => void;
+    onMessage?: (message: PublicWsWireMessage) => void;
+    /**
+     * Called with request ACKs like `{ id, result }` for SUBSCRIBE/UNSUBSCRIBE requests.
+     */
+    onRequestResult?: (event: PublicWsRequestResultEvent) => void;
     onError?: (error: unknown) => void;
     /**
      * Called when a stream payload fails validation and is dropped for typed subscribers.
@@ -402,12 +436,18 @@ export class PublicWebsocketClient {
     private readonly autoReconnect: boolean;
     private readonly reconnectDelayMs: number;
     private readonly pingIntervalMs: number;
-    private readonly onMessage?: (message: PublicStreamMessage | unknown) => void;
+    private readonly onMessage?: (message: PublicWsWireMessage) => void;
+    private readonly onRequestResult?: (event: PublicWsRequestResultEvent) => void;
     private readonly onError?: (error: unknown) => void;
     private readonly onInvalidStreamData?: (event: InvalidStreamDataEvent) => void;
     private readonly onReconnectFailed?: (attempts: number) => void;
     private readonly onDisconnect?: (event?: { code?: number; reason?: string }) => void;
     private readonly maxReconnectAttempts: number;
+
+    private readonly pendingRequests = new Map<
+        number,
+        { method: PublicWsRequestMethod; params: Record<string, unknown>; sentAtMs: number }
+    >();
 
     private socket: WebSocketLike | null = null;
     private pingTimer?: ReturnType<typeof setInterval>;
@@ -449,6 +489,7 @@ export class PublicWebsocketClient {
         this.reconnectDelayMs = options?.reconnectDelayMs ?? 1_000;
         this.pingIntervalMs = options?.pingIntervalMs ?? 30_000;
         this.onMessage = options?.onMessage;
+        this.onRequestResult = options?.onRequestResult;
         this.onError = options?.onError;
         this.onInvalidStreamData = options?.onInvalidStreamData;
         this.onReconnectFailed = options?.onReconnectFailed;
@@ -488,6 +529,7 @@ export class PublicWebsocketClient {
     public close(): void {
         this.manuallyClosed = true;
         this.clearTimers();
+        this.pendingRequests.clear();
         if (this.socket) {
             this.socket.close();
             this.socket = null;
@@ -589,6 +631,9 @@ export class PublicWebsocketClient {
         params: MmTradesSubscribeParams,
         handler: StreamHandler<TradesStreamData, MmTradesSubscribeParams>
     ): PublicWebsocketSubscription {
+        if (!params.pairs?.length) {
+            throw new Error('Trades subscription requires a non-empty `pairs` array.');
+        }
         const id = this.nextSubscriptionId++;
         const pairSet = new Set(params.pairs.map(p => p.toLowerCase()));
         this.tradesSubscriptions.set(id, { id, params, handler, pairSet });
@@ -671,6 +716,7 @@ export class PublicWebsocketClient {
     private handleClose(event?: { code?: number; reason?: string }): void {
         this.clearTimers();
         this.socket = null;
+        this.pendingRequests.clear();
 
         this.onDisconnect?.(event);
 
@@ -722,15 +768,11 @@ export class PublicWebsocketClient {
         this.sendRequest('UNSUBSCRIBE', params);
     }
 
-    private sendRequest(method: 'SUBSCRIBE' | 'UNSUBSCRIBE', params: PublicWsSubscribeParams): void {
+    private sendRequest(method: PublicWsRequestMethod, params: PublicWsSubscribeParams): void {
         const requestParams = this.buildRequestParams(params);
-        this.sendRaw(
-            JSON.stringify({
-                id: this.nextRequestId++,
-                method,
-                params: requestParams,
-            })
-        );
+        const id = this.nextRequestId++;
+        this.pendingRequests.set(id, { method, params: requestParams, sentAtMs: Date.now() });
+        this.sendRaw(JSON.stringify({ id, method, params: requestParams }));
     }
 
     private sendRaw(payload: string): void {
@@ -754,12 +796,16 @@ export class PublicWebsocketClient {
             return;
         }
 
-        this.onMessage?.(parsed as PublicStreamMessage);
+        if (this.isWsAckMessage(parsed)) {
+            this.onMessage?.(parsed);
+            this.handleWsAckMessage(parsed);
+            return;
+        }
 
-        if (!parsed || typeof parsed !== 'object') return;
+        if (!this.isWsStreamMessage(parsed)) return;
+        this.onMessage?.(parsed);
 
-        const message = parsed as { stream?: string; data?: unknown } & BaseStreamMetadata;
-        if (!message.stream) return;
+        const message = parsed;
 
         const merged = this.mergeStreamMetadata(message);
 
@@ -803,11 +849,13 @@ export class PublicWebsocketClient {
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
             case 'trades': {
-                const normalized = this.normalizeTradesStreamData(merged, message.stream);
-                if (normalized) {
-                    this.notifyTradesSubscribers(normalized);
+                const normalizedGroups = this.normalizeTradesStreamData(merged);
+                if (normalizedGroups.length > 0) {
+                    for (const normalized of normalizedGroups) {
+                        this.notifyTradesSubscribers(normalized);
+                    }
                 } else {
-                    this.onInvalidStreamData?.({ stream: message.stream, message: parsed, merged });
+                    this.onInvalidStreamData?.({ stream: message.stream, message, merged });
                 }
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
@@ -890,6 +938,46 @@ export class PublicWebsocketClient {
                 record.handler(data, { params: record.params });
             }
         }
+    }
+
+    private isWsAckMessage(value: unknown): value is PublicWsAckMessage {
+        if (!value || typeof value !== 'object') return false;
+        const record = value as Record<string, unknown>;
+        return typeof record.id === 'number' && typeof record.result === 'string';
+    }
+
+    private isWsStreamMessage(value: unknown): value is PublicWsWireStreamMessage {
+        if (!value || typeof value !== 'object') return false;
+        return typeof (value as { stream?: unknown }).stream === 'string';
+    }
+
+    private handleWsAckMessage(message: PublicWsAckMessage): void {
+        const receivedAtMs = Date.now();
+        const normalizedResult = message.result.trim().toLowerCase();
+        const ok = normalizedResult === 'success' || normalizedResult.startsWith('success');
+
+        const request = this.pendingRequests.get(message.id);
+        this.pendingRequests.delete(message.id);
+
+        const event: PublicWsRequestResultEvent = request
+            ? {
+                id: message.id,
+                method: request.method,
+                params: request.params,
+                result: message.result,
+                ok,
+                sentAtMs: request.sentAtMs,
+                receivedAtMs,
+                latencyMs: receivedAtMs - request.sentAtMs,
+            }
+            : {
+                id: message.id,
+                result: message.result,
+                ok,
+                receivedAtMs,
+            };
+
+        this.onRequestResult?.(event);
     }
 
     // -----------------------------------------------------------------------
@@ -1006,39 +1094,81 @@ export class PublicWebsocketClient {
         return typeof userAddress === 'string' && typeof type === 'string';
     }
 
-    private normalizeTradesStreamData(data: GenericStreamData, stream: string): TradesStreamData | null {
-        const record = data as TradesStreamData;
-        const records = record.data
-        const chainId = this.normalizeOptionalNumber(record.chainId);
-        const instrument = record.instrument;
-        const expiry = this.normalizeOptionalNumber(record.expiry);
-        if (chainId === undefined || instrument === undefined || expiry === undefined) return null;
+    private normalizeTradesStreamData(data: GenericStreamData): TradesStreamData[] {
+        if (!data || typeof data !== 'object') return [];
+        const record = data as Record<string, unknown>;
 
-        const normalized = records.reduce<TradeItem[]>((acc, tradeRecord) => {
-            const result = this.normalizeTrades(tradeRecord);
-            if (result) {
-                acc.push(result);
-            }
-            return acc;
-        }, []);
-        if (normalized.length === 0) return null;
-        return {
-            stream,
-            chainId,
-            instrument,
-            expiry,
-            data: normalized,
+        const rawItems = record.data;
+        if (!Array.isArray(rawItems)) return [];
+
+        const defaults: { chainId?: number; expiry?: number; instrument?: string } = {
+            chainId: this.normalizeOptionalNumber(record.chainId),
+            expiry: this.normalizeOptionalNumber(record.expiry),
+            instrument:
+                typeof record.instrument === 'string'
+                    ? record.instrument
+                    : typeof record.instrumentAddress === 'string'
+                        ? record.instrumentAddress
+                        : undefined,
         };
+
+        const normalized: TradeItem[] = [];
+        for (const rawItem of rawItems) {
+            const item = this.normalizeTradeItem(rawItem, defaults);
+            if (item) normalized.push(item);
+        }
+
+        if (normalized.length === 0) return [];
+
+        const groups = new Map<string, TradesStreamData>();
+        for (const item of normalized) {
+            const instrumentAddressLower = item.instrumentAddress.toLowerCase();
+            const key = `${item.chainId}_${instrumentAddressLower}_${item.expiry}`;
+            const existing = groups.get(key);
+            if (existing) {
+                existing.data.push(item);
+                continue;
+            }
+            groups.set(key, {
+                chainId: item.chainId,
+                instrument: instrumentAddressLower as Address,
+                expiry: item.expiry,
+                data: [item],
+            });
+        }
+
+        return Array.from(groups.values());
     }
 
-    private normalizeTrades(data: GenericStreamData): TradeItem | null {
+    private normalizeTradeItem(
+        data: unknown,
+        defaults: { chainId?: number; expiry?: number; instrument?: string }
+    ): TradeItem | null {
+        if (!data || typeof data !== 'object') return null;
         const record = data as Record<string, unknown>;
 
         const id = record.id;
-        const chainId = this.normalizeOptionalNumber(record.chainId);
-        const instrumentAddress = record.instrumentAddress;
-        const instrument = record.instrument || record.instrumentAddress;
-        const expiry = this.normalizeOptionalNumber(record.expiry);
+        const chainId = this.normalizeOptionalNumber(record.chainId) ?? defaults.chainId;
+        const expiry = this.normalizeOptionalNumber(record.expiry) ?? defaults.expiry;
+        if (chainId === undefined || expiry === undefined) return null;
+
+        const instrument =
+            typeof record.instrument === 'string'
+                ? record.instrument
+                : typeof record.instrumentAddress === 'string'
+                    ? record.instrumentAddress
+                    : defaults.instrument;
+
+        const instrumentAddress =
+            typeof record.instrumentAddress === 'string'
+                ? record.instrumentAddress
+                : typeof record.instrument === 'string'
+                    ? record.instrument
+                    : defaults.instrument;
+        if (!instrument || !instrumentAddress) return null;
+
+        const normalizedInstrument = instrument.toLowerCase();
+        const normalizedInstrumentAddress = instrumentAddress.toLowerCase();
 
         const size = record.size;
         const balance = record.balance;
@@ -1090,10 +1220,6 @@ export class PublicWebsocketClient {
 
         if (
             typeof id !== 'string' ||
-            chainId === undefined ||
-            typeof instrument !== 'string' ||
-            typeof instrumentAddress !== 'string' ||
-            expiry === undefined ||
             typeof size !== 'string' ||
             typeof balance !== 'string' ||
             typeof price !== 'string' ||
@@ -1115,11 +1241,11 @@ export class PublicWebsocketClient {
         }
 
         return {
-            ...data,
+            ...record,
             id,
             chainId,
-            instrument: instrument as Address,
-            instrumentAddress: instrumentAddress as Address,
+            instrument: normalizedInstrument as Address,
+            instrumentAddress: normalizedInstrumentAddress as Address,
             expiry,
             size,
             balance,
@@ -1285,7 +1411,7 @@ export class PublicWebsocketClient {
 
         const pairs = normalized.pairs;
         if (Array.isArray(pairs)) {
-            normalized.pairs = pairs.map((pair) => (typeof pair === 'string' ? pair.toLowerCase() : pair));
+            normalized.pairs = pairs.filter((pair): pair is string => typeof pair === 'string').map((pair) => pair.toLowerCase());
         }
 
         return normalized;
