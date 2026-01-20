@@ -1,6 +1,6 @@
 {
     "name": "@synfutures/perpv3-ts",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "description": "TypeScript SDK for SynFutures V3 Perpetual Contracts",
     "author": "SynFutures",
     "license": "MIT",
