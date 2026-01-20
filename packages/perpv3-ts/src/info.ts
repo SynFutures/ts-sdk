@@ -27,7 +27,7 @@ const PerpInfoMap: Record<number, PerpInfo> = {
         orderSpacing: 5,
         rangeSpacing: 50,
         config: '0xB63902d38738e353f3f52AdD203C418A0bFEa172',
-        observer: '0xDb166a6E454d2a273Cd50CCD6420703564B2a830',
+        observer: '0x16Ae357dFe705D1B9862132Dca02e07150876e3E',
         gate: '0x208B443983D8BcC8578e9D86Db23FbA547071270',
         guardian: '0xBe0F37274AdADb32441acDB74791de159B0BD87E',
     },
