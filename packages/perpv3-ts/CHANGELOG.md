@@ -1,5 +1,11 @@
 # @synfutures/perpv3-ts
 
+## 0.2.2
+
+### Patch Changes
+
+- Update base observer address
+
 ## 0.2.1
 
 ### Patch Changes
