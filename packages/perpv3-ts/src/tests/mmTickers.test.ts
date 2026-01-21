@@ -43,7 +43,7 @@ describe('MarketMakerModule.fetchTickers', () => {
         const httpClient = createMockHttpClient(captured);
         const module = new MarketMakerModule(httpClient, authInfo);
 
-        await module.fetchTickers({ chainId: 1, symbol: 'BTCUSDC' });
+        await module.fetchTickers({ chainId: 1, symbol: 'BTC/USDC' });
 
         expect(captured.url).toBe('/v4/public/mm/tickers?chainId=1&symbol=BTCUSDC');
     });

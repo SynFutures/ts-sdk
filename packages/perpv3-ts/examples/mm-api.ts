@@ -23,7 +23,7 @@ import {
 import 'dotenv/config';
 
 const CHAIN_ID = 143;
-const SYMBOL = 'BTCUSDC';
+const SYMBOL = 'BTC/USDC';
 const USER_ADDRESS = '0xB0B81c2c7686c63acAE28F9778ca8Fa80f0C004b' as Address;
 const TRADE_ADDRESS = '0x8bcef483f1c9226c192430b8f5191ee801601480' as Address;
 const INSTRUMENT = '0x73ada1ea346cc3908f41cf67a040f0acd7808be0' as Address;

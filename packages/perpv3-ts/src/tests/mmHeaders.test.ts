@@ -126,6 +126,14 @@ describe('buildMessage', () => {
         const result = buildMessage(timestamp, method, path);
         expect(result).toBe('2020-12-08T09:08:57.715ZGET/v4/public/market/instrument?symbol=BTC&tags=tag1&tags=tag2');
     });
+
+    it('handles GET request with BTC/USDC symbol', () => {
+        const timestamp = '2020-12-08T09:08:57.715Z';
+        const method = 'GET';
+        const path = '/v4/public/market/instrument?symbol=BTC/USDC';
+        const result = buildMessage(timestamp, method, path);
+        expect(result).toBe('2020-12-08T09:08:57.715ZGET/v4/public/market/instrument?symbol=BTC%2FUSDC');
+    });
 });
 
 describe('getHeaders', () => {
