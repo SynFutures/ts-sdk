@@ -45,7 +45,7 @@ describe('MarketMakerModule.fetchTickers', () => {
 
         await module.fetchTickers({ chainId: 1, symbol: 'BTC/USDC' });
 
-        expect(captured.url).toBe('/v4/public/mm/tickers?chainId=1&symbol=BTCUSDC');
+        expect(captured.url).toBe('/v4/public/mm/tickers?chainId=1&symbol=BTC%2FUSDC');
     });
 });
 
