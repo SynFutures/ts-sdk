@@ -139,7 +139,7 @@ describe('buildMessage', () => {
         const result2 = buildMessage(timestamp, method, path2);
         expect(result2).toBe(expected);
 
-        const path3 = '/v4/public/market/instrument?symbol=BTC/USDC&chainId=1&depth=20';
+        const path3 = '/v4/public/market/instrument?symbol=BTC%2FUSDC&chainId=1&depth=20';
         const result3 = buildMessage(timestamp, method, path3);
         expect(result3).toBe(expected);
 
