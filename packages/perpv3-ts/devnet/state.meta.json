@@ -2,9 +2,9 @@
     "harnessVersion": 1,
     "anvilPackageVersion": "1.5.1",
     "contractsPackageName": "@synfutures/v3-contracts",
-    "contractsPackageVersion": "0.0.1",
-    "presetHash": "f00ff401bf278a2908c84d01f2fa51bf734a6ba73d74440726ff759a406c7574",
-    "contractsArtifactsHash": "424a030655d9c7e9f86218aefd1b1c95bf8f5d9f3f67696203f06a7dbd5391ca",
-    "cacheKey": "369fd9d6215d97fbb764982fbd8b0b54c75ce06b08429d2d6970f333fe9ac009",
-    "generatedAt": "2026-01-06T14:08:12.575Z"
+    "contractsPackageVersion": "0.0.2",
+    "presetHash": "a6e15c577afcd25dbd5f7d9960b8ffdbed560c0c0ec59bc52ffc6ea1578492a4",
+    "contractsArtifactsHash": "6fea530dc7962dde9c35316acf0ba4280b5efbaab1e67959b7f6791c1a237c2d",
+    "cacheKey": "79cebed8000aa37db19dbccd1d74024f555e0c4dd25943059fcfa049dc5bef03",
+    "generatedAt": "2026-01-22T03:44:10.266Z"
 }

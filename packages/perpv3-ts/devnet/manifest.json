@@ -3,7 +3,7 @@
     "rpcUrl": "http://127.0.0.1:8545",
     "contractsPackage": {
         "name": "@synfutures/v3-contracts",
-        "version": "0.0.1"
+        "version": "0.0.2"
     },
     "accounts": {
         "admin": {
@@ -58,9 +58,19 @@
             "baseSymbol": "ETH",
             "quoteSymbol": "USDC",
             "quote": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
-            "address": "0x7Bf55A2221c1a8Bed071F9bac70FF9c79453Fd11",
+            "address": "0x373626a56cAc85CBced2A049f305a0C12Eac7e76",
             "index": "0x10ebadd5b3aee79abaf3e43abaef85f55ad84fbb72264fa10d770fc9a30f4284",
             "expiry": 4294967295,
+            "symbol": "ETH-USDC-LINK"
+        },
+        {
+            "marketType": "LINK",
+            "baseSymbol": "ETH",
+            "quoteSymbol": "USDC",
+            "quote": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
+            "address": "0x373626a56cAc85CBced2A049f305a0C12Eac7e76",
+            "index": "0x10ebadd5b3aee79abaf3e43abaef85f55ad84fbb72264fa10d770fc9a30f4284",
+            "expiry": 1769760000,
             "symbol": "ETH-USDC-LINK"
         },
         {
@@ -68,7 +78,7 @@
             "baseSymbol": "BTC",
             "quoteSymbol": "USDC",
             "quote": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
-            "address": "0x8578347760364A880E2f7b8149120cd06e3C3904",
+            "address": "0x5e189c5Bf698f8c3b83D4eD4204cc1c655F24d7B",
             "index": "0x2fb4e765906f3706e78bb5b13cf13306ae1e4fd8ded4a7fce65c13440d6a55ab",
             "expiry": 4294967295,
             "symbol": "BTC-USDC-LINK"
@@ -78,7 +88,7 @@
             "baseSymbol": "BTC",
             "quoteSymbol": "USDC",
             "quote": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
-            "address": "0x4Cc99a404B2e778DD52bd10A569f31a6e72f3076",
+            "address": "0x04b5567450a6CAB0426D31e8EC951E87238DEaaB",
             "index": "0x025a0da04911a554c69c9e66e9b1eeea3697e733385a9a5c5b69a061d16f1947",
             "expiry": 4294967295,
             "symbol": "BTC-USDC-EMG"
@@ -88,7 +98,7 @@
             "baseSymbol": "BTC",
             "quoteSymbol": "USDC",
             "quote": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
-            "address": "0xd181B3325154a65eDAba039382EE978941BC0F53",
+            "address": "0x59e9c09b505f2004448bc7FD5FD92dCc87Fa4AdE",
             "index": "0x05e638bfc1474498c8b4f4ada4d4ef40c8efabd98094d520e10fc3911df97d3b",
             "expiry": 4294967295,
             "symbol": "BTC-USDC-PYTH"
@@ -99,7 +109,7 @@
             "marketType": "LINK",
             "baseSymbol": "ETH",
             "quoteSymbol": "USDC",
-            "address": "0x7Bf55A2221c1a8Bed071F9bac70FF9c79453Fd11",
+            "address": "0x373626a56cAc85CBced2A049f305a0C12Eac7e76",
             "expiry": 4294967295
         }
     }
