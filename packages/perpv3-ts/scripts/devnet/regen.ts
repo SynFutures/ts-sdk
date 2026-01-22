@@ -24,16 +24,14 @@ import { waitForRpc, buildAnvilArgs } from './anvil.js';
 
 type JsonObject = Record<string, unknown>;
 
-type HardhatLinkReferences = Record<
-    string,
-    Record<string, Array<{ start: number; length: number }>>
->;
+type LinkReferences = Record<string, Record<string, Array<{ start: number; length: number }>>>;
 
-type HardhatArtifact = {
+type SolidityArtifact = {
     contractName?: string;
     abi: Abi;
+    // Foundry artifacts use `bytecode.object`, while Hardhat artifacts use `bytecode` directly.
     bytecode: Hex;
-    linkReferences?: HardhatLinkReferences;
+    linkReferences?: LinkReferences;
 };
 
 type DevnetPreset = {
@@ -282,20 +280,33 @@ function parseDevnetPreset(raw: unknown): DevnetPreset {
     };
 }
 
-function loadArtifactFromFile(label: string, artifactPath: string): HardhatArtifact {
+function loadArtifactFromFile(label: string, artifactPath: string): SolidityArtifact {
     const raw = readJsonFile(artifactPath);
     assertJsonObject(raw, `artifact:${label}`);
 
     if (!Array.isArray(raw.abi)) throw new Error(`artifact:${label}.abi must be an array.`);
     const abi = raw.abi as Abi;
 
-    const bytecode = parseHex(raw.bytecode, `artifact:${label}.bytecode`);
+    let bytecode: Hex;
+    if (typeof raw.bytecode === 'string') {
+        // Hardhat format: { bytecode: '0x...' }
+        bytecode = parseHex(raw.bytecode, `artifact:${label}.bytecode`);
+    } else if (raw.bytecode && typeof raw.bytecode === 'object' && !Array.isArray(raw.bytecode)) {
+        // Foundry format: { bytecode: { object: '0x...', linkReferences: ... } }
+        const bytecodeObject = raw.bytecode as Record<string, unknown>;
+        bytecode = parseHex(bytecodeObject.object, `artifact:${label}.bytecode.object`);
+    } else {
+        throw new Error(`artifact:${label}.bytecode must be a hex string or an object with bytecode.object.`);
+    }
 
-    const linkReferencesRaw = raw.linkReferences;
-    let linkReferences: HardhatLinkReferences | undefined;
-    if (linkReferencesRaw !== undefined) {
-        assertJsonObject(linkReferencesRaw, `artifact:${label}.linkReferences`);
-        linkReferences = linkReferencesRaw as HardhatLinkReferences;
+    let linkReferences: LinkReferences | undefined;
+    if (raw.bytecode && typeof raw.bytecode === 'object' && !Array.isArray(raw.bytecode)) {
+        const bytecodeObject = raw.bytecode as Record<string, unknown>;
+        const linkReferencesRaw = bytecodeObject.linkReferences;
+        if (linkReferencesRaw !== undefined) {
+            assertJsonObject(linkReferencesRaw, `artifact:${label}.bytecode.linkReferences`);
+            linkReferences = linkReferencesRaw as LinkReferences;
+        }
     }
 
     return {
@@ -306,7 +317,7 @@ function loadArtifactFromFile(label: string, artifactPath: string): HardhatArtif
     };
 }
 
-function linkBytecode(bytecode: Hex, linkReferences: HardhatLinkReferences, libraries: Record<string, Address>): Hex {
+function linkBytecode(bytecode: Hex, linkReferences: LinkReferences, libraries: Record<string, Address>): Hex {
     let hex = bytecode.startsWith('0x') ? bytecode.slice(2) : bytecode;
 
     for (const fileName of Object.keys(linkReferences)) {
@@ -335,6 +346,27 @@ type InitLiquiditySeed = {
     limitTicks: Hex;
     deadline: number;
 };
+
+const MINUTE_SECONDS = 60;
+const HOUR_SECONDS = 60 * MINUTE_SECONDS;
+const DAY_SECONDS = 24 * HOUR_SECONDS;
+const WEEK_SECONDS = 7 * DAY_SECONDS;
+
+function alignTimestamp(timestamp: number): number {
+    // (timestamp + 3 days) / 1 weeks * 1 weeks + 4 days + 8 hours - 3 days
+    return Math.floor((timestamp + 3 * DAY_SECONDS) / WEEK_SECONDS) * WEEK_SECONDS + 4 * DAY_SECONDS + 8 * HOUR_SECONDS - 3 * DAY_SECONDS;
+}
+
+function resolveInitLiquiditySeed(seed: InitLiquiditySeed, nowTimestamp: number): InitLiquiditySeed {
+    if (seed.expiry !== 0) return seed;
+
+    const expiry = alignTimestamp(nowTimestamp + WEEK_SECONDS);
+    if (!Number.isSafeInteger(expiry) || expiry <= 0) {
+        throw new Error(`Failed to derive a valid expiry from nowTimestamp=${nowTimestamp}.`);
+    }
+
+    return { ...seed, expiry };
+}
 
 function encodeAddArgs(seed: InitLiquiditySeed): readonly [Hex, Hex] {
     const expiry = BigInt(seed.expiry);
@@ -383,36 +415,36 @@ async function main(): Promise<void> {
         const walletClient = createWalletClient({ chain, transport: http(rpcUrl), account: adminAccount });
 
         const artifactPaths = {
-            Beacon: path.join(contractsArtifactsDir, 'contracts/Beacon.sol/Beacon.json'),
-            Broker: path.join(contractsArtifactsDir, 'contracts/libraries/Broker.sol/Broker.json'),
-            ChainlinkMarket: path.join(contractsArtifactsDir, 'contracts/markets/link/ChainlinkMarket.sol/ChainlinkMarket.json'),
-            EmergingMarket: path.join(contractsArtifactsDir, 'contracts/markets/emg/EmergingMarket.sol/EmergingMarket.json'),
-            PythMarket: path.join(contractsArtifactsDir, 'contracts/markets/pyth/PythMarket.sol/PythMarket.json'),
-            DexV2Market: path.join(contractsArtifactsDir, 'contracts/markets/dexv2/DexV2Market.sol/DexV2Market.json'),
-            Config: path.join(contractsArtifactsDir, 'contracts/Config.sol/Config.json'),
-            Gate: path.join(contractsArtifactsDir, 'contracts/Gate.sol/Gate.json'),
+            Beacon: path.join(contractsArtifactsDir, 'Beacon.sol/Beacon.json'),
+            Broker: path.join(contractsArtifactsDir, 'Broker.sol/Broker.json'),
+            ChainlinkMarket: path.join(contractsArtifactsDir, 'ChainlinkMarket.sol/ChainlinkMarket.json'),
+            EmergingMarket: path.join(contractsArtifactsDir, 'EmergingMarket.sol/EmergingMarket.json'),
+            PythMarket: path.join(contractsArtifactsDir, 'PythMarket.sol/PythMarket.json'),
+            DexV2Market: path.join(contractsArtifactsDir, 'DexV2Market.sol/DexV2Market.json'),
+            Config: path.join(contractsArtifactsDir, 'Config.sol/Config.json'),
+            Gate: path.join(contractsArtifactsDir, 'Gate.sol/Gate.json'),
             GelatoRelayRouter: path.join(
                 contractsArtifactsDir,
-                'contracts/GelatoRelayRouter/GelatoRelayRouter.sol/GelatoRelayRouter.json'
+                'GelatoRelayRouter.sol/GelatoRelayRouter.json'
             ),
-            Helper: path.join(contractsArtifactsDir, 'contracts/peripheral/Helper.sol/Helper.json'),
+            Helper: path.join(contractsArtifactsDir, 'Helper.sol/Helper.json'),
             EmergingFeederFactory: path.join(
                 contractsArtifactsDir,
-                'contracts/markets/emg/EmergingFeederFactory.sol/EmergingFeederFactory.json'
+                'EmergingFeederFactory.sol/EmergingFeederFactory.json'
             ),
-            Instrument: path.join(contractsArtifactsDir, 'contracts/Instrument.sol/Instrument.json'),
-            InstrumentProxy: path.join(contractsArtifactsDir, 'contracts/InstrumentProxy.sol/InstrumentProxy.json'),
-            LibObserver: path.join(contractsArtifactsDir, 'contracts/libraries/LibObserver.sol/LibObserver.json'),
-            LibQuery: path.join(contractsArtifactsDir, 'contracts/libraries/LibQuery.sol/LibQuery.json'),
-            LibPeripheral: path.join(contractsArtifactsDir, 'contracts/peripheral/lib/LibPeripheral.sol/LibPeripheral.json'),
-            Liquidity: path.join(contractsArtifactsDir, 'contracts/libraries/Liquidity.sol/Liquidity.json'),
+            Instrument: path.join(contractsArtifactsDir, 'Instrument.sol/Instrument.json'),
+            InstrumentProxy: path.join(contractsArtifactsDir, 'InstrumentProxy.sol/InstrumentProxy.json'),
+            LibObserver: path.join(contractsArtifactsDir, 'LibObserver.sol/LibObserver.json'),
+            LibQuery: path.join(contractsArtifactsDir, 'LibQuery.sol/LibQuery.json'),
+            LibPeripheral: path.join(contractsArtifactsDir, 'LibPeripheral.sol/LibPeripheral.json'),
+            Liquidity: path.join(contractsArtifactsDir, 'Liquidity.sol/Liquidity.json'),
             MockChainlinkFeeder: path.join(contractsArtifactsDir, 'contracts/test/MockChainlinkFeeder.sol/MockChainlinkFeeder.json'),
-            Observer: path.join(contractsArtifactsDir, 'contracts/Observer.sol/Observer.json'),
-            Oyster: path.join(contractsArtifactsDir, 'contracts/libraries/Oyster.sol/Oyster.json'),
-            TestToken: path.join(contractsArtifactsDir, 'contracts/test/local/TestToken.sol/TestToken.json'),
+            Observer: path.join(contractsArtifactsDir, 'Observer.sol/Observer.json'),
+            Oyster: path.join(contractsArtifactsDir, 'Oyster.sol/Oyster.json'),
+            TestToken: path.join(contractsArtifactsDir, 'contracts/test/TestToken.sol/TestToken.json'),
             TransparentUpgradeableProxy: path.join(
                 contractsArtifactsDir,
-                '@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol/TransparentUpgradeableProxy.json'
+                'TransparentUpgradeableProxy.sol/TransparentUpgradeableProxy.json'
             ),
             WETH: path.join(contractsArtifactsDir, 'contracts/test/local/WrappedNative.sol/WrappedNative.json'),
         } as const;
@@ -462,7 +494,7 @@ async function main(): Promise<void> {
             return deployContract(label, artifactPaths.TransparentUpgradeableProxy, [impl, admin, initData]);
         };
 
-        const wrappedNative = await deployContract('WrappedNative', artifactPaths.WETH);
+        const wrappedNative = await deployContract('WrappedNative', artifactPaths.WETH, ['Wrapped Ether', 'WETH']);
 
         const quoteTokens = new Map<
             string,
@@ -711,6 +743,13 @@ async function main(): Promise<void> {
         ]);
         const instrumentProxyBytecodeHash = keccak256(instrumentProxyInitCode);
 
+        const nowTimestamp = Number((await publicClient.getBlock({ blockTag: 'latest' })).timestamp);
+        if (!Number.isSafeInteger(nowTimestamp) || nowTimestamp <= 0) {
+            throw new Error(`Invalid block timestamp from RPC: ${nowTimestamp}`);
+        }
+
+        const launchedInstruments = new Set<Address>();
+
         const instruments: Array<{
             marketType: string;
             baseSymbol: string;
@@ -745,41 +784,56 @@ async function main(): Promise<void> {
                     bytecodeHash: instrumentProxyBytecodeHash,
                 });
 
-                const quoteToUsdFeeder = quote.quoteToUsdFeeder;
-                const ftype = quote.quoteParam.qtype === 1 ? 1 : 0; // QuoteType.STABLE -> FeederType.QUOTE_STABLE
-                const priceFeeder = {
-                    ftype,
-                    scaler0: 0n,
-                    aggregator0: baseToUsdFeeder,
-                    heartBeat0: 16_777_215,
-                    scaler1: 0n,
-                    aggregator1: quoteToUsdFeeder,
-                    heartBeat1: 16_777_215,
-                } as const;
+                if (!launchedInstruments.has(instrument)) {
+                    const quoteToUsdFeeder = quote.quoteToUsdFeeder;
+                    const ftype = quote.quoteParam.qtype === 1 ? 1 : 0; // QuoteType.STABLE -> FeederType.QUOTE_STABLE
+                    const priceFeeder = {
+                        ftype,
+                        scaler0: 0n,
+                        aggregator0: baseToUsdFeeder,
+                        heartBeat0: 16_777_215,
+                        scaler1: 0n,
+                        aggregator1: quoteToUsdFeeder,
+                        heartBeat1: 16_777_215,
+                    } as const;
 
-                await publicClient.waitForTransactionReceipt({
-                    hash: await walletClient.writeContract({
-                        address: market.address,
-                        abi: market.abi,
-                        functionName: 'setFeeder',
-                        args: [[instrument], [priceFeeder]],
-                    }),
-                });
+                    await publicClient.waitForTransactionReceipt({
+                        hash: await walletClient.writeContract({
+                            address: market.address,
+                            abi: market.abi,
+                            functionName: 'setFeeder',
+                            args: [[instrument], [priceFeeder]],
+                        }),
+                    });
+                }
 
                 const launchData = encodeAbiParameters(
                     [{ type: 'string' }, { type: 'address' }],
                     [instrumentSpec.baseSymbol, quote.address]
                 );
-                const addArgs = encodeAddArgs(instrumentSpec.initLiquidity);
+                const initLiquidity = resolveInitLiquiditySeed(instrumentSpec.initLiquidity, nowTimestamp);
+                const addArgs = encodeAddArgs(initLiquidity);
 
-                await publicClient.waitForTransactionReceipt({
-                    hash: await walletClient.writeContract({
-                        address: gate,
-                        abi: artifacts.Gate.abi,
-                        functionName: 'launch',
-                        args: [marketSpec.marketType, instrument, launchData, addArgs],
-                    }),
-                });
+                if (!launchedInstruments.has(instrument)) {
+                    await publicClient.waitForTransactionReceipt({
+                        hash: await walletClient.writeContract({
+                            address: gate,
+                            abi: artifacts.Gate.abi,
+                            functionName: 'launch',
+                            args: [marketSpec.marketType, instrument, launchData, addArgs],
+                        }),
+                    });
+                    launchedInstruments.add(instrument);
+                } else {
+                    await publicClient.waitForTransactionReceipt({
+                        hash: await walletClient.writeContract({
+                            address: instrument,
+                            abi: artifacts.Instrument.abi,
+                            functionName: 'add',
+                            args: [addArgs],
+                        }),
+                    });
+                }
 
                 instruments.push({
                     marketType: marketSpec.marketType,
@@ -788,7 +842,7 @@ async function main(): Promise<void> {
                     quote: quote.address,
                     address: instrument,
                     index,
-                    expiry: instrumentSpec.initLiquidity.expiry,
+                    expiry: initLiquidity.expiry,
                     symbol: `${instrumentSpec.baseSymbol}-${instrumentSpec.quoteSymbol}-${marketSpec.marketType}`,
                 });
             }

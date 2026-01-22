@@ -46,6 +46,22 @@
                         }
                     },
                     {
+                        "baseSymbol": "ETH",
+                        "quoteSymbol": "USDC",
+                        "baseToUsdFeeder": {
+                            "decimals": 8,
+                            "priceRaw": "140000000000"
+                        },
+                        "initLiquidity": {
+                            "expiry": 0,
+                            "tickDeltaLower": 0,
+                            "tickDeltaUpper": 2000,
+                            "amountWad": "2000000000000000000000",
+                            "limitTicks": "0x8000007fffff",
+                            "deadline": 4294967295
+                        }
+                    },
+                    {
                         "baseSymbol": "BTC",
                         "quoteSymbol": "USDC",
                         "baseToUsdFeeder": {

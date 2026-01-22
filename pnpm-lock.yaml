@@ -91,8 +91,8 @@ importers:
         specifier: ^30.2.0
         version: 30.2.0
       '@synfutures/v3-contracts':
-        specifier: ^0.0.1
-        version: 0.0.1
+        specifier: ^0.0.2
+        version: 0.0.2
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0
@@ -1776,8 +1776,8 @@ packages:
   '@sinonjs/fake-timers@13.0.5':
     resolution: {integrity: sha512-36/hTbH2uaWuGVERyC6da9YwGWnzUZXuPro/F2LfsdOsLnCojz/iSH8MxUt/FD2S5XBSVPhmArFUXcpCQ2Hkiw==}
 
-  '@synfutures/v3-contracts@0.0.1':
-    resolution: {integrity: sha512-wL6YRWxJNhq08K6UFy6qJlMA9vgOmUQjy7H93kC6nhTvEOzE7AaQNg1nsXGrsn4BNoF9it13IMgcCQiGm2gt+g==}
+  '@synfutures/v3-contracts@0.0.2':
+    resolution: {integrity: sha512-bTaYIvi1ffcdziEV93tUGfjDfnF82PEiYmLgcQOX9v3Ih7BZ+J6JgjA6SMhnNnmYbwVEFfUuBeRhhgkhsTfPDw==}
 
   '@tsconfig/node10@1.0.11':
     resolution: {integrity: sha512-DcRjDCujK/kCk/cUe8Xz8ZSpm8mS3mNNpta+jGCA6USEDfktlNvm1+IuZ9eTcDbNk41BHwpHHeW+N1lKCz4zOw==}
@@ -6339,7 +6339,7 @@ snapshots:
     dependencies:
       '@sinonjs/commons': 3.0.1
 
-  '@synfutures/v3-contracts@0.0.1': {}
+  '@synfutures/v3-contracts@0.0.2': {}
 
   '@tsconfig/node10@1.0.11': {}
 

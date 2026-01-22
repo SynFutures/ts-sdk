@@ -7,29 +7,32 @@ const HARNESS_VERSION = 1;
 const V3_CONTRACTS_PACKAGE_NAME = '@synfutures/v3-contracts';
 
 const CORE_ARTIFACT_RELATIVE_PATHS = [
-    'contracts/Beacon.sol/Beacon.json',
-    'contracts/Config.sol/Config.json',
-    'contracts/Gate.sol/Gate.json',
-    'contracts/Instrument.sol/Instrument.json',
-    'contracts/InstrumentProxy.sol/InstrumentProxy.json',
-    'contracts/Observer.sol/Observer.json',
-    'contracts/GelatoRelayRouter/GelatoRelayRouter.sol/GelatoRelayRouter.json',
-    'contracts/markets/link/ChainlinkMarket.sol/ChainlinkMarket.json',
-    'contracts/markets/emg/EmergingMarket.sol/EmergingMarket.json',
-    'contracts/markets/pyth/PythMarket.sol/PythMarket.json',
-    'contracts/markets/dexv2/DexV2Market.sol/DexV2Market.json',
-    'contracts/libraries/Broker.sol/Broker.json',
-    'contracts/libraries/Liquidity.sol/Liquidity.json',
-    'contracts/libraries/Oyster.sol/Oyster.json',
-    'contracts/libraries/LibQuery.sol/LibQuery.json',
-    'contracts/libraries/LibObserver.sol/LibObserver.json',
+    // @synfutures/v3-contracts@0.0.2 ships Foundry artifacts:
+    // - Core contracts live at `artifacts/<SourceFile>.sol/<Contract>.json`
+    // - Test-only contracts remain under `artifacts/contracts/test/**`
+    'Beacon.sol/Beacon.json',
+    'Config.sol/Config.json',
+    'Gate.sol/Gate.json',
+    'Instrument.sol/Instrument.json',
+    'InstrumentProxy.sol/InstrumentProxy.json',
+    'Observer.sol/Observer.json',
+    'GelatoRelayRouter.sol/GelatoRelayRouter.json',
+    'ChainlinkMarket.sol/ChainlinkMarket.json',
+    'EmergingMarket.sol/EmergingMarket.json',
+    'PythMarket.sol/PythMarket.json',
+    'DexV2Market.sol/DexV2Market.json',
+    'Broker.sol/Broker.json',
+    'Liquidity.sol/Liquidity.json',
+    'Oyster.sol/Oyster.json',
+    'LibQuery.sol/LibQuery.json',
+    'LibObserver.sol/LibObserver.json',
     'contracts/test/MockChainlinkFeeder.sol/MockChainlinkFeeder.json',
-    'contracts/test/local/TestToken.sol/TestToken.json',
+    'contracts/test/TestToken.sol/TestToken.json',
     'contracts/test/local/WrappedNative.sol/WrappedNative.json',
-    'contracts/peripheral/Helper.sol/Helper.json',
-    'contracts/peripheral/lib/LibPeripheral.sol/LibPeripheral.json',
-    'contracts/markets/emg/EmergingFeederFactory.sol/EmergingFeederFactory.json',
-    '@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol/TransparentUpgradeableProxy.json',
+    'Helper.sol/Helper.json',
+    'LibPeripheral.sol/LibPeripheral.json',
+    'EmergingFeederFactory.sol/EmergingFeederFactory.json',
+    'TransparentUpgradeableProxy.sol/TransparentUpgradeableProxy.json',
 ];
 
 function computeInstalledPackageDir(packageRoot, packageName) {
