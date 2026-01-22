@@ -282,7 +282,7 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
                 encodeCancelParam({
                     expiry: EXPIRY,
                     ticks: [orderTick],
-                    deadline: userSetting.getDeadline(),
+                    deadline: userSetting.getDeadline(afterPlace.blockInfo.timestamp),
                 }),
             ],
         });
@@ -1007,6 +1007,7 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
         expect(makerAfterFill.portfolio.orders.length).toBe(2);
         expect(makerAfterFill.portfolio.position.size).toBe(order0.order.size + order1.order.size);
 
+        const cancelDeadline = userSetting.getDeadline(makerAfterFill.blockInfo.timestamp);
         const cancel2Hash = await makerWallet.writeContract({
             address: INSTRUMENT_ADDRESS,
             abi: CURRENT_INSTRUMENT_ABI,
@@ -1015,7 +1016,7 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
                 encodeCancelParam({
                     expiry: EXPIRY,
                     ticks: [order2.order.tick],
-                    deadline: userSetting.getDeadline(),
+                    deadline: cancelDeadline,
                 }),
             ],
         });
@@ -1029,7 +1030,7 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
                 encodeCancelParam({
                     expiry: EXPIRY,
                     ticks: [order3.order.tick],
-                    deadline: userSetting.getDeadline(),
+                    deadline: cancelDeadline,
                 }),
             ],
         });
