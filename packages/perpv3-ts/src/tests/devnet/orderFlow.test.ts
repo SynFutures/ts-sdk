@@ -3,30 +3,30 @@ import { createWalletClient, http } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { CURRENT_GATE_ABI, CURRENT_INSTRUMENT_ABI } from '../../index';
-	import {
-	    AddInput,
-	    PERP_EXPIRY,
-	    PlaceInput,
-	    QuotationWithSize,
-	    RemoveInput,
-	    Side,
-	    TradeInput,
-	    UserSetting,
-	    WAD,
-	    encodeAddParam,
-	    encodeCancelParam,
-	    encodeDepositParam,
-	    encodeFillParam,
-	    encodePlaceParam,
-	    encodeRemoveParam,
-	    encodeTradeParam,
-	    fetchOnchainContext,
-	    inquireByBaseSize,
-	    inquireByTick,
-	} from '../../index';
-	import { abs } from '../../math';
-	import { Range } from '../../types';
-	import { createDevnetContext } from './devnet';
+import {
+    AddInput,
+    PERP_EXPIRY,
+    PlaceInput,
+    QuotationWithSize,
+    RemoveInput,
+    Side,
+    TradeInput,
+    UserSetting,
+    WAD,
+    encodeAddParam,
+    encodeCancelParam,
+    encodeDepositParam,
+    encodeFillParam,
+    encodePlaceParam,
+    encodeRemoveParam,
+    encodeTradeParam,
+    fetchOnchainContext,
+    inquireByBaseSize,
+    inquireByTick,
+} from '../../index';
+import { abs } from '../../math';
+import { Range } from '../../types';
+import { createDevnetContext } from './devnet';
 
 const ctx = createDevnetContext();
 
@@ -38,9 +38,9 @@ if (!defaultQuote) {
 
 const INSTRUMENT_ADDRESS = defaultInstrument.address;
 const EXPIRY = defaultInstrument.expiry;
-	const QUOTE_TOKEN = defaultQuote.address;
-	const QUOTE_UNIT = 10n ** BigInt(defaultQuote.decimals);
-	const QUOTE_SCALER = 10n ** BigInt(18 - defaultQuote.decimals);
+const QUOTE_TOKEN = defaultQuote.address;
+const QUOTE_UNIT = 10n ** BigInt(defaultQuote.decimals);
+const QUOTE_SCALER = 10n ** BigInt(18 - defaultQuote.decimals);
 
 const DEFAULT_SLIPPAGE_BPS = 50;
 const DEFAULT_LEVERAGE = 4n * WAD;
@@ -56,24 +56,24 @@ const ERC20_ABI = [
         ],
         outputs: [{ type: 'bool' }],
     },
-	    {
-	        name: 'approve',
-	        type: 'function',
-	        stateMutability: 'nonpayable',
+    {
+        name: 'approve',
+        type: 'function',
+        stateMutability: 'nonpayable',
         inputs: [
             { name: 'spender', type: 'address' },
             { name: 'amount', type: 'uint256' },
         ],
-	        outputs: [{ type: 'bool' }],
-	    },
-	    {
-	        name: 'balanceOf',
-	        type: 'function',
-	        stateMutability: 'view',
-	        inputs: [{ name: 'account', type: 'address' }],
-	        outputs: [{ type: 'uint256' }],
-	    },
-	] as const;
+        outputs: [{ type: 'bool' }],
+    },
+    {
+        name: 'balanceOf',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [{ name: 'account', type: 'address' }],
+        outputs: [{ type: 'uint256' }],
+    },
+] as const;
 
 function createUserWallet(addressIndex: number) {
     const account = mnemonicToAccount(ctx.preset.anvil.mnemonic, { addressIndex });
@@ -108,24 +108,24 @@ async function approveQuote(wallet: ReturnType<typeof createUserWallet>, spender
     await waitForTx(hash);
 }
 
-	async function depositQuote(wallet: ReturnType<typeof createUserWallet>, amount: bigint) {
-	    const hash = await wallet.writeContract({
-	        address: ctx.manifest.contracts.gate,
-	        abi: CURRENT_GATE_ABI,
+async function depositQuote(wallet: ReturnType<typeof createUserWallet>, amount: bigint) {
+    const hash = await wallet.writeContract({
+        address: ctx.manifest.contracts.gate,
+        abi: CURRENT_GATE_ABI,
         functionName: 'deposit',
         args: [encodeDepositParam(QUOTE_TOKEN, amount)],
-	    });
-	    await waitForTx(hash);
-	}
-	
-	async function getQuoteBalance(address: Address): Promise<bigint> {
-	    return await ctx.publicClient.readContract({
-	        address: QUOTE_TOKEN,
-	        abi: ERC20_ABI,
-	        functionName: 'balanceOf',
-	        args: [address],
-	    });
-	}
+    });
+    await waitForTx(hash);
+}
+
+async function getQuoteBalance(address: Address): Promise<bigint> {
+    return await ctx.publicClient.readContract({
+        address: QUOTE_TOKEN,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [address],
+    });
+}
 
 describe('devnet instrument order flow (ported from v3-contracts hardhat Instrument/Helper tests)', () => {
     it('place → taker trade → maker fill (fully taken order)', async () => {
@@ -146,7 +146,12 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
 
         const userSetting = createUserSetting();
 
-        const makerBefore = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, makerWallet.account.address);
+        const makerBefore = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            makerWallet.account.address
+        );
         expect(makerBefore.expiry).toBe(PERP_EXPIRY);
         expect(makerBefore.portfolio.orders.length).toBe(0);
 
@@ -177,7 +182,12 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
         });
         await waitForTx(placeHash);
 
-        const makerAfterPlace = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, makerWallet.account.address);
+        const makerAfterPlace = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            makerWallet.account.address
+        );
         expect(makerAfterPlace.portfolio.orders.length).toBe(1);
         const makerOrder = makerAfterPlace.portfolio.orders[0];
         const makerTaken = makerAfterPlace.portfolio.ordersTaken[0] ?? 0n;
@@ -185,7 +195,12 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
         expect(makerTaken).toBe(0n);
 
         // Find a LONG trade size that crosses the order tick.
-        const takerBefore = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, takerWallet.account.address);
+        const takerBefore = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            takerWallet.account.address
+        );
         expect(takerBefore.portfolio.position.size).toBe(0n);
 
         let tradeBaseQuantity = abs(makerOrder.size) * 2n;
@@ -195,7 +210,10 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
             const signedSize = tradeBaseQuantity; // LONG
             const quotation = await inquireByBaseSize(INSTRUMENT_ADDRESS, EXPIRY, signedSize, ctx.rpcConfig);
             const candidate = new QuotationWithSize(signedSize, quotation);
-            if (quotation.postTick >= makerOrder.tick && candidate.tradeValue >= takerBefore.instrumentSetting.minTradeValue) {
+            if (
+                quotation.postTick >= makerOrder.tick &&
+                candidate.tradeValue >= takerBefore.instrumentSetting.minTradeValue
+            ) {
                 quotationWithSize = candidate;
                 break;
             }
@@ -220,7 +238,12 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
         });
         await waitForTx(tradeHash);
 
-        const makerAfterTake = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, makerWallet.account.address);
+        const makerAfterTake = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            makerWallet.account.address
+        );
         const afterOrder = makerAfterTake.portfolio.orders.find(
             (order) => order.tick === makerOrder.tick && order.nonce === makerOrder.nonce
         );
@@ -236,17 +259,29 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
             address: INSTRUMENT_ADDRESS,
             abi: CURRENT_INSTRUMENT_ABI,
             functionName: 'fill',
-            args: [encodeFillParam({ expiry: EXPIRY, target: makerWallet.account.address, tick: makerOrder.tick, nonce: makerOrder.nonce })],
+            args: [
+                encodeFillParam({
+                    expiry: EXPIRY,
+                    target: makerWallet.account.address,
+                    tick: makerOrder.tick,
+                    nonce: makerOrder.nonce,
+                }),
+            ],
         });
         await waitForTx(fillHash);
 
-        const makerAfterFill = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, makerWallet.account.address);
+        const makerAfterFill = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            makerWallet.account.address
+        );
         expect(makerAfterFill.portfolio.orders.length).toBe(0);
         expect(makerAfterFill.portfolio.position.size).toBe(makerOrder.size);
     });
 
-	    it('place → cancel removes the order', async () => {
-	        const makerWallet = createUserWallet(3);
+    it('place → cancel removes the order', async () => {
+        const makerWallet = createUserWallet(3);
 
         const transferAmount = 20_000n * QUOTE_UNIT;
         const depositAmount = 10_000n * QUOTE_UNIT;
@@ -257,7 +292,12 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
 
         const userSetting = createUserSetting();
 
-        const before = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, makerWallet.account.address);
+        const before = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            makerWallet.account.address
+        );
         const orderTick = before.instrumentSetting.alignTickStrictlyAbove(before.amm.tick);
 
         const placeInput = new PlaceInput(makerWallet.account.address, orderTick, WAD / 5n, Side.SHORT);
@@ -271,7 +311,12 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
         });
         await waitForTx(placeHash);
 
-        const afterPlace = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, makerWallet.account.address);
+        const afterPlace = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            makerWallet.account.address
+        );
         expect(afterPlace.portfolio.orders.length).toBe(1);
 
         const cancelHash = await makerWallet.writeContract({
@@ -288,157 +333,180 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
         });
         await waitForTx(cancelHash);
 
-	        const afterCancel = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, makerWallet.account.address);
-	        expect(afterCancel.portfolio.orders.length).toBe(0);
-	    });
-	
-	    it('two users can add/remove liquidity at the same tick range', async () => {
-	        const traderWallet = createUserWallet(4);
-	        const lpWallet = createUserWallet(3);
-	
-	        const transferAmount = 200_000n * QUOTE_UNIT;
-	
-	        await transferQuote(traderWallet.account.address, transferAmount);
-	        await transferQuote(lpWallet.account.address, transferAmount);
-	
-	        await approveQuote(traderWallet, ctx.manifest.contracts.gate, transferAmount);
-	        await approveQuote(lpWallet, ctx.manifest.contracts.gate, transferAmount);
-	
-	        const traderBeforeAdd = await fetchOnchainContext(
-	            INSTRUMENT_ADDRESS,
-	            EXPIRY,
-	            ctx.rpcConfig,
-	            traderWallet.account.address
-	        );
-	
-	        const leverage =
-	            traderBeforeAdd.instrumentSetting.maxLeverage < DEFAULT_LEVERAGE
-	                ? traderBeforeAdd.instrumentSetting.maxLeverage
-	                : DEFAULT_LEVERAGE;
-	        const userSetting = new UserSetting(3600, DEFAULT_SLIPPAGE_BPS, leverage);
-	
-	        const { tick: ammTick } = traderBeforeAdd.amm;
-	        const delta = traderBeforeAdd.instrumentSetting.minTickDelta;
-	        const tickLower = traderBeforeAdd.instrumentSetting.alignRangeTickLower(ammTick - delta);
-	        const tickUpper = traderBeforeAdd.instrumentSetting.alignRangeTickUpper(ammTick + delta);
-	
-	        let addMargin = 5_000n * WAD;
-	        let traderAddParam: ReturnType<AddInput['simulate']>[0] | undefined;
-	
-	        for (let attempt = 0; attempt < 8; attempt += 1) {
-	            try {
-	                [traderAddParam] = new AddInput(traderWallet.account.address, addMargin, tickLower, tickUpper).simulate(
-	                    traderBeforeAdd,
-	                    userSetting
-	                );
-	                break;
-	            } catch {
-	                addMargin *= 2n;
-	            }
-	        }
-	
-	        if (!traderAddParam) {
-	            throw new Error('Unable to find a valid addParam for trader');
-	        }
-	
-	        const traderDepositAmount = traderAddParam.amount / QUOTE_SCALER + 1n;
-	        await depositQuote(traderWallet, traderDepositAmount);
-	
-	        const traderAddHash = await traderWallet.writeContract({
-	            address: INSTRUMENT_ADDRESS,
-	            abi: CURRENT_INSTRUMENT_ABI,
-	            functionName: 'add',
-	            args: [encodeAddParam(traderAddParam)],
-	        });
-	        await waitForTx(traderAddHash);
-	
-	        const lpBeforeAdd = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, lpWallet.account.address);
-	
-	        let lpAddParam: ReturnType<AddInput['simulate']>[0] | undefined;
-	        for (let attempt = 0; attempt < 8; attempt += 1) {
-	            try {
-	                [lpAddParam] = new AddInput(lpWallet.account.address, addMargin, tickLower, tickUpper).simulate(
-	                    lpBeforeAdd,
-	                    userSetting
-	                );
-	                break;
-	            } catch {
-	                addMargin *= 2n;
-	            }
-	        }
-	
-	        if (!lpAddParam) {
-	            throw new Error('Unable to find a valid addParam for lp');
-	        }
-	
-	        const lpDepositAmount = lpAddParam.amount / QUOTE_SCALER + 1n;
-	        await depositQuote(lpWallet, lpDepositAmount);
-	
-	        const lpAddHash = await lpWallet.writeContract({
-	            address: INSTRUMENT_ADDRESS,
-	            abi: CURRENT_INSTRUMENT_ABI,
-	            functionName: 'add',
-	            args: [encodeAddParam(lpAddParam)],
-	        });
-	        await waitForTx(lpAddHash);
-	
-	        const traderAfterAdd = await fetchOnchainContext(
-	            INSTRUMENT_ADDRESS,
-	            EXPIRY,
-	            ctx.rpcConfig,
-	            traderWallet.account.address
-	        );
-	        const lpAfterAdd = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, lpWallet.account.address);
-	
-	        expect(traderAfterAdd.portfolio.ranges.length).toBe(1);
-	        expect(traderAfterAdd.portfolio.rids.length).toBe(1);
-	        expect(lpAfterAdd.portfolio.ranges.length).toBe(1);
-	        expect(lpAfterAdd.portfolio.rids.length).toBe(1);
-	
-	        const traderRid = traderAfterAdd.portfolio.rids[0];
-	        const lpRid = lpAfterAdd.portfolio.rids[0];
-	        if (!traderRid || !lpRid) throw new Error('Missing range rid after add');
-	        expect(traderRid).toBe(lpRid);
-	
-	        const { tickLower: addedLower, tickUpper: addedUpper } = Range.unpackKey(traderRid);
-	        expect(addedLower).toBe(tickLower);
-	        expect(addedUpper).toBe(tickUpper);
-	
-	        const [traderRemoveParam] = new RemoveInput(traderWallet.account.address, tickLower, tickUpper).simulate(
-	            traderAfterAdd,
-	            userSetting
-	        );
-	        const traderRemoveHash = await traderWallet.writeContract({
-	            address: INSTRUMENT_ADDRESS,
-	            abi: CURRENT_INSTRUMENT_ABI,
-	            functionName: 'remove',
-	            args: [encodeRemoveParam(traderRemoveParam)],
-	        });
-	        await waitForTx(traderRemoveHash);
-	
-	        const traderAfterRemove = await fetchOnchainContext(
-	            INSTRUMENT_ADDRESS,
-	            EXPIRY,
-	            ctx.rpcConfig,
-	            traderWallet.account.address
-	        );
-	        expect(traderAfterRemove.portfolio.ranges.length).toBe(0);
-	
-	        const [lpRemoveParam] = new RemoveInput(lpWallet.account.address, tickLower, tickUpper).simulate(lpAfterAdd, userSetting);
-	        const lpRemoveHash = await lpWallet.writeContract({
-	            address: INSTRUMENT_ADDRESS,
-	            abi: CURRENT_INSTRUMENT_ABI,
-	            functionName: 'remove',
-	            args: [encodeRemoveParam(lpRemoveParam)],
-	        });
-	        await waitForTx(lpRemoveHash);
-	
-	        const lpAfterRemove = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, lpWallet.account.address);
-	        expect(lpAfterRemove.portfolio.ranges.length).toBe(0);
-	    });
+        const afterCancel = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            makerWallet.account.address
+        );
+        expect(afterCancel.portfolio.orders.length).toBe(0);
+    });
 
-	    it('multiple users can place orders at the same tick', async () => {
-	        const trader0Wallet = createUserWallet(4);
+    it('two users can add/remove liquidity at the same tick range', async () => {
+        const traderWallet = createUserWallet(4);
+        const lpWallet = createUserWallet(3);
+
+        const transferAmount = 200_000n * QUOTE_UNIT;
+
+        await transferQuote(traderWallet.account.address, transferAmount);
+        await transferQuote(lpWallet.account.address, transferAmount);
+
+        await approveQuote(traderWallet, ctx.manifest.contracts.gate, transferAmount);
+        await approveQuote(lpWallet, ctx.manifest.contracts.gate, transferAmount);
+
+        const traderBeforeAdd = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            traderWallet.account.address
+        );
+
+        const leverage =
+            traderBeforeAdd.instrumentSetting.maxLeverage < DEFAULT_LEVERAGE
+                ? traderBeforeAdd.instrumentSetting.maxLeverage
+                : DEFAULT_LEVERAGE;
+        const userSetting = new UserSetting(3600, DEFAULT_SLIPPAGE_BPS, leverage);
+
+        const { tick: ammTick } = traderBeforeAdd.amm;
+        const delta = traderBeforeAdd.instrumentSetting.minTickDelta;
+        const tickLower = traderBeforeAdd.instrumentSetting.alignRangeTickLower(ammTick - delta);
+        const tickUpper = traderBeforeAdd.instrumentSetting.alignRangeTickUpper(ammTick + delta);
+
+        let addMargin = 5_000n * WAD;
+        let traderAddParam: ReturnType<AddInput['simulate']>[0] | undefined;
+
+        for (let attempt = 0; attempt < 8; attempt += 1) {
+            try {
+                [traderAddParam] = new AddInput(traderWallet.account.address, addMargin, tickLower, tickUpper).simulate(
+                    traderBeforeAdd,
+                    userSetting
+                );
+                break;
+            } catch {
+                addMargin *= 2n;
+            }
+        }
+
+        if (!traderAddParam) {
+            throw new Error('Unable to find a valid addParam for trader');
+        }
+
+        const traderDepositAmount = traderAddParam.amount / QUOTE_SCALER + 1n;
+        await depositQuote(traderWallet, traderDepositAmount);
+
+        const traderAddHash = await traderWallet.writeContract({
+            address: INSTRUMENT_ADDRESS,
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'add',
+            args: [encodeAddParam(traderAddParam)],
+        });
+        await waitForTx(traderAddHash);
+
+        const lpBeforeAdd = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            lpWallet.account.address
+        );
+
+        let lpAddParam: ReturnType<AddInput['simulate']>[0] | undefined;
+        for (let attempt = 0; attempt < 8; attempt += 1) {
+            try {
+                [lpAddParam] = new AddInput(lpWallet.account.address, addMargin, tickLower, tickUpper).simulate(
+                    lpBeforeAdd,
+                    userSetting
+                );
+                break;
+            } catch {
+                addMargin *= 2n;
+            }
+        }
+
+        if (!lpAddParam) {
+            throw new Error('Unable to find a valid addParam for lp');
+        }
+
+        const lpDepositAmount = lpAddParam.amount / QUOTE_SCALER + 1n;
+        await depositQuote(lpWallet, lpDepositAmount);
+
+        const lpAddHash = await lpWallet.writeContract({
+            address: INSTRUMENT_ADDRESS,
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'add',
+            args: [encodeAddParam(lpAddParam)],
+        });
+        await waitForTx(lpAddHash);
+
+        const traderAfterAdd = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            traderWallet.account.address
+        );
+        const lpAfterAdd = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            lpWallet.account.address
+        );
+
+        expect(traderAfterAdd.portfolio.ranges.length).toBe(1);
+        expect(traderAfterAdd.portfolio.rids.length).toBe(1);
+        expect(lpAfterAdd.portfolio.ranges.length).toBe(1);
+        expect(lpAfterAdd.portfolio.rids.length).toBe(1);
+
+        const traderRid = traderAfterAdd.portfolio.rids[0];
+        const lpRid = lpAfterAdd.portfolio.rids[0];
+        if (!traderRid || !lpRid) throw new Error('Missing range rid after add');
+        expect(traderRid).toBe(lpRid);
+
+        const { tickLower: addedLower, tickUpper: addedUpper } = Range.unpackKey(traderRid);
+        expect(addedLower).toBe(tickLower);
+        expect(addedUpper).toBe(tickUpper);
+
+        const [traderRemoveParam] = new RemoveInput(traderWallet.account.address, tickLower, tickUpper).simulate(
+            traderAfterAdd,
+            userSetting
+        );
+        const traderRemoveHash = await traderWallet.writeContract({
+            address: INSTRUMENT_ADDRESS,
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'remove',
+            args: [encodeRemoveParam(traderRemoveParam)],
+        });
+        await waitForTx(traderRemoveHash);
+
+        const traderAfterRemove = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            traderWallet.account.address
+        );
+        expect(traderAfterRemove.portfolio.ranges.length).toBe(0);
+
+        const [lpRemoveParam] = new RemoveInput(lpWallet.account.address, tickLower, tickUpper).simulate(
+            lpAfterAdd,
+            userSetting
+        );
+        const lpRemoveHash = await lpWallet.writeContract({
+            address: INSTRUMENT_ADDRESS,
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'remove',
+            args: [encodeRemoveParam(lpRemoveParam)],
+        });
+        await waitForTx(lpRemoveHash);
+
+        const lpAfterRemove = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            lpWallet.account.address
+        );
+        expect(lpAfterRemove.portfolio.ranges.length).toBe(0);
+    });
+
+    it('multiple users can place orders at the same tick', async () => {
+        const trader0Wallet = createUserWallet(4);
         const trader1Wallet = createUserWallet(5);
         const lpWallet = createUserWallet(3);
 
@@ -480,7 +548,9 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
         }
 
         const leverage =
-            trader0Before.instrumentSetting.maxLeverage < 10n * WAD ? trader0Before.instrumentSetting.maxLeverage : 10n * WAD;
+            trader0Before.instrumentSetting.maxLeverage < 10n * WAD
+                ? trader0Before.instrumentSetting.maxLeverage
+                : 10n * WAD;
         const userSetting = new UserSetting(3600, DEFAULT_SLIPPAGE_BPS, leverage);
 
         const placeShortOrder = async (wallet: ReturnType<typeof createUserWallet>, tick: number) => {
@@ -559,162 +629,181 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
 
         expect(trader0Order1.order.size < 0n).toBe(true);
         expect(trader0Order2.order.size < 0n).toBe(true);
-	        expect(trader1Order1.order.size < 0n).toBe(true);
-	        expect(lpOrder1.order.size < 0n).toBe(true);
-	    });
-	
-	    it('trade can pull margin from EOA when reserve is empty with multiple ranges', async () => {
-	        const lpWallet = createUserWallet(8);
-	        const traderWallet = createUserWallet(9);
-	
-	        const transferAmount = 200_000n * QUOTE_UNIT;
-	        await transferQuote(lpWallet.account.address, transferAmount);
-	        await transferQuote(traderWallet.account.address, transferAmount);
-	
-	        await approveQuote(lpWallet, ctx.manifest.contracts.gate, transferAmount);
-	        await approveQuote(traderWallet, ctx.manifest.contracts.gate, transferAmount);
-	
-	        const lpBefore = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, lpWallet.account.address);
-	        const { instrumentSetting } = lpBefore;
-	
-	        const leverage = instrumentSetting.maxLeverage < 5n * WAD ? instrumentSetting.maxLeverage : 5n * WAD;
-	        const userSetting = new UserSetting(3600, 5000, leverage);
-	
-	        const delta = instrumentSetting.minTickDelta;
-	        const narrowLower = instrumentSetting.alignRangeTickLower(lpBefore.amm.tick - delta);
-	        const narrowUpper = instrumentSetting.alignRangeTickUpper(lpBefore.amm.tick + delta);
-	
-	        // Ported from v3-contracts hardhat `Instrument.test.ts`:
-	        // second range uses the contract's `TICK_DELTA_MAX` (1.0001 ** 16096 ≈ 5.0).
-	        const MAX_RANGE_TICK_DELTA = 16_096;
-	        // We subtract `rangeSpacing` so the alignment rounding cannot push the final delta above `TICK_DELTA_MAX`.
-	        const wideDelta = MAX_RANGE_TICK_DELTA - instrumentSetting.rangeSpacing;
-	        const wideLower = instrumentSetting.alignRangeTickLower(lpBefore.amm.tick - wideDelta);
-	        const wideUpper = instrumentSetting.alignRangeTickUpper(lpBefore.amm.tick + wideDelta);
-	
-	        let lpMargin = 10_000n * WAD;
-	
-	        const addLiquidity = async (snapshot: Awaited<ReturnType<typeof fetchOnchainContext>>, tickLower: number, tickUpper: number) => {
-	            let addParam: ReturnType<AddInput['simulate']>[0] | undefined;
-	            for (let attempt = 0; attempt < 8; attempt += 1) {
-	                try {
-	                    [addParam] = new AddInput(lpWallet.account.address, lpMargin, tickLower, tickUpper).simulate(
-	                        snapshot,
-	                        userSetting
-	                    );
-	                    break;
-	                } catch {
-	                    lpMargin *= 2n;
-	                }
-	            }
-	
-	            if (!addParam) {
-	                throw new Error(`Unable to add liquidity for tickLower=${tickLower}, tickUpper=${tickUpper}`);
-	            }
-	
-	            const depositAmount = addParam.amount / QUOTE_SCALER + 1n;
-	            await depositQuote(lpWallet, depositAmount);
-	
-	            const addHash = await lpWallet.writeContract({
-	                address: INSTRUMENT_ADDRESS,
-	                abi: CURRENT_INSTRUMENT_ABI,
-	                functionName: 'add',
-	                args: [encodeAddParam(addParam)],
-	            });
-	            await waitForTx(addHash);
-	        };
-	
-	        await addLiquidity(lpBefore, narrowLower, narrowUpper);
-	        const lpAfterNarrow = await fetchOnchainContext(
-	            INSTRUMENT_ADDRESS,
-	            EXPIRY,
-	            ctx.rpcConfig,
-	            lpWallet.account.address
-	        );
-	        await addLiquidity(lpAfterNarrow, wideLower, wideUpper);
-	
-	        const lpAfterAdds = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, lpWallet.account.address);
-	        expect(lpAfterAdds.portfolio.ranges.length).toBe(2);
-	
-	        let expectedPositionSize = 0n;
-	
-	        const tradeOnce = async (tradeBaseQuantity: bigint, useReserve: boolean) => {
-	            const before = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, traderWallet.account.address);
-	            const quotationRaw = await inquireByBaseSize(INSTRUMENT_ADDRESS, EXPIRY, tradeBaseQuantity, ctx.rpcConfig);
-	            const quotation = new QuotationWithSize(tradeBaseQuantity, quotationRaw);
-	
-	            const [tradeParam] = new TradeInput(traderWallet.account.address, tradeBaseQuantity, Side.LONG).simulate(
-	                before,
-	                quotation,
-	                userSetting
-	            );
-	
-	            const balanceBefore = await getQuoteBalance(traderWallet.account.address);
-	            const reserveBefore = before.quoteState.reserve;
-	
-	            if (useReserve) {
-	                const depositAmount = tradeParam.amount / QUOTE_SCALER + 1n;
-	                await depositQuote(traderWallet, depositAmount);
-	            } else {
-	                expect(reserveBefore).toBe(0n);
-	            }
-	
-	            const afterDepositBalance = await getQuoteBalance(traderWallet.account.address);
-	            const afterDepositSnapshot = await fetchOnchainContext(
-	                INSTRUMENT_ADDRESS,
-	                EXPIRY,
-	                ctx.rpcConfig,
-	                traderWallet.account.address
-	            );
-	
-	            const tradeHash = await traderWallet.writeContract({
-	                address: INSTRUMENT_ADDRESS,
-	                abi: CURRENT_INSTRUMENT_ABI,
-	                functionName: 'trade',
-	                args: [encodeTradeParam(tradeParam)],
-	            });
-	            await waitForTx(tradeHash);
-	
-	            expectedPositionSize += tradeParam.size;
-	
-	            const after = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, traderWallet.account.address);
-	            expect(after.portfolio.position.size).toBe(expectedPositionSize);
-	
-	            const balanceAfter = await getQuoteBalance(traderWallet.account.address);
-	            if (useReserve) {
-	                expect(balanceAfter).toBe(afterDepositBalance);
-	                expect(after.quoteState.reserve < afterDepositSnapshot.quoteState.reserve).toBe(true);
-	            } else {
-	                expect(after.quoteState.reserve).toBe(0n);
-	                expect(balanceAfter < balanceBefore).toBe(true);
-	            }
-	        };
-	
-	        const traderBeforeFirst = await fetchOnchainContext(
-	            INSTRUMENT_ADDRESS,
-	            EXPIRY,
-	            ctx.rpcConfig,
-	            traderWallet.account.address
-	        );
-	        const minTradeValue = traderBeforeFirst.instrumentSetting.minTradeValue;
-	
-	        let baseQuantity = WAD / 20n;
-	        for (let attempt = 0; attempt < 8; attempt += 1) {
-	            const quotation = await inquireByBaseSize(INSTRUMENT_ADDRESS, EXPIRY, baseQuantity, ctx.rpcConfig);
-	            const candidate = new QuotationWithSize(baseQuantity, quotation);
-	            if (candidate.tradeValue >= minTradeValue) {
-	                break;
-	            }
-	            baseQuantity *= 2n;
-	        }
-	
-	        await tradeOnce(baseQuantity, false);
-	        await tradeOnce(baseQuantity, true);
-	
-	        // The Hardhat suite labels a final "trade in 2 ranges" here; in devnet we keep the
-	        // key SDK invariant: trades succeed with multiple ranges present, and margin can be
-	        // supplied either from EOA (no reserve) or from the Gate reserve.
-	    });
+        expect(trader1Order1.order.size < 0n).toBe(true);
+        expect(lpOrder1.order.size < 0n).toBe(true);
+    });
+
+    it('trade can pull margin from EOA when reserve is empty with multiple ranges', async () => {
+        const lpWallet = createUserWallet(8);
+        const traderWallet = createUserWallet(9);
+
+        const transferAmount = 200_000n * QUOTE_UNIT;
+        await transferQuote(lpWallet.account.address, transferAmount);
+        await transferQuote(traderWallet.account.address, transferAmount);
+
+        await approveQuote(lpWallet, ctx.manifest.contracts.gate, transferAmount);
+        await approveQuote(traderWallet, ctx.manifest.contracts.gate, transferAmount);
+
+        const lpBefore = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, lpWallet.account.address);
+        const { instrumentSetting } = lpBefore;
+
+        const leverage = instrumentSetting.maxLeverage < 5n * WAD ? instrumentSetting.maxLeverage : 5n * WAD;
+        const userSetting = new UserSetting(3600, 5000, leverage);
+
+        const delta = instrumentSetting.minTickDelta;
+        const narrowLower = instrumentSetting.alignRangeTickLower(lpBefore.amm.tick - delta);
+        const narrowUpper = instrumentSetting.alignRangeTickUpper(lpBefore.amm.tick + delta);
+
+        // Ported from v3-contracts hardhat `Instrument.test.ts`:
+        // second range uses the contract's `TICK_DELTA_MAX` (1.0001 ** 16096 ≈ 5.0).
+        const MAX_RANGE_TICK_DELTA = 16_096;
+        // We subtract `rangeSpacing` so the alignment rounding cannot push the final delta above `TICK_DELTA_MAX`.
+        const wideDelta = MAX_RANGE_TICK_DELTA - instrumentSetting.rangeSpacing;
+        const wideLower = instrumentSetting.alignRangeTickLower(lpBefore.amm.tick - wideDelta);
+        const wideUpper = instrumentSetting.alignRangeTickUpper(lpBefore.amm.tick + wideDelta);
+
+        let lpMargin = 10_000n * WAD;
+
+        const addLiquidity = async (
+            snapshot: Awaited<ReturnType<typeof fetchOnchainContext>>,
+            tickLower: number,
+            tickUpper: number
+        ) => {
+            let addParam: ReturnType<AddInput['simulate']>[0] | undefined;
+            for (let attempt = 0; attempt < 8; attempt += 1) {
+                try {
+                    [addParam] = new AddInput(lpWallet.account.address, lpMargin, tickLower, tickUpper).simulate(
+                        snapshot,
+                        userSetting
+                    );
+                    break;
+                } catch {
+                    lpMargin *= 2n;
+                }
+            }
+
+            if (!addParam) {
+                throw new Error(`Unable to add liquidity for tickLower=${tickLower}, tickUpper=${tickUpper}`);
+            }
+
+            const depositAmount = addParam.amount / QUOTE_SCALER + 1n;
+            await depositQuote(lpWallet, depositAmount);
+
+            const addHash = await lpWallet.writeContract({
+                address: INSTRUMENT_ADDRESS,
+                abi: CURRENT_INSTRUMENT_ABI,
+                functionName: 'add',
+                args: [encodeAddParam(addParam)],
+            });
+            await waitForTx(addHash);
+        };
+
+        await addLiquidity(lpBefore, narrowLower, narrowUpper);
+        const lpAfterNarrow = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            lpWallet.account.address
+        );
+        await addLiquidity(lpAfterNarrow, wideLower, wideUpper);
+
+        const lpAfterAdds = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            lpWallet.account.address
+        );
+        expect(lpAfterAdds.portfolio.ranges.length).toBe(2);
+
+        let expectedPositionSize = 0n;
+
+        const tradeOnce = async (tradeBaseQuantity: bigint, useReserve: boolean) => {
+            const before = await fetchOnchainContext(
+                INSTRUMENT_ADDRESS,
+                EXPIRY,
+                ctx.rpcConfig,
+                traderWallet.account.address
+            );
+            const quotationRaw = await inquireByBaseSize(INSTRUMENT_ADDRESS, EXPIRY, tradeBaseQuantity, ctx.rpcConfig);
+            const quotation = new QuotationWithSize(tradeBaseQuantity, quotationRaw);
+
+            const [tradeParam] = new TradeInput(traderWallet.account.address, tradeBaseQuantity, Side.LONG).simulate(
+                before,
+                quotation,
+                userSetting
+            );
+
+            const balanceBefore = await getQuoteBalance(traderWallet.account.address);
+            const reserveBefore = before.quoteState.reserve;
+
+            if (useReserve) {
+                const depositAmount = tradeParam.amount / QUOTE_SCALER + 1n;
+                await depositQuote(traderWallet, depositAmount);
+            } else {
+                expect(reserveBefore).toBe(0n);
+            }
+
+            const afterDepositBalance = await getQuoteBalance(traderWallet.account.address);
+            const afterDepositSnapshot = await fetchOnchainContext(
+                INSTRUMENT_ADDRESS,
+                EXPIRY,
+                ctx.rpcConfig,
+                traderWallet.account.address
+            );
+
+            const tradeHash = await traderWallet.writeContract({
+                address: INSTRUMENT_ADDRESS,
+                abi: CURRENT_INSTRUMENT_ABI,
+                functionName: 'trade',
+                args: [encodeTradeParam(tradeParam)],
+            });
+            await waitForTx(tradeHash);
+
+            expectedPositionSize += tradeParam.size;
+
+            const after = await fetchOnchainContext(
+                INSTRUMENT_ADDRESS,
+                EXPIRY,
+                ctx.rpcConfig,
+                traderWallet.account.address
+            );
+            expect(after.portfolio.position.size).toBe(expectedPositionSize);
+
+            const balanceAfter = await getQuoteBalance(traderWallet.account.address);
+            if (useReserve) {
+                expect(balanceAfter).toBe(afterDepositBalance);
+                expect(after.quoteState.reserve < afterDepositSnapshot.quoteState.reserve).toBe(true);
+            } else {
+                expect(after.quoteState.reserve).toBe(0n);
+                expect(balanceAfter < balanceBefore).toBe(true);
+            }
+        };
+
+        const traderBeforeFirst = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            traderWallet.account.address
+        );
+        const minTradeValue = traderBeforeFirst.instrumentSetting.minTradeValue;
+
+        let baseQuantity = WAD / 20n;
+        for (let attempt = 0; attempt < 8; attempt += 1) {
+            const quotation = await inquireByBaseSize(INSTRUMENT_ADDRESS, EXPIRY, baseQuantity, ctx.rpcConfig);
+            const candidate = new QuotationWithSize(baseQuantity, quotation);
+            if (candidate.tradeValue >= minTradeValue) {
+                break;
+            }
+            baseQuantity *= 2n;
+        }
+
+        await tradeOnce(baseQuantity, false);
+        await tradeOnce(baseQuantity, true);
+
+        // The Hardhat suite labels a final "trade in 2 ranges" here; in devnet we keep the
+        // key SDK invariant: trades succeed with multiple ranges present, and margin can be
+        // supplied either from EOA (no reserve) or from the Gate reserve.
+    });
 
     it('multi orders → taker trades cross orders → maker fill & cancel', async () => {
         const makerWallet = createUserWallet(5);
