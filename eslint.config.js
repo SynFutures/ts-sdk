@@ -4,7 +4,7 @@ const typescript = require('typescript-eslint');
 
 module.exports = [
     {
-        ignores: ['**/dist/*', 'jest.config.js', 'eslint.config.js', 'templates', '**/*.d.ts'],
+        ignores: ['**/dist/*', '.worktrees/**', 'jest.config.js', 'eslint.config.js', 'templates', '**/*.d.ts'],
     },
     eslint.configs.recommended,
     ...typescript.configs.recommended,
@@ -16,6 +16,25 @@ module.exports = [
                 clearTimeout: 'readonly',
                 fetch: 'readonly',
                 process: 'readonly',
+                setInterval: 'readonly',
+                setTimeout: 'readonly',
+            },
+        },
+    },
+    {
+        files: ['scripts/**/*.{js,cjs}'],
+        languageOptions: {
+            globals: {
+                Buffer: 'readonly',
+                __dirname: 'readonly',
+                __filename: 'readonly',
+                clearInterval: 'readonly',
+                clearTimeout: 'readonly',
+                console: 'readonly',
+                fetch: 'readonly',
+                module: 'readonly',
+                process: 'readonly',
+                require: 'readonly',
                 setInterval: 'readonly',
                 setTimeout: 'readonly',
             },

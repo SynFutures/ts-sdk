@@ -79,6 +79,7 @@ function parseArgs(rawArgs) {
             case "-h": {
                 printUsage();
                 process.exit(0);
+                break;
             }
             default: {
                 if (arg.startsWith("-")) {
