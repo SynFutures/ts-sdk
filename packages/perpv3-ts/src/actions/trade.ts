@@ -160,9 +160,16 @@ export class TradeInput {
         }
 
         // Step 8: Finalize trade parameters and build simulation result
-        // If position closed with positive balance, withdraw all remaining balance
-        if (postPosition.size === ZERO && postPosition.balance > ZERO) {
-            marginDelta = -postPosition.balance;
+        // Full close: remaining balance is pushed back to Gate by the contract, so explicit withdrawal is not allowed.
+        if (postPosition.size === ZERO && marginDelta < ZERO) {
+            if (userSetting.strictMode) {
+                throw Errors.simulation(
+                    'Cannot withdraw margin when closing the entire position',
+                    ErrorCode.SIMULATION_FAILED
+                );
+            }
+            marginDelta = ZERO;
+            marginAdjusted = true;
         }
         tradeParam.amount = marginDelta;
 

@@ -594,27 +594,28 @@ describe('devnet dated futures integration (ported from v3-contracts hardhat int
             );
             if (makerDuringSettling.portfolio.position.size !== 0n) {
                 const closeSignedSize = -makerDuringSettling.portfolio.position.size;
-                const closeDeadline = userSetting.getDeadline(makerDuringSettling.blockInfo.timestamp);
 
                 // Align benchmark to mark tick to avoid deviation reverts during settling TWAP smoothing.
                 const targetTick = wadToTick(makerDuringSettling.priceData.markPrice);
                 await setSpotPrice(tickToWad(targetTick));
 
-                const INT24_MIN = -(1 << 23);
-                const INT24_MAX = (1 << 23) - 1;
-                const closeParam = {
-                    expiry: EXPIRY,
-                    size: closeSignedSize,
-                    amount: 0n,
-                    limitTick: closeSignedSize > 0n ? INT24_MAX : INT24_MIN,
-                    deadline: closeDeadline,
-                };
-                log(`closeDuringSettling: signedSize=${closeSignedSize.toString()} deadline=${closeDeadline}`);
+                const closeQuotation = await inquireByBaseSize(INSTRUMENT_ADDRESS, EXPIRY, closeSignedSize, ctx.rpcConfig);
+                const closeQuotationWithSize = new QuotationWithSize(closeSignedSize, closeQuotation);
+                const closeSide = closeSignedSize >= 0n ? Side.LONG : Side.SHORT;
+                const [closeTradeParam] = new TradeInput(
+                    makerWallet.account.address,
+                    abs(closeSignedSize),
+                    closeSide
+                ).simulate(makerDuringSettling, closeQuotationWithSize, userSetting);
+
+                log(
+                    `closeDuringSettling: signedSize=${closeSignedSize.toString()} amount=${closeTradeParam.amount.toString()}`
+                );
                 const closeHash = await makerWallet.writeContract({
                     address: INSTRUMENT_ADDRESS,
                     abi: CURRENT_INSTRUMENT_ABI,
                     functionName: 'trade',
-                    args: [encodeTradeParam(closeParam)],
+                    args: [encodeTradeParam(closeTradeParam)],
                 });
                 await waitForTx(closeHash);
 
