@@ -1,7 +1,7 @@
 import { MAX_UINT_128, MAX_UINT_256, WAD } from '../constants';
 import { sqrt } from '../math';
 import { Range } from '../types/range';
-import { getNextSqrtPriceFromDeltaBase } from './utils/unused';
+import { getNextSqrtPriceFromDeltaBase } from './utils/mathTestUtils';
 
 function expandTo18Decimals(value: number): bigint {
     return BigInt(value) * WAD;
@@ -150,4 +150,3 @@ describe('SqrtPriceMath (ported from v3-contracts Hardhat tests)', () => {
         });
     });
 });
-
