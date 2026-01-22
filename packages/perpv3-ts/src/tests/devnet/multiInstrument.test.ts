@@ -106,7 +106,7 @@ describe('devnet multi-instrument fixtures', () => {
                 ctx.accounts.trader.address
             );
 
-            expect(snapshot.expiry).toBe(PERP_EXPIRY);
+            expect(snapshot.expiry).toBe(instrument.expiry);
             expect(snapshot.instrumentSymbol).toBe(instrument.symbol);
             expect(snapshot.amm.liquidity).toBeGreaterThan(0n);
 
@@ -166,4 +166,3 @@ describe('devnet multi-instrument fixtures', () => {
         expect(after.portfolio.position.size).toBe(tradeParam.size);
     });
 });
-
