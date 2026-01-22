@@ -82,20 +82,9 @@ export function sortQueryString(queryString: string): string {
         return '';
     }
 
-    // Parse parameters
-    const params = new URLSearchParams(queryString);
-    const sortedParams: string[] = [];
-
-    // Sort and rebuild
-    const sortedKeys = Array.from(new Set(params.keys())).sort();
-    for (const key of sortedKeys) {
-        const values = params.getAll(key);
-        for (const value of values) {
-            sortedParams.push(`${key}=${value}`);
-        }
-    }
-
-    return sortedParams.join('&');
+    const sp = new URLSearchParams(queryString);
+    sp.sort();
+    return sp.toString();
 }
 
 /**

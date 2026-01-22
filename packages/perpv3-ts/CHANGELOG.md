@@ -1,5 +1,17 @@
 # @synfutures/perpv3-ts
 
+## 0.2.3
+
+### Patch Changes
+
+- Fix MM API request signing when query params need percent-encoding (e.g. symbol=BTC/USDC).
+
+## 0.2.2
+
+### Patch Changes
+
+- Update base observer address
+
 ## 0.2.1
 
 ### Patch Changes

@@ -126,6 +126,27 @@ describe('buildMessage', () => {
         const result = buildMessage(timestamp, method, path);
         expect(result).toBe('2020-12-08T09:08:57.715ZGET/v4/public/market/instrument?symbol=BTC&tags=tag1&tags=tag2');
     });
+
+    it('handles GET request with BTC/USDC symbol', () => {
+        const expected = '2020-12-08T09:08:57.715ZGET/v4/public/market/instrument?chainId=1&depth=20&symbol=BTC%2FUSDC'
+        const timestamp = '2020-12-08T09:08:57.715Z';
+        const method = 'GET';
+        const path1 = '/v4/public/market/instrument?symbol=BTC/USDC&chainId=1&depth=20';
+        const result1 = buildMessage(timestamp, method, path1);
+        expect(result1).toBe(expected);
+
+        const path2 = '/v4/public/market/instrument?chainId=1&depth=20&symbol=BTC/USDC';
+        const result2 = buildMessage(timestamp, method, path2);
+        expect(result2).toBe(expected);
+
+        const path3 = '/v4/public/market/instrument?symbol=BTC%2FUSDC&chainId=1&depth=20';
+        const result3 = buildMessage(timestamp, method, path3);
+        expect(result3).toBe(expected);
+
+        const path4 = '/v4/public/market/instrument?chainId=1&depth=20&symbol=BTC%2FUSDC';
+        const result4 = buildMessage(timestamp, method, path4);
+        expect(result4).toBe(expected);
+    });
 });
 
 describe('getHeaders', () => {
