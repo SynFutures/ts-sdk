@@ -13,13 +13,27 @@ type DevnetPreset = {
     };
 };
 
+type DevnetRuntime = {
+    rpcUrl?: string;
+};
+
 function loadPreset(): DevnetPreset {
     const presetPath = path.join(process.cwd(), 'devnet', 'preset.json');
     return JSON.parse(readFileSync(presetPath, 'utf8')) as DevnetPreset;
 }
 
+function loadRuntimeRpcUrl(): string | null {
+    const runtimePath = path.join(process.cwd(), 'devnet', '.runtime', 'anvil.json');
+    try {
+        const runtime = JSON.parse(readFileSync(runtimePath, 'utf8')) as DevnetRuntime;
+        return typeof runtime?.rpcUrl === 'string' && runtime.rpcUrl.length > 0 ? runtime.rpcUrl : null;
+    } catch {
+        return null;
+    }
+}
+
 const preset = loadPreset();
-const rpcUrl = `http://${preset.anvil.host}:${preset.anvil.port}`;
+const rpcUrl = loadRuntimeRpcUrl() ?? `http://${preset.anvil.host}:${preset.anvil.port}`;
 const chain = preset.anvil.chainId === foundry.id ? foundry : { ...foundry, id: preset.anvil.chainId };
 const testClient = createTestClient({ chain, mode: 'anvil', transport: http(rpcUrl) });
 

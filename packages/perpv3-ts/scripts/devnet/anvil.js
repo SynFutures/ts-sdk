@@ -1,3 +1,5 @@
+/* eslint-env node */
+
 import { spawn } from 'node:child_process';
 import { createWriteStream, mkdirSync } from 'node:fs';
 import path from 'node:path';

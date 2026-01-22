@@ -1,3 +1,5 @@
+/* eslint-env node */
+
 import { assertStateFresh, getDevnetPaths, computeExpectedStateMeta } from './devnet-meta.js';
 
 function main() {
@@ -27,4 +29,3 @@ function main() {
 }
 
 main();
-

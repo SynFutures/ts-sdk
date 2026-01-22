@@ -9,6 +9,19 @@ module.exports = [
     eslint.configs.recommended,
     ...typescript.configs.recommended,
     {
+        files: ['packages/perpv3-ts/scripts/devnet/**/*.js'],
+        languageOptions: {
+            globals: {
+                clearInterval: 'readonly',
+                clearTimeout: 'readonly',
+                fetch: 'readonly',
+                process: 'readonly',
+                setInterval: 'readonly',
+                setTimeout: 'readonly',
+            },
+        },
+    },
+    {
         rules: {
             'no-empty': 'off',
             'no-console': 'off',

@@ -1,9 +1,42 @@
+/* eslint-env node */
+
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import net from 'node:net';
 import path from 'node:path';
 
 import { assertStateFresh, getDevnetPaths } from '../devnet-meta.js';
 import { buildAnvilArgs, waitForRpc } from '../anvil.js';
+
+async function isTcpPortAvailable(host, port) {
+    return await new Promise((resolve) => {
+        const server = net.createServer();
+        server.unref();
+        server.once('error', () => resolve(false));
+        server.listen(port, host, () => {
+            server.close(() => resolve(true));
+        });
+    });
+}
+
+async function pickFreePort(host) {
+    return await new Promise((resolve, reject) => {
+        const server = net.createServer();
+        server.unref();
+        server.once('error', reject);
+        server.listen(0, host, () => {
+            const address = server.address();
+            if (!address || typeof address === 'string') {
+                server.close(() => reject(new Error('Failed to pick a free port (unexpected server address).')));
+                return;
+            }
+            server.close((error) => {
+                if (error) reject(error);
+                else resolve(address.port);
+            });
+        });
+    });
+}
 
 async function jsonRpc(rpcUrl, method, params) {
     const response = await fetch(rpcUrl, {
@@ -38,7 +71,10 @@ export default async function globalSetup() {
         throw new Error(`Invalid devnet preset at ${paths.presetPath}`);
     }
 
-    const rpcUrl = `http://${host}:${port}`;
+    // Prefer the preset port, but fall back to an OS-assigned free port without killing any existing process.
+    // This keeps `devnet/preset.json` stable while avoiding occasional local port collisions.
+    const resolvedPort = (await isTcpPortAvailable(host, port)) ? port : await pickFreePort(host);
+    const rpcUrl = `http://${host}:${resolvedPort}`;
 
     const runtimeDir = path.join(paths.devnetRoot, '.runtime');
     mkdirSync(runtimeDir, { recursive: true });
@@ -46,7 +82,7 @@ export default async function globalSetup() {
 
     const args = buildAnvilArgs({
         host,
-        port,
+        port: resolvedPort,
         chainId,
         mnemonic,
         loadStatePath: paths.statePath,
@@ -59,7 +95,7 @@ export default async function globalSetup() {
         await waitForRpc({ rpcUrl, timeoutMs: 15_000 });
 
         if (child.exitCode !== null) {
-            throw new Error(`Anvil exited immediately (exitCode=${child.exitCode}). Is port ${port} already in use?`);
+            throw new Error(`Anvil exited immediately (exitCode=${child.exitCode}). Is port ${resolvedPort} already in use?`);
         }
 
         const chainIdHex = await jsonRpc(rpcUrl, 'eth_chainId', []);

@@ -6,6 +6,10 @@ import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 import type { RpcConfig } from '../../index';
 
+type DevnetRuntime = {
+    rpcUrl?: string;
+};
+
 export type DevnetManifest = {
     chainId: number;
     rpcUrl: string;
@@ -53,9 +57,25 @@ function loadJsonFile<T>(filePath: string): T {
     return JSON.parse(readFileSync(filePath, 'utf8')) as T;
 }
 
+function loadDevnetRuntime(): DevnetRuntime | null {
+    const runtimePath = path.join(process.cwd(), 'devnet', '.runtime', 'anvil.json');
+    try {
+        const runtime = loadJsonFile<DevnetRuntime>(runtimePath);
+        return runtime && typeof runtime === 'object' ? runtime : null;
+    } catch {
+        return null;
+    }
+}
+
 export function loadDevnetManifest(): DevnetManifest {
     const manifestPath = path.join(process.cwd(), 'devnet', 'manifest.json');
-    return loadJsonFile<DevnetManifest>(manifestPath);
+    const manifest = loadJsonFile<DevnetManifest>(manifestPath);
+    const runtime = loadDevnetRuntime();
+    const runtimeRpcUrl = runtime?.rpcUrl;
+    if (typeof runtimeRpcUrl === 'string' && runtimeRpcUrl.length > 0) {
+        return { ...manifest, rpcUrl: runtimeRpcUrl };
+    }
+    return manifest;
 }
 
 export function loadDevnetPreset(): DevnetPreset {
