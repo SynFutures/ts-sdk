@@ -510,8 +510,12 @@ export class InstrumentSetting {
      * Get the feasible tick range for creating liquidity ranges.
      */
     getFeasibleRangeTickRange(): { minTick: number; maxTick: number } {
-        const alignedMinTick = this.alignRangeTickLower(MIN_TICK);
-        const alignedMaxTick = this.alignRangeTickUpper(MAX_TICK);
+        // For range bounds we must return *aligned ticks within* [MIN_TICK, MAX_TICK].
+        // Note: `alignRangeTickLower(MIN_TICK)` may underflow below MIN_TICK when MIN_TICK
+        // is not a multiple of `rangeSpacing`, and `alignRangeTickUpper(MAX_TICK)` may overflow
+        // above MAX_TICK. Use the opposite aligners to stay in-bounds.
+        const alignedMinTick = this.alignRangeTickUpper(MIN_TICK);
+        const alignedMaxTick = this.alignRangeTickLower(MAX_TICK);
         return { minTick: alignedMinTick, maxTick: alignedMaxTick };
     }
 
