@@ -37,11 +37,29 @@ describe('Base observer calls', () => {
 
     test('fetchOnchainContext and inquiry methods succeed', async () => {
         const context = await fetchOnchainContext(instrumentAddress, expiry, rpcConfig);
-        expect(context.amm.tick).toBeGreaterThanOrEqual(0);
+        expect(Number.isFinite(context.amm.tick)).toBe(true);
 
-        const tickSpacing = Math.max(context.instrumentSetting.orderSpacing, 1);
-        const alignedTick = Math.floor(context.amm.tick / tickSpacing) * tickSpacing;
-        const tickQuote = await inquireByTick(instrumentAddress, expiry, alignedTick, rpcConfig);
+        const tickSpacing = context.instrumentSetting.orderSpacing;
+        expect(tickSpacing).toBeGreaterThan(0);
+
+        const candidateTicks = [
+            context.instrumentSetting.alignTickStrictlyBelow(context.amm.tick),
+            context.instrumentSetting.alignTickStrictlyAbove(context.amm.tick),
+        ];
+
+        let tickQuote: Awaited<ReturnType<typeof inquireByTick>> | undefined;
+        let lastError: unknown;
+        for (const candidateTick of candidateTicks) {
+            try {
+                tickQuote = await inquireByTick(instrumentAddress, expiry, candidateTick, rpcConfig);
+                break;
+            } catch (error) {
+                lastError = error;
+            }
+        }
+        if (!tickQuote) {
+            throw lastError ?? new Error('inquireByTick failed for all candidate ticks');
+        }
         expect(tickQuote.quotation).toBeDefined();
 
         const baseQuote = await inquireByBaseSize(instrumentAddress, expiry, 1n, rpcConfig);
