@@ -428,10 +428,8 @@ describe('simulateRemove', () => {
             expect(removeParam.target).toBe(fixtureRemoveInput.traderAddress);
             expect(removeParam.tickLower).toBe(fixtureRemoveInput.tickLower);
             expect(removeParam.tickUpper).toBe(fixtureRemoveInput.tickUpper);
-            const nowInSeconds = Math.floor(Date.now() / 1000);
-            const timeToDeadline = removeParam.deadline - nowInSeconds;
-            expect(timeToDeadline).toBeGreaterThanOrEqual(fixtureUserSetting.deadlineOffset - 2);
-            expect(timeToDeadline).toBeLessThanOrEqual(fixtureUserSetting.deadlineOffset + 2);
+            const timeToDeadline = removeParam.deadline - fixtureOnchainContext.blockInfo.timestamp;
+            expect(timeToDeadline).toBe(fixtureUserSetting.deadlineOffset);
             expect(removeParam.limitTicks).toBeDefined();
         });
 

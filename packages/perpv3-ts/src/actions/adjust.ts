@@ -90,7 +90,7 @@ export class AdjustInput {
         const adjustParam: AdjustParam = {
             expiry: snapshot.expiry,
             net: marginDelta,
-            deadline: userSetting.getDeadline(),
+            deadline: userSetting.getDeadline(snapshot.blockInfo.timestamp),
         };
 
         const simulation: AdjustSimulation = {
