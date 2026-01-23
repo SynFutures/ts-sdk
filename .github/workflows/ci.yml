@@ -26,8 +26,20 @@ jobs:
           node-version: 22
           cache: pnpm
       - name: Creating .npmrc
+        env:
+          REGISTRY_URL: ${{ secrets.NPM_REGISTRY_URL }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          REGISTRY_URL="${{ secrets.NPM_REGISTRY_URL }}"
+          # Validate required secrets
+          if [ -z "$REGISTRY_URL" ]; then
+            echo "::error::NPM_REGISTRY_URL secret is not set"
+            exit 1
+          fi
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "::error::NPM_TOKEN secret is not set"
+            exit 1
+          fi
+
           # Extract host+path from registry URL for auth token key
           # npm/pnpm auth token key format is //host/path/:_authToken
           # This works for both simple domains and URLs with paths (e.g., Nexus)
@@ -35,10 +47,12 @@ jobs:
           #   https://registry.example.com -> registry.example.com
           #   https://nexus.example.com/repository/npm/ -> nexus.example.com/repository/npm/
           REGISTRY_HOST_PATH=$(echo "$REGISTRY_URL" | sed -E 's|^https?://||' | sed -E 's|/$||')
-          cat << EOF > "$HOME/.npmrc"
-          @synfutures:registry=$REGISTRY_URL
-          //$REGISTRY_HOST_PATH/:_authToken=${{ secrets.NPM_TOKEN }}
-          EOF
+
+          # Write .npmrc using printf to safely handle special characters in token
+          {
+            printf '@synfutures:registry=%s\n' "$REGISTRY_URL"
+            printf '//%s/:_authToken=%s\n' "$REGISTRY_HOST_PATH" "$NPM_TOKEN"
+          } > "$HOME/.npmrc"
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
       - name: Lint
