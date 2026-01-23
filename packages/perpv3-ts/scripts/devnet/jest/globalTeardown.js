@@ -1,6 +1,7 @@
 /* eslint-env node */
 /* global console */
 
+import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
@@ -22,10 +23,36 @@ async function waitForProcessExit(pid, timeoutMs) {
     }
 }
 
+/**
+ * Attempt to kill any process listening on the given port.
+ * This is a fallback when we can't read the PID from anvil.json.
+ */
+function tryKillProcessOnPort(port) {
+    try {
+        // Use lsof to find PID listening on port, works on Linux/macOS
+        const result = execSync(`lsof -ti tcp:${port} 2>/dev/null`, { encoding: 'utf8' });
+        const pids = result.trim().split('\n').filter(Boolean);
+        for (const pidStr of pids) {
+            const pid = parseInt(pidStr, 10);
+            if (!isNaN(pid)) {
+                try {
+                    process.kill(pid, 'SIGTERM');
+                    console.warn(`[globalTeardown] Killed orphaned process ${pid} on port ${port}`);
+                } catch {
+                    // Process may have already exited
+                }
+            }
+        }
+    } catch {
+        // lsof failed or no process found - that's fine
+    }
+}
+
 export default async function globalTeardown() {
     const { devnetRoot } = getDevnetPaths();
     const runtimeDir = path.join(devnetRoot, '.runtime');
     const runtimePath = path.join(runtimeDir, 'anvil.json');
+    const presetPath = path.join(devnetRoot, 'preset.json');
 
     if (!existsSync(runtimePath)) return;
 
@@ -33,8 +60,17 @@ export default async function globalTeardown() {
     try {
         runtime = JSON.parse(readFileSync(runtimePath, 'utf8'));
     } catch {
-        // Corrupted or invalid JSON - clean up file and exit
-        console.warn('[globalTeardown] Failed to parse anvil.json, cleaning up file');
+        // Corrupted or invalid JSON - try to kill by preset port as fallback
+        console.warn('[globalTeardown] Failed to parse anvil.json, attempting fallback cleanup');
+        try {
+            const preset = JSON.parse(readFileSync(presetPath, 'utf8'));
+            const port = preset?.anvil?.port;
+            if (typeof port === 'number') {
+                tryKillProcessOnPort(port);
+            }
+        } catch {
+            // Can't read preset either - nothing more we can do
+        }
         rmSync(runtimePath, { force: true });
         return;
     }
