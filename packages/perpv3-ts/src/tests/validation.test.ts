@@ -132,6 +132,19 @@ const createTestSetting = (imr: number = 1000, orderSpacing: number = 10) =>
         100 // rangeSpacing
     );
 
+describe('InstrumentSetting.getFeasibleRangeTickRange', () => {
+    it('should return aligned ticks within MIN_TICK/MAX_TICK bounds', () => {
+        const setting = createTestSetting(1000, 10);
+        const range = setting.getFeasibleRangeTickRange();
+
+        expect(range.minTick).toBeGreaterThanOrEqual(MIN_TICK);
+        expect(range.maxTick).toBeLessThanOrEqual(MAX_TICK);
+        expect(Math.abs(range.minTick % setting.rangeSpacing)).toBe(0);
+        expect(Math.abs(range.maxTick % setting.rangeSpacing)).toBe(0);
+        expect(range.minTick).toBeLessThan(range.maxTick);
+    });
+});
+
 describe('InstrumentSetting.getFeasibleLimitOrderTickRange', () => {
     // Create a minimal InstrumentSetting for testing
     // createTestSetting is defined above for reuse across suites.

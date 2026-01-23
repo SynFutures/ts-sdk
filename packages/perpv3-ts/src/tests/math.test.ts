@@ -20,7 +20,7 @@ import {
 import { RATIO_DECIMALS, WAD } from '../constants';
 import { Range } from '../types';
 import { Condition, InstrumentSetting, QuoteType, Range, Setting, Side, UserSetting } from '../types';
-import { calcOrderLeverageByMargin, getNextSqrtPriceFromInput } from './utils/unused';
+import { calcOrderLeverageByMargin, getNextSqrtPriceFromInput } from './utils/mathTestUtils';
 import { zeroAddress } from 'viem';
 
 const DEFAULT_TEST_SPACING = {

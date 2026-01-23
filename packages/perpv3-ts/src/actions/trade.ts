@@ -68,7 +68,7 @@ export class TradeInput {
         const updatedAmm = snapshot.updateAmmFundingIndex();
 
         // Step 3: Build trade parameters
-        const tradeParam = this.toTradeParam(quotationWithSize, snapshot.expiry, userSetting);
+        const tradeParam = this.toTradeParam(quotationWithSize, snapshot.expiry, userSetting, snapshot.blockInfo.timestamp);
         const isLong = tradeParam.size >= ZERO;
         const tradeSign = isLong ? 1n : -1n;
 
@@ -160,9 +160,16 @@ export class TradeInput {
         }
 
         // Step 8: Finalize trade parameters and build simulation result
-        // If position closed with positive balance, withdraw all remaining balance
-        if (postPosition.size === ZERO && postPosition.balance > ZERO) {
-            marginDelta = -postPosition.balance;
+        // Full close: remaining balance is pushed back to Gate by the contract, so explicit withdrawal is not allowed.
+        if (postPosition.size === ZERO && marginDelta < ZERO) {
+            if (userSetting.strictMode) {
+                throw Errors.simulation(
+                    'Cannot withdraw margin when closing the entire position',
+                    ErrorCode.SIMULATION_FAILED
+                );
+            }
+            marginDelta = ZERO;
+            marginAdjusted = true;
         }
         tradeParam.amount = marginDelta;
 
@@ -175,10 +182,15 @@ export class TradeInput {
         return [tradeParam, simulation];
     }
 
-    private toTradeParam(quotationWithSize: QuotationWithSize, expiry: number, userSetting: UserSetting): TradeParam {
+    private toTradeParam(
+        quotationWithSize: QuotationWithSize,
+        expiry: number,
+        userSetting: UserSetting,
+        currentTimestamp: number
+    ): TradeParam {
         const tradePrice = quotationWithSize.tradePrice;
         const limitTick = userSetting.getTradeLimitTick(tradePrice, this.side);
-        const deadline = userSetting.getDeadline();
+        const deadline = userSetting.getDeadline(currentTimestamp);
 
         return {
             expiry,

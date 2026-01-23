@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Creating .npmrc
+        env:
+          REGISTRY_URL: ${{ secrets.NPM_REGISTRY_URL }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # Validate required secrets
+          if [ -z "$REGISTRY_URL" ]; then
+            echo "::error::NPM_REGISTRY_URL secret is not set"
+            exit 1
+          fi
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "::error::NPM_TOKEN secret is not set"
+            exit 1
+          fi
+
+          # Extract host+path from registry URL for auth token key
+          # npm/pnpm auth token key format is //host/path/:_authToken
+          # This works for both simple domains and URLs with paths (e.g., Nexus)
+          # Examples:
+          #   https://registry.example.com -> registry.example.com
+          #   https://nexus.example.com/repository/npm/ -> nexus.example.com/repository/npm/
+          REGISTRY_HOST_PATH=$(echo "$REGISTRY_URL" | sed -E 's|^https?://||' | sed -E 's|/$||')
+
+          # Write .npmrc using printf to safely handle special characters in token
+          {
+            printf '@synfutures:registry=%s\n' "$REGISTRY_URL"
+            printf '//%s/:_authToken=%s\n' "$REGISTRY_HOST_PATH" "$NPM_TOKEN"
+          } > "$HOME/.npmrc"
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm run lint
+      - name: Test
+        run: pnpm test
+      - name: Build
+        run: pnpm run nx

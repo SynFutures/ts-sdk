@@ -1,0 +1,126 @@
+{
+    "anvil": {
+        "host": "127.0.0.1",
+        "port": 8545,
+        "chainId": 31337,
+        "mnemonic": "test test test test test test test test test test test junk"
+    },
+    "deployment": {
+        "trustedForwarder": "0x0000000000000000000000000000000000000001",
+        "quotes": [
+            {
+                "symbol": "USDC",
+                "name": "USDC Token",
+                "decimals": 6,
+                "quoteParam": {
+                    "minMarginAmountWad": "10000000000000000000",
+                    "tradingFeeRatio": 30,
+                    "protocolFeeRatio": 10,
+                    "qtype": 1,
+                    "tipWad": "10000000000000000"
+                },
+                "quoteToUsdFeeder": {
+                    "decimals": 8,
+                    "priceRaw": "100000000"
+                }
+            }
+        ],
+        "markets": [
+            {
+                "marketType": "LINK",
+                "instruments": [
+                    {
+                        "baseSymbol": "ETH",
+                        "quoteSymbol": "USDC",
+                        "baseToUsdFeeder": {
+                            "decimals": 8,
+                            "priceRaw": "140000000000"
+                        },
+                        "initLiquidity": {
+                            "expiry": 4294967295,
+                            "tickDeltaLower": 0,
+                            "tickDeltaUpper": 2000,
+                            "amountWad": "2000000000000000000000",
+                            "limitTicks": "0x8000007fffff",
+                            "deadline": 4294967295
+                        }
+                    },
+                    {
+                        "baseSymbol": "ETH",
+                        "quoteSymbol": "USDC",
+                        "baseToUsdFeeder": {
+                            "decimals": 8,
+                            "priceRaw": "140000000000"
+                        },
+                        "initLiquidity": {
+                            "expiry": 0,
+                            "tickDeltaLower": 0,
+                            "tickDeltaUpper": 2000,
+                            "amountWad": "2000000000000000000000",
+                            "limitTicks": "0x8000007fffff",
+                            "deadline": 4294967295
+                        }
+                    },
+                    {
+                        "baseSymbol": "BTC",
+                        "quoteSymbol": "USDC",
+                        "baseToUsdFeeder": {
+                            "decimals": 8,
+                            "priceRaw": "2200000000000"
+                        },
+                        "initLiquidity": {
+                            "expiry": 4294967295,
+                            "tickDeltaLower": 0,
+                            "tickDeltaUpper": 2000,
+                            "amountWad": "2000000000000000000000",
+                            "limitTicks": "0x8000007fffff",
+                            "deadline": 4294967295
+                        }
+                    }
+                ]
+            },
+            {
+                "marketType": "EMG",
+                "instruments": [
+                    {
+                        "baseSymbol": "BTC",
+                        "quoteSymbol": "USDC",
+                        "baseToUsdFeeder": {
+                            "decimals": 8,
+                            "priceRaw": "2200000000000"
+                        },
+                        "initLiquidity": {
+                            "expiry": 4294967295,
+                            "tickDeltaLower": 0,
+                            "tickDeltaUpper": 2000,
+                            "amountWad": "2000000000000000000000",
+                            "limitTicks": "0x8000007fffff",
+                            "deadline": 4294967295
+                        }
+                    }
+                ]
+            },
+            {
+                "marketType": "PYTH",
+                "instruments": [
+                    {
+                        "baseSymbol": "BTC",
+                        "quoteSymbol": "USDC",
+                        "baseToUsdFeeder": {
+                            "decimals": 8,
+                            "priceRaw": "2200000000000"
+                        },
+                        "initLiquidity": {
+                            "expiry": 4294967295,
+                            "tickDeltaLower": 0,
+                            "tickDeltaUpper": 2000,
+                            "amountWad": "2000000000000000000000",
+                            "limitTicks": "0x8000007fffff",
+                            "deadline": 4294967295
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}

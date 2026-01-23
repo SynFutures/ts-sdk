@@ -258,7 +258,8 @@ describe('trade simulations (ABC fixture data)', () => {
                     0n // no margin for closing
                 );
 
-                const [, simulation] = input.simulate(context, quotationWithSize, data.userSetting);
+                const [tradeParam, simulation] = input.simulate(context, quotationWithSize, data.userSetting);
+                expect(tradeParam.amount).toBeGreaterThanOrEqual(0n);
                 expect(omitLeverage(normalizeBigIntObject(simulation) as unknown)).toEqual(
                     omitLeverage(expectedSimulation)
                 );

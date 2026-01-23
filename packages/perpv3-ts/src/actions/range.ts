@@ -94,7 +94,7 @@ export class AddInput {
             tickDeltaUpper,
             amount: this.marginAmount,
             limitTicks: Number(userSetting.getEncodedLiquidityLimitTicks(ammForAdd.sqrtPX96)),
-            deadline: userSetting.getDeadline(),
+            deadline: userSetting.getDeadline(snapshot.blockInfo.timestamp),
         };
 
         // Note: Validation is done above using original ticks before converting to deltas
@@ -195,7 +195,7 @@ export class RemoveInput {
             tickLower: this.tickLower,
             tickUpper: this.tickUpper,
             limitTicks: Number(userSetting.getEncodedLiquidityLimitTicks(amm.sqrtPX96)),
-            deadline: userSetting.getDeadline(),
+            deadline: userSetting.getDeadline(snapshot.blockInfo.timestamp),
         };
 
         return [removeParam, simulation];
@@ -214,4 +214,3 @@ export interface RemoveSimulation {
     removedPosition: Position;
     postPosition: Position;
 }
-

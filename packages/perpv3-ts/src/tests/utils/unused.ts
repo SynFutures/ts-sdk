@@ -122,7 +122,12 @@ function getNextSqrtPriceFromAmount1RoundingDown(
     return sqrtPX96 - quotient;
 }
 
-function getNextSqrtPriceFromDeltaBase(sqrtPX96: bigint, liquidity: bigint, amount: bigint, isLong: boolean): bigint {
+export function getNextSqrtPriceFromDeltaBase(
+    sqrtPX96: bigint,
+    liquidity: bigint,
+    amount: bigint,
+    isLong: boolean
+): bigint {
     if (sqrtPX96 <= ZERO || liquidity <= ZERO) {
         throw new Error('SQRT or LIQ must be positive');
     }

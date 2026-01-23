@@ -55,7 +55,7 @@ export class PlaceInput {
             tick: this.tick,
             size: signedSize,
             amount: requiredMargin,
-            deadline: userSetting.getDeadline(),
+            deadline: userSetting.getDeadline(snapshot.blockInfo.timestamp),
         };
 
         // Validate PlaceParam with full context (includes minimum order value check)
