@@ -28,7 +28,16 @@ export default async function globalTeardown() {
 
     if (!existsSync(runtimePath)) return;
 
-    const runtime = JSON.parse(readFileSync(runtimePath, 'utf8'));
+    let runtime;
+    try {
+        runtime = JSON.parse(readFileSync(runtimePath, 'utf8'));
+    } catch {
+        // Corrupted or invalid JSON - clean up file and exit
+        console.warn('[globalTeardown] Failed to parse anvil.json, cleaning up file');
+        rmSync(runtimePath, { force: true });
+        return;
+    }
+
     const pid = runtime?.pid;
 
     if (typeof pid === 'number') {
