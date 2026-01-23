@@ -981,6 +981,8 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
         await waitForTx(crossOneHash);
 
         // Cross two order levels by targeting the third order tick (matching Hardhat behavior).
+        // To ensure order1 is fully consumed, we need to trade at least order1's size.
+        // inquireByTick may return a smaller size if AMM liquidity absorbs part of the trade.
         const takerBeforeCrossTwo = await fetchOnchainContext(
             INSTRUMENT_ADDRESS,
             EXPIRY,
@@ -988,9 +990,21 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
             takerWallet.account.address
         );
         const crossTwo = await inquireByTick(INSTRUMENT_ADDRESS, EXPIRY, orderTicks[2]!, ctx.rpcConfig);
-        const crossTwoQuotation = new QuotationWithSize(crossTwo.size, crossTwo.quotation);
         const crossTwoSide = crossTwo.size >= 0n ? Side.LONG : Side.SHORT;
-        const crossTwoBaseQuantity = abs(crossTwo.size);
+        // Ensure we trade at least enough to consume order1 (placed with orderBaseQuantity)
+        const minCrossTwoSize = orderBaseQuantity;
+        const crossTwoBaseQuantity = abs(crossTwo.size) < minCrossTwoSize ? minCrossTwoSize : abs(crossTwo.size);
+        // Re-inquire with the adjusted size to get accurate quotation
+        const crossTwoQuotationRaw = await inquireByBaseSize(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            crossTwoSide === Side.LONG ? crossTwoBaseQuantity : -crossTwoBaseQuantity,
+            ctx.rpcConfig
+        );
+        const crossTwoQuotation = new QuotationWithSize(
+            crossTwoSide === Side.LONG ? crossTwoBaseQuantity : -crossTwoBaseQuantity,
+            crossTwoQuotationRaw
+        );
 
         const [crossTwoTradeParam] = new TradeInput(
             takerWallet.account.address,
