@@ -1,9 +1,5 @@
 /* eslint-env node */
 
-import { spawn } from 'node:child_process';
-import { createWriteStream, mkdirSync } from 'node:fs';
-import path from 'node:path';
-
 async function sleep(ms) {
     await new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -35,39 +31,4 @@ export function buildAnvilArgs({ host, port, chainId, mnemonic, loadStatePath, d
     if (dumpStatePath) args.push('--dump-state', dumpStatePath);
 
     return args;
-}
-
-export async function startAnvil({
-    host,
-    port,
-    chainId,
-    mnemonic,
-    loadStatePath,
-    dumpStatePath,
-    runtimeDir,
-    detached,
-}) {
-    const rpcUrl = `http://${host}:${port}`;
-
-    let stdout = 'ignore';
-    let stderr = 'ignore';
-    if (runtimeDir) {
-        mkdirSync(runtimeDir, { recursive: true });
-        const outPath = path.join(runtimeDir, 'anvil.log');
-        const stream = createWriteStream(outPath, { flags: 'a' });
-        stdout = stream;
-        stderr = stream;
-    }
-
-    const args = buildAnvilArgs({ host, port, chainId, mnemonic, loadStatePath, dumpStatePath });
-    const child = spawn('anvil', args, {
-        stdio: ['ignore', stdout, stderr],
-        detached: Boolean(detached),
-    });
-
-    if (!child.pid) throw new Error('Failed to start Anvil process (missing pid).');
-
-    await waitForRpc({ rpcUrl, timeoutMs: 15_000 });
-
-    return { child, rpcUrl };
 }
