@@ -38,6 +38,52 @@ async function pickFreePort(host) {
     });
 }
 
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForProcessExit(pid, timeoutMs) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        try {
+            process.kill(pid, 0);
+        } catch {
+            return true; // Process exited
+        }
+        await sleep(100);
+    }
+    return false; // Timeout
+}
+
+async function killProcessWithEscalation(pid) {
+    // Try SIGTERM on process group first, then individual process
+    try {
+        process.kill(-pid, 'SIGTERM');
+    } catch {
+        try {
+            process.kill(pid, 'SIGTERM');
+        } catch {
+            return; // Process already gone
+        }
+    }
+
+    // Wait for graceful exit
+    if (await waitForProcessExit(pid, 2000)) return;
+
+    // Escalate to SIGKILL
+    try {
+        process.kill(-pid, 'SIGKILL');
+    } catch {
+        try {
+            process.kill(pid, 'SIGKILL');
+        } catch {
+            // ignore
+        }
+    }
+
+    await waitForProcessExit(pid, 2000);
+}
+
 async function jsonRpc(rpcUrl, method, params) {
     const response = await fetch(rpcUrl, {
         method: 'POST',
@@ -121,15 +167,7 @@ export default async function globalSetup() {
 
         child.unref();
     } catch (error) {
-        try {
-            process.kill(-child.pid, 'SIGTERM');
-        } catch {
-            try {
-                process.kill(child.pid, 'SIGTERM');
-            } catch {
-                // ignore
-            }
-        }
+        await killProcessWithEscalation(child.pid);
         throw error;
     }
 }
