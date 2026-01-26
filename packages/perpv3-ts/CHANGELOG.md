@@ -1,5 +1,11 @@
 # @synfutures/perpv3-ts
 
+## 0.2.4
+
+### Patch Changes
+
+- Bump deps
+
 ## 0.2.3
 
 ### Patch Changes
