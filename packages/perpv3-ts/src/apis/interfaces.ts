@@ -894,7 +894,6 @@ export interface ChartLiquidityDetailsFromApi {
         tick: number;
     };
     blockInfo: BlockInfo;
-    isInverse: boolean;
     length: number;
     pearls: MinimalPearl[];
     size: number;
