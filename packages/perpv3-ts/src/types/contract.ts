@@ -37,7 +37,7 @@ export interface BlockInfo {
     height: number; // uint32
 }
 
-export const enum Side {
+export enum Side {
     FLAT,
     SHORT,
     LONG,
@@ -50,20 +50,20 @@ export function sideSign(side: Side): number {
     return side === Side.LONG ? 1 : side === Side.SHORT ? -1 : 0;
 }
 
-export const enum Status {
+export enum Status {
     DORMANT,
     TRADING,
     SETTLING,
     SETTLED,
 }
 
-export const enum Condition {
+export enum Condition {
     NORMAL,
     FROZEN,
     RESOLVED,
 }
 
-export const enum QuoteType {
+export enum QuoteType {
     INVALID,
     STABLE,
     NONSTABLE,
