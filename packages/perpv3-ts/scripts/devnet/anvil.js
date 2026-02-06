@@ -1,5 +1,9 @@
 /* eslint-env node */
 
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 async function sleep(ms) {
     await new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -22,6 +26,31 @@ export async function waitForRpc({ rpcUrl, timeoutMs }) {
         }
         await sleep(100);
     }
+}
+
+function resolvePackageRoot() {
+    const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+    return path.resolve(scriptDir, '..', '..');
+}
+
+/**
+ * Resolve an Anvil command that is pinned via the @foundry-rs/anvil dependency.
+ *
+ * CI runner images may have a preinstalled `anvil` on PATH, which can diverge in behavior.
+ * We want the devnet snapshot + tests to always run against the version recorded in devnet metadata.
+ */
+export function resolveAnvilCommand() {
+    const packageRoot = resolvePackageRoot();
+    const binMjsPath = path.join(packageRoot, 'node_modules', '@foundry-rs', 'anvil', 'bin.mjs');
+    if (!existsSync(binMjsPath)) {
+        throw new Error(
+            `Missing @foundry-rs/anvil entrypoint at ${binMjsPath}. ` +
+                'Run pnpm install and ensure install scripts are allowed for @foundry-rs/anvil.'
+        );
+    }
+
+    // Run the wrapper via the current Node to avoid relying on shebang permissions.
+    return { command: process.execPath, prefixArgs: [binMjsPath] };
 }
 
 export function buildAnvilArgs({ host, port, chainId, mnemonic, loadStatePath, dumpStatePath }) {

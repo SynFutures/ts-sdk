@@ -20,7 +20,7 @@ import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { computeExpectedStateMeta, getDevnetPaths } from './devnet-meta.js';
-import { waitForRpc, buildAnvilArgs } from './anvil.js';
+import { buildAnvilArgs, resolveAnvilCommand, waitForRpc } from './anvil.js';
 
 type JsonObject = Record<string, unknown>;
 
@@ -403,7 +403,8 @@ async function main(): Promise<void> {
         dumpStatePath: devnetRoot,
     });
 
-    const anvil = spawn('anvil', anvilArgs, { stdio: 'inherit' });
+    const { command: anvilCommand, prefixArgs } = resolveAnvilCommand();
+    const anvil = spawn(anvilCommand, [...prefixArgs, ...anvilArgs], { stdio: 'inherit' });
     try {
         await waitForRpc({ rpcUrl, timeoutMs: 15_000 });
 

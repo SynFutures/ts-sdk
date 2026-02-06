@@ -6,7 +6,7 @@ import net from 'node:net';
 import path from 'node:path';
 
 import { assertStateFresh, getDevnetPaths } from '../devnet-meta.js';
-import { buildAnvilArgs, waitForRpc } from '../anvil.js';
+import { buildAnvilArgs, resolveAnvilCommand, waitForRpc } from '../anvil.js';
 
 async function isTcpPortAvailable(host, port) {
     return await new Promise((resolve) => {
@@ -134,7 +134,8 @@ export default async function globalSetup() {
         loadStatePath: paths.statePath,
     });
 
-    const child = spawn('anvil', args, { stdio: 'ignore', detached: true });
+    const { command, prefixArgs } = resolveAnvilCommand();
+    const child = spawn(command, [...prefixArgs, ...args], { stdio: 'ignore', detached: true });
     if (!child.pid) throw new Error('Failed to start Anvil (missing pid).');
 
     try {
