@@ -58,5 +58,120 @@ describe('Depth chart helpers', () => {
         const expectedBidBaseNumber = Number(formatUnits(expectedBidBase, 18));
         expect(bids[0]!.base).toBeCloseTo(expectedBidBaseNumber, 10);
     });
-});
 
+    test('buildDepthChartData includes maker orders and applies liquidityNet updates', () => {
+        const currTick = 123;
+        const size = 5;
+        const tickDelta = 20;
+        const length = 10;
+
+        const sqrtCurr = tickToSqrtX96(currTick);
+        const sqrtNext = tickToSqrtX96(currTick + 1);
+        const currPX96 = (sqrtCurr + sqrtNext) / 2n;
+        const liquidity = 1_000_000n * WAD;
+
+        const pageAdjustmentDelta =
+            currTick % size === 0 ? 0 : currTick > 0 ? currTick % size : size - (-currTick % size);
+
+        const tick2PearlNoOrder = new Map<number, MinimalPearl>([
+            // No maker orders at current tick
+            [
+                130,
+                {
+                    liquidityNet: 0n,
+                    left: 0n,
+                },
+            ],
+        ]);
+
+        const tick2PearlWithOrderNoUpdate = new Map<number, MinimalPearl>([
+            [
+                currTick,
+                {
+                    liquidityNet: 0n,
+                    left: -WAD, // ask-side maker orders at current tick
+                },
+            ],
+            [
+                130,
+                {
+                    liquidityNet: 0n,
+                    left: 0n,
+                },
+            ],
+        ]);
+
+        const tick2PearlWithOrderWithUpdate = new Map<number, MinimalPearl>([
+            [
+                currTick,
+                {
+                    liquidityNet: 0n,
+                    left: -WAD,
+                },
+            ],
+            [
+                130,
+                {
+                    liquidityNet: 500_000n * WAD,
+                    left: 0n,
+                },
+            ],
+        ]);
+
+        const rightNoOrder = buildDepthChartData(
+            currPX96,
+            liquidity,
+            currTick,
+            tickDelta,
+            tick2PearlNoOrder,
+            size,
+            length,
+            pageAdjustmentDelta,
+            true
+        );
+
+        const rightWithOrderNoUpdate = buildDepthChartData(
+            currPX96,
+            liquidity,
+            currTick,
+            tickDelta,
+            tick2PearlWithOrderNoUpdate,
+            size,
+            length,
+            pageAdjustmentDelta,
+            true
+        );
+
+        expect(rightNoOrder.length).toBeGreaterThan(0);
+        expect(rightWithOrderNoUpdate).toHaveLength(rightNoOrder.length);
+        for (let i = 0; i < rightNoOrder.length; i += 1) {
+            expect(rightWithOrderNoUpdate[i]!.tick).toBe(rightNoOrder[i]!.tick);
+        }
+
+        // Maker orders at current tick should be added into the first ask level.
+        // We expect the level base to increase by ~1 (WAD) compared with the no-order case.
+        const baseDiff = rightWithOrderNoUpdate[0]!.base - rightNoOrder[0]!.base;
+        expect(baseDiff).toBeCloseTo(1, 12);
+
+        const rightWithOrderWithUpdate = buildDepthChartData(
+            currPX96,
+            liquidity,
+            currTick,
+            tickDelta,
+            tick2PearlWithOrderWithUpdate,
+            size,
+            length,
+            pageAdjustmentDelta,
+            true
+        );
+
+        expect(rightWithOrderWithUpdate).toHaveLength(rightWithOrderNoUpdate.length);
+        for (let i = 0; i < rightWithOrderNoUpdate.length; i += 1) {
+            expect(rightWithOrderWithUpdate[i]!.tick).toBe(rightWithOrderNoUpdate[i]!.tick);
+        }
+
+        // Crossing a pearl with positive liquidityNet on the right should increase curve depth further out.
+        const lastIndex = rightWithOrderNoUpdate.length - 1;
+        expect(rightWithOrderWithUpdate[lastIndex]!.base).toBeGreaterThan(rightWithOrderNoUpdate[lastIndex]!.base);
+    });
+});
