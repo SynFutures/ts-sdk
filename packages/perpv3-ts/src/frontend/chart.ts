@@ -1,6 +1,6 @@
 import { formatUnits } from 'viem';
-import { mulDivRoundingUp, wdiv, tickToSqrtX96, wadToTick, tickToWad } from '../math';
-import { WAD, ZERO } from '../constants';
+import { mulDivRoundingUp, tickToSqrtX96, wadToTick, tickToWad } from '../math';
+import { ZERO } from '../constants';
 import { MinimalPearl } from '../types';
 import { DEFAULT_DECIMALS } from '../utils/format';
 import { ChartLiquidityDetailsFromApi, DepthChartData, DepthData } from '../apis/interfaces';
@@ -46,7 +46,6 @@ export function getDepthRangeDataByLiquidityDetails(
     liquidityDetails: ChartLiquidityDetailsFromApi,
     size: number,
     stepRatio: number,
-    isInverse = false,
     lowerPrice?: bigint,
     upperPrice?: bigint
 ): DepthData {
@@ -61,20 +60,10 @@ export function getDepthRangeDataByLiquidityDetails(
     const maxTick = Math.max(...liquidityDetails.tids);
     const minTick = Math.min(...liquidityDetails.tids);
     const bnMin = (left: bigint, right: bigint): bigint => (left > right ? right : left);
-    let minPriceDelta: bigint;
-    if (!isInverse) {
-        minPriceDelta = bnMin(
-            tickToWad(Number(maxTick)) - tickToWad(liquidityDetails.amm.tick),
-            tickToWad(liquidityDetails.amm.tick) - tickToWad(minTick)
-        );
-    } else {
-        minPriceDelta = bnMin(
-            tickToWad(-liquidityDetails.amm.tick) - tickToWad(-Number(maxTick)),
-            tickToWad(-minTick) - tickToWad(-liquidityDetails.amm.tick)
-        );
-        lowerPrice = wdiv(WAD, tickToWad(-liquidityDetails.amm.tick) + minPriceDelta);
-        upperPrice = wdiv(WAD, tickToWad(-liquidityDetails.amm.tick) - minPriceDelta);
-    }
+    const minPriceDelta = bnMin(
+        tickToWad(Number(maxTick)) - tickToWad(liquidityDetails.amm.tick),
+        tickToWad(liquidityDetails.amm.tick) - tickToWad(minTick)
+    );
     const rightTickDelta = upperPrice
         ? wadToTick(upperPrice) - liquidityDetails.amm.tick
         : wadToTick(tickToWad(liquidityDetails.amm.tick) + minPriceDelta) - liquidityDetails.amm.tick;

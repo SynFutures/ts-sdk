@@ -7,7 +7,6 @@ import { DEFAULT_DECIMALS } from '../utils/format';
 export interface SimulateImpermanentLossParams {
     alphaWadLower: bigint;
     alphaWadUpper: bigint;
-    isInverse?: boolean;
     /**
      * Initial margin (in WAD) used to construct the simulated range.
      * Default: 1 WAD.
@@ -72,7 +71,6 @@ export function simulateImpermanentLoss(
 
     const results: SimulateImpermanentLossResult[] = [];
     const initialMarginNumber = Number(formatUnits(margin, DEFAULT_DECIMALS));
-    const isInverse = params.isInverse ?? false;
     const step = instrumentSetting.orderSpacing;
 
     for (let tick = tickLower; tick < tickUpper; tick += step) {
@@ -80,11 +78,10 @@ export function simulateImpermanentLoss(
         const removedBalanceNumber = Number(formatUnits(removedBalance, DEFAULT_DECIMALS));
 
         results.push({
-            tick: isInverse ? -tick : tick,
+            tick,
             impermanentLoss: removedBalanceNumber / initialMarginNumber - 1,
         });
     }
 
     return results;
 }
-

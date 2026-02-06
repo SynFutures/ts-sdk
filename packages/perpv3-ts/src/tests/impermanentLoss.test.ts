@@ -32,30 +32,4 @@ describe('simulateImpermanentLoss', () => {
         expect(entryPoint).toBeDefined();
         expect(Math.abs(entryPoint!.impermanentLoss)).toBeLessThan(1e-8);
     });
-
-    test('isInverse flips tick sign without affecting IL values', () => {
-        const entryAligned = abcSnapshot.with({
-            amm: {
-                ...abcSnapshot.amm,
-                sqrtPX96: tickToSqrtX96(abcSnapshot.amm.tick),
-            },
-        });
-
-        const normal = simulateImpermanentLoss(entryAligned, {
-            alphaWadLower: WAD,
-            alphaWadUpper: WAD,
-        });
-        const inverse = simulateImpermanentLoss(entryAligned, {
-            alphaWadLower: WAD,
-            alphaWadUpper: WAD,
-            isInverse: true,
-        });
-
-        expect(inverse.length).toBe(normal.length);
-        for (let i = 0; i < normal.length; i += 1) {
-            expect(inverse[i]!.tick).toBe(-normal[i]!.tick);
-            expect(inverse[i]!.impermanentLoss).toBeCloseTo(normal[i]!.impermanentLoss, 12);
-        }
-    });
 });
-
