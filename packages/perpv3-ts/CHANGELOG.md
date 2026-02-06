@@ -1,5 +1,11 @@
 # @synfutures/perpv3-ts
 
+## 0.2.5
+
+### Patch Changes
+
+- Export missing helpers via existing subpath exports. Replace exported const enum types (Side, Status, Condition, QuoteType) with normal enum so consumers with isolatedModules: true can access enum values.
+
 ## 0.2.4
 
 ### Patch Changes
