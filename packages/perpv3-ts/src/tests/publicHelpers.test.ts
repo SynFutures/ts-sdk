@@ -1,10 +1,33 @@
 import { WAD, ZERO } from '../constants';
-import { alphaWadToTickDelta, ratioToWad, wadToTick } from '../math';
+import { alphaWadToTickDelta, ratioToWad, tickToSqrtX96, wadToTick } from '../math';
 import { estimateAPY } from '../frontend';
 import { NumericConverter } from '../utils';
 import { Condition, QuoteType, Side, Status, type Amm } from '../types';
 
 describe('Public helpers', () => {
+    const makeAmm = (overrides: Partial<Amm>): Amm => ({
+        expiry: 0,
+        timestamp: 0,
+        status: Status.TRADING,
+        tick: 0,
+        sqrtPX96: tickToSqrtX96(0),
+        liquidity: 0n,
+        totalLiquidity: 0n,
+        totalShort: 0n,
+        openInterests: 0n,
+        totalLong: 0n,
+        involvedFund: 0n,
+        feeIndex: 0n,
+        protocolFee: 0n,
+        longSocialLossIndex: 0n,
+        shortSocialLossIndex: 0n,
+        longFundingIndex: 0n,
+        shortFundingIndex: 0n,
+        insuranceFund: 0n,
+        settlementPrice: 0n,
+        ...overrides,
+    });
+
     test('enums keep stable numeric values', () => {
         expect(Side.FLAT).toBe(0);
         expect(Side.SHORT).toBe(1);
@@ -37,12 +60,32 @@ describe('Public helpers', () => {
     });
 
     test('estimateAPY returns 0 for empty AMM liquidity', () => {
-        const amm = { liquidity: ZERO } as unknown as Amm;
-        expect(estimateAPY(amm, 0n, 0, 0n, 1000, 10)).toBe(0);
+        const amm = makeAmm({ liquidity: ZERO, tick: 0, sqrtPX96: tickToSqrtX96(0) });
+        expect(estimateAPY(amm, 0n, 10, 1n, 1000, 10)).toBe(0);
     });
 
     test('estimateAPY returns 0 for zero minRangeValue', () => {
-        const amm = { liquidity: 1n } as unknown as Amm;
-        expect(estimateAPY(amm, 0n, 0, 0n, 1000, 10)).toBe(0);
+        const amm = makeAmm({ liquidity: 1n, tick: 0, sqrtPX96: tickToSqrtX96(0) });
+        expect(estimateAPY(amm, 0n, 10, 0n, 1000, 10)).toBe(0);
+    });
+
+    test('estimateAPY returns 0 for tick boundary edge cases', () => {
+        // When upper/lower tick aligns to amm.tick and sqrtPX96 is exactly on that tick boundary,
+        // Range.calcEntryDelta would hit division-by-zero without our guard.
+        const tick = 100;
+        const amm = makeAmm({ liquidity: 1n, tick, sqrtPX96: tickToSqrtX96(tick) });
+        expect(estimateAPY(amm, 1n, 10, 1n, 1000, 50)).toBe(0);
+    });
+
+    test('estimateAPY returns a positive APY for valid inputs', () => {
+        const tick = 100;
+        const amm = makeAmm({
+            liquidity: 1_000n * WAD,
+            tick,
+            sqrtPX96: tickToSqrtX96(tick),
+        });
+
+        const apy = estimateAPY(amm, 1n * WAD, 20, 1n * WAD, 1000, 10);
+        expect(apy).toBeGreaterThan(0);
     });
 });

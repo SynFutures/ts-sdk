@@ -1,5 +1,5 @@
 import { WAD, ZERO } from '../constants';
-import { wdiv } from '../math';
+import { tickToSqrtX96, wdiv } from '../math';
 import { Range, type Amm } from '../types';
 
 export function estimateAPY(
@@ -17,8 +17,23 @@ export function estimateAPY(
     const assumeAddMargin = minRangeValue;
     const spacing = rangeSpacing;
 
+    if (tickDelta <= 0 || spacing <= 0) {
+        return 0;
+    }
+
     const upperTick = spacing * Math.trunc((amm.tick + tickDelta) / spacing);
     const lowerTick = spacing * Math.trunc((amm.tick - tickDelta) / spacing);
+
+    if (upperTick <= lowerTick) {
+        return 0;
+    }
+
+    const sqrtUpperPX96 = tickToSqrtX96(upperTick);
+    const sqrtLowerPX96 = tickToSqrtX96(lowerTick);
+    if (amm.sqrtPX96 <= sqrtLowerPX96 || amm.sqrtPX96 >= sqrtUpperPX96) {
+        return 0;
+    }
+
     const tempRange = new Range(0n, 0n, 0n, amm.sqrtPX96, lowerTick, upperTick);
     const { liquidity: assumeAddLiquidity } = tempRange.calcEntryDelta(amm.sqrtPX96, assumeAddMargin, initialMarginRatio);
 
