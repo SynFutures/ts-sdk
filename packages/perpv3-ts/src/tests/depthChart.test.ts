@@ -174,4 +174,75 @@ describe('Depth chart helpers', () => {
         const lastIndex = rightWithOrderNoUpdate.length - 1;
         expect(rightWithOrderWithUpdate[lastIndex]!.base).toBeGreaterThan(rightWithOrderNoUpdate[lastIndex]!.base);
     });
+
+    test('buildDepthChartData applies current-tick liquidityNet when walking bids', () => {
+        const currTick = 10;
+        const size = 5;
+        const tickDelta = 20;
+        const length = 10;
+
+        const sqrtCurr = tickToSqrtX96(currTick);
+        const sqrtNext = tickToSqrtX96(currTick + 1);
+        const currPX96 = (sqrtCurr + sqrtNext) / 2n;
+
+        const startingLiquidity = 1_000_000n * WAD;
+        const liquidityNetAtCurrTick = 500_000n * WAD;
+
+        const pageAdjustmentDelta = 0; // currTick % size === 0
+
+        const tick2PearlNoNet = new Map<number, MinimalPearl>([
+            [
+                currTick,
+                {
+                    liquidityNet: 0n,
+                    left: 0n,
+                },
+            ],
+        ]);
+
+        const tick2PearlWithNet = new Map<number, MinimalPearl>([
+            [
+                currTick,
+                {
+                    liquidityNet: liquidityNetAtCurrTick,
+                    left: 0n,
+                },
+            ],
+        ]);
+
+        const bidsNoNet = buildDepthChartData(
+            currPX96,
+            startingLiquidity,
+            currTick,
+            tickDelta,
+            tick2PearlNoNet,
+            size,
+            length,
+            pageAdjustmentDelta,
+            false
+        );
+
+        const bidsWithNet = buildDepthChartData(
+            currPX96,
+            startingLiquidity,
+            currTick,
+            tickDelta,
+            tick2PearlWithNet,
+            size,
+            length,
+            pageAdjustmentDelta,
+            false
+        );
+
+        expect(bidsNoNet.length).toBeGreaterThan(0);
+        expect(bidsWithNet).toHaveLength(bidsNoNet.length);
+        for (let i = 0; i < bidsNoNet.length; i += 1) {
+            expect(bidsWithNet[i]!.tick).toBe(bidsNoNet[i]!.tick);
+        }
+
+        // With positive liquidityNet at currTick, crossing currTick while walking bids reduces in-range liquidity,
+        // so depth further out should be smaller than the no-net case.
+        const lastIndex = bidsNoNet.length - 1;
+        expect(bidsWithNet[lastIndex]!.base).toBeLessThan(bidsNoNet[lastIndex]!.base);
+    });
 });
