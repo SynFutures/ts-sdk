@@ -322,6 +322,12 @@ export function wadToTick(priceWad: bigint): number {
     return sqrtX96ToTick(wadToSqrtX96(priceWad));
 }
 
+// Used by orderbook and other frontend-facing calculations.
+// Kept as a named helper so consumers can reproduce SDK behaviors without copying internal query logic.
+export function alphaWadToTickDelta(alphaWad: bigint): number {
+    return wadToTick(alphaWad) + 1;
+}
+
 // Internal helper functions (not exported, only used internally)
 function fracUp(x: bigint, y: bigint, w: bigint): bigint {
     return (x * y + (w - ONE)) / w;

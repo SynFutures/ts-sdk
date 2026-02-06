@@ -2,7 +2,7 @@ import type { Address } from 'viem';
 import { zeroAddress } from 'viem';
 import { CURRENT_OBSERVER_ABI } from '../abis';
 import type { IFuturesOrderBook, IFuturesOrderBookAllSteps, OrderDataFromApi } from '../apis/interfaces';
-import { mulDivRoundingUp, ratioToWad, tickToSqrtX96, tickToWad, wadToTick } from '../math';
+import { alphaWadToTickDelta, mulDivRoundingUp, ratioToWad, tickToSqrtX96, tickToWad } from '../math';
 import { RATIO_BASE, WAD } from '../constants';
 import {
     Order,
@@ -499,8 +499,4 @@ function calcDeltaBase(sqrtRatioAX96: bigint, sqrtRatioBX96: bigint, liquidity: 
         return mulDivRoundingUp(first, 1n, sqrtLower);
     }
     return (numerator1 * numerator2) / sqrtUpper / sqrtLower;
-}
-
-function alphaWadToTickDelta(alphaWad: bigint): number {
-    return wadToTick(alphaWad) + 1;
 }
