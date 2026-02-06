@@ -40,5 +40,9 @@ describe('Public helpers', () => {
         const amm = { liquidity: ZERO } as unknown as Amm;
         expect(estimateAPY(amm, 0n, 0, 0n, 1000, 10)).toBe(0);
     });
-});
 
+    test('estimateAPY returns 0 for zero minRangeValue', () => {
+        const amm = { liquidity: 1n } as unknown as Amm;
+        expect(estimateAPY(amm, 0n, 0, 0n, 1000, 10)).toBe(0);
+    });
+});

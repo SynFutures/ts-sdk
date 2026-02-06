@@ -10,7 +10,7 @@ export function estimateAPY(
     initialMarginRatio: number,
     rangeSpacing: number
 ): number {
-    if (!amm || amm.liquidity === ZERO) {
+    if (!amm || amm.liquidity === ZERO || minRangeValue === ZERO) {
         return 0;
     }
 
@@ -28,4 +28,3 @@ export function estimateAPY(
     // Convert from WAD (18 decimals) to number
     return Number(apyWad) / Number(WAD);
 }
-
