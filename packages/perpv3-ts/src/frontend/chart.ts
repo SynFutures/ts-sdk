@@ -1,7 +1,7 @@
 import { formatUnits } from 'viem';
-import { wdiv, tickToSqrtX96, wadToTick, tickToWad } from '../math';
-import { WAD, ZERO } from '../constants';
-import { MinimalPearl, Range } from '../types';
+import { mulDivRoundingUp, tickToSqrtX96, wadToTick, tickToWad } from '../math';
+import { ZERO } from '../constants';
+import { MinimalPearl } from '../types';
 import { DEFAULT_DECIMALS } from '../utils/format';
 import { ChartLiquidityDetailsFromApi, DepthChartData, DepthData } from '../apis/interfaces';
 
@@ -9,18 +9,33 @@ import { ChartLiquidityDetailsFromApi, DepthChartData, DepthData } from '../apis
 // Helper Functions
 // ============================================================================
 
-function _page(currTick: number, tick: number, pageAdjustmentDelta: number, size: number, right: boolean): number {
-    const adjustedCurrTick = currTick - pageAdjustmentDelta;
-    let tmp;
-    if (right) {
-        tmp = tick - adjustedCurrTick;
-    } else {
-        tmp = adjustedCurrTick - tick;
-    }
-    if (tmp <= 0) return 0;
+const absBigInt = (value: bigint): bigint => (value < 0n ? -value : value);
 
-    const page = right ? Math.ceil(tmp / size) - 1 : Math.ceil(tmp / size) - (pageAdjustmentDelta == 0 ? 1 : 0);
-    return page;
+function calcPage(currTick: number, tick: number, pageAdjustmentDelta: number, size: number, right: boolean): number {
+    if (size <= 0) {
+        return 0;
+    }
+    const adjustedCurrTick = currTick - pageAdjustmentDelta;
+    const tmp = right ? tick - adjustedCurrTick : adjustedCurrTick - tick;
+    if (tmp <= 0) {
+        return 0;
+    }
+    return Math.ceil(tmp / size) - 1;
+}
+
+function calcDeltaBase(sqrtRatioAX96: bigint, sqrtRatioBX96: bigint, liquidity: bigint, roundUp: boolean): bigint {
+    let sqrtLower = sqrtRatioAX96;
+    let sqrtUpper = sqrtRatioBX96;
+    if (sqrtLower > sqrtUpper) {
+        [sqrtLower, sqrtUpper] = [sqrtUpper, sqrtLower];
+    }
+    const numerator1 = liquidity << 96n;
+    const numerator2 = sqrtUpper - sqrtLower;
+    if (roundUp) {
+        const first = mulDivRoundingUp(numerator1, numerator2, sqrtUpper);
+        return mulDivRoundingUp(first, 1n, sqrtLower);
+    }
+    return (numerator1 * numerator2) / sqrtUpper / sqrtLower;
 }
 
 // ============================================================================
@@ -31,7 +46,6 @@ export function getDepthRangeDataByLiquidityDetails(
     liquidityDetails: ChartLiquidityDetailsFromApi,
     size: number,
     stepRatio: number,
-    isInverse = false,
     lowerPrice?: bigint,
     upperPrice?: bigint
 ): DepthData {
@@ -46,20 +60,10 @@ export function getDepthRangeDataByLiquidityDetails(
     const maxTick = Math.max(...liquidityDetails.tids);
     const minTick = Math.min(...liquidityDetails.tids);
     const bnMin = (left: bigint, right: bigint): bigint => (left > right ? right : left);
-    let minPriceDelta: bigint;
-    if (!isInverse) {
-        minPriceDelta = bnMin(
-            tickToWad(Number(maxTick)) - tickToWad(liquidityDetails.amm.tick),
-            tickToWad(liquidityDetails.amm.tick) - tickToWad(minTick)
-        );
-    } else {
-        minPriceDelta = bnMin(
-            tickToWad(-liquidityDetails.amm.tick) - tickToWad(-Number(maxTick)),
-            tickToWad(-minTick) - tickToWad(-liquidityDetails.amm.tick)
-        );
-        lowerPrice = wdiv(WAD, tickToWad(-liquidityDetails.amm.tick) + minPriceDelta);
-        upperPrice = wdiv(WAD, tickToWad(-liquidityDetails.amm.tick) - minPriceDelta);
-    }
+    const minPriceDelta = bnMin(
+        tickToWad(Number(maxTick)) - tickToWad(liquidityDetails.amm.tick),
+        tickToWad(liquidityDetails.amm.tick) - tickToWad(minTick)
+    );
     const rightTickDelta = upperPrice
         ? wadToTick(upperPrice) - liquidityDetails.amm.tick
         : wadToTick(tickToWad(liquidityDetails.amm.tick) + minPriceDelta) - liquidityDetails.amm.tick;
@@ -104,50 +108,87 @@ export function buildDepthChartData(
     pageAdjustmentDelta: number,
     right: boolean
 ): DepthChartData[] {
-    // pageAdjustmentDelta is used to adjust every page's tick to aligned with ORDER_SPACING
+    // `pageAdjustmentDelta` aligns Level 0 to ORDER_SPACING so that every following level aggregates exactly `size` ticks.
     const ret: DepthChartData[] = [];
-    const page2BaseQuantity: Map<number, bigint> = new Map();
-    const lastPageTick: Map<number, number> = new Map();
+    const page2BaseQuantity = new Map<number, bigint>();
+    const lastPageTick = new Map<number, number>();
 
-    for (
-        let tick = currTick;
-        right ? tick < currTick + tickDelta : tick > currTick - tickDelta;
-        right ? (tick += 1) : (tick -= 1)
-    ) {
-        const page = _page(currTick, tick, pageAdjustmentDelta, size, right);
-        if (page >= length) break;
+    let currentLiquidity = currLiquidity;
+    let currentPX96 = currPX96;
+
+    for (let tick = currTick; right ? tick < currTick + tickDelta : tick > currTick - tickDelta; ) {
+        const page = calcPage(currTick, tick, pageAdjustmentDelta, size, right);
+        if (page >= length) {
+            break;
+        }
+
+        if (tick === currTick) {
+            // Handle current-tick residuals and resting limit orders, mirroring Oyster.swapCrossRange.
+            let currBaseQuantity = page2BaseQuantity.get(page) ?? ZERO;
+            const pearl = tick2Pearl.get(tick);
+            if (pearl) {
+                if ((right && pearl.left < 0n) || (!right && pearl.left > 0n)) {
+                    currBaseQuantity += absBigInt(pearl.left);
+                }
+            }
+
+            const boundaryTick = right ? tick + 1 : tick;
+            const targetPX96 = tickToSqrtX96(boundaryTick);
+            const deltaBase = calcDeltaBase(currentPX96, targetPX96, currentLiquidity, !right);
+            currBaseQuantity += absBigInt(deltaBase);
+            currentPX96 = targetPX96;
+
+            // When walking bids (right=false), reaching `boundaryTick = currTick` means we will cross `currTick`
+            // before moving further left. Apply liquidityNet at currTick so subsequent levels use correct liquidity,
+            // matching Oyster.swapCrossRange tick-cross semantics.
+            if (!right && pearl && pearl.liquidityNet !== 0n) {
+                currentLiquidity = currentLiquidity - pearl.liquidityNet;
+            }
+
+            page2BaseQuantity.set(page, currBaseQuantity);
+            lastPageTick.set(page, right ? boundaryTick : tick - 1);
+
+            tick = right ? tick + 1 : tick - 1;
+            continue;
+        }
+
+        let currBaseQuantity = page2BaseQuantity.get(page) ?? ZERO;
         lastPageTick.set(page, tick);
 
         const pearl = tick2Pearl.get(tick);
-        let currBaseQuantity = page2BaseQuantity.get(page) ?? ZERO;
         if (pearl) {
             if ((right && pearl.left < 0n) || (!right && pearl.left > 0n)) {
-                currBaseQuantity = (pearl.left < 0n ? -pearl.left : pearl.left) + currBaseQuantity;
+                currBaseQuantity += absBigInt(pearl.left);
             }
+
             const targetPX96 = tickToSqrtX96(tick);
-            // Create a temporary Range instance to use instance methods
-            const tempRange = new Range(0n, 0n, 0n, currPX96, 0, 0);
-            currBaseQuantity = currBaseQuantity + tempRange.getDeltaBase(currPX96, targetPX96, currLiquidity, false);
-            currPX96 = targetPX96;
+            currBaseQuantity += calcDeltaBase(currentPX96, targetPX96, currentLiquidity, false);
+            currentPX96 = targetPX96;
+
             if (pearl.liquidityNet !== 0n) {
-                currLiquidity = currLiquidity + pearl.liquidityNet * (right ? 1n : -1n);
+                currentLiquidity = right ? currentLiquidity + pearl.liquidityNet : currentLiquidity - pearl.liquidityNet;
             }
+
             page2BaseQuantity.set(page, currBaseQuantity);
         } else if (tick % size === 0) {
             const targetPX96 = tickToSqrtX96(tick);
-            // Create a temporary Range instance to use instance methods
-            const tempRange = new Range(0n, 0n, 0n, currPX96, 0, 0);
-            const deltaBase = tempRange.getDeltaBase(currPX96, targetPX96, currLiquidity, !right);
-            currBaseQuantity = currBaseQuantity + (deltaBase < 0n ? -deltaBase : deltaBase);
-            currPX96 = targetPX96;
+            const deltaBase = calcDeltaBase(currentPX96, targetPX96, currentLiquidity, !right);
+            currBaseQuantity += absBigInt(deltaBase);
+            currentPX96 = targetPX96;
             page2BaseQuantity.set(page, currBaseQuantity);
         }
+
+        tick = right ? tick + 1 : tick - 1;
     }
+
     for (const [page, baseQuantity] of page2BaseQuantity) {
-        const tick = lastPageTick.get(page)!;
-        const price = Number(formatUnits(tickToWad(tick), DEFAULT_DECIMALS));
+        const tickValue = lastPageTick.get(page);
+        if (tickValue === undefined) {
+            continue;
+        }
+        const price = Number(formatUnits(tickToWad(tickValue), DEFAULT_DECIMALS));
         const base = Number(formatUnits(baseQuantity, DEFAULT_DECIMALS));
-        ret.push({ tick, price, base });
+        ret.push({ tick: tickValue, price, base });
     }
     return ret;
 }

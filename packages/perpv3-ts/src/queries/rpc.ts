@@ -400,6 +400,13 @@ function buildOrderBookSide(
             const deltaBase = calcDeltaBase(currentPX96, targetPX96, currentLiquidity, !right);
             currBaseQuantity += abs(deltaBase);
             currentPX96 = targetPX96;
+
+            // When walking bids (right=false), reaching `boundaryTick = currTick` means we will cross `currTick`
+            // before moving further left. Apply liquidityNet at currTick so subsequent levels use correct liquidity,
+            // matching Oyster.swapCrossRange tick-cross semantics.
+            if (!right && pearl && pearl.liquidityNet !== 0n) {
+                currentLiquidity = currentLiquidity - pearl.liquidityNet;
+            }
             page2BaseQuantity.set(page, currBaseQuantity);
             lastPageTick.set(page, right ? boundaryTick : tick - 1);
 
