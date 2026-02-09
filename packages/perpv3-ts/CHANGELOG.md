@@ -1,5 +1,11 @@
 # @synfutures/perpv3-ts
 
+## 0.3.0
+
+### Minor Changes
+
+- c6aa4c1: perpv3-ts: add impermanent loss helper and fix depth chart
+
 ## 0.2.5
 
 ### Patch Changes
