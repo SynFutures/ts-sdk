@@ -45,7 +45,7 @@ export function resolveAnvilCommand() {
     if (!existsSync(binMjsPath)) {
         throw new Error(
             `Missing @foundry-rs/anvil entrypoint at ${binMjsPath}. ` +
-                'Run pnpm install and ensure install scripts are allowed for @foundry-rs/anvil.'
+                'Run pnpm install and ensure install scripts are allowed for @foundry-rs/anvil (pnpm approve-builds).'
         );
     }
 

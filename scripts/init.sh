@@ -14,7 +14,7 @@ if [ "$ROOT_PACKAGE_NAME" != "@synfutures/ts-sdk" ]; then
 fi
 
 if [ -z "$packageName" ] || [[ "$packageName" =~ [^a-zA-Z0-9-] ]]; then
-	echo "Usage: npm run init -- PACKAGE_NAME"
+	echo "Usage: pnpm run init -- PACKAGE_NAME"
 	exit 1
 fi
 
@@ -58,6 +58,6 @@ for i in "${link_test_templates[@]}"
 do
 	echo ${i}
 	if [ ! -e "$packageDir/test/${i}" ];	then
-		ln -vs "../../templates/test/$i.tmpl" "$packageDir/$i"
+		ln -vs "../../../templates/test/$i.tmpl" "$packageDir/test/$i"
 	fi
 done

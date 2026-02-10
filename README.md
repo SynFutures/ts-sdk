@@ -79,7 +79,7 @@ ts-sdk/
 To add a new package to the workspace:
 
 ```shell
-./scripts/init.sh packageName
+pnpm run init -- packageName
 ```
 
 ## 📦 Publishing

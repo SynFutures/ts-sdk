@@ -24,8 +24,13 @@ import 'dotenv/config';
 
 const CHAIN_ID = 143;
 const SYMBOL = 'BTC/USDC';
-const USER_ADDRESS = '0xB0B81c2c7686c63acAE28F9778ca8Fa80f0C004b' as Address;
-const TRADE_ADDRESS = '0x8bcef483f1c9226c192430b8f5191ee801601480' as Address;
+/**
+ * Address whose on-chain portfolio you want to query (balances/positions/ranges/trades).
+ *
+ * Important: this is the "trader/owner" address (beneficiary) in SynFutures contracts, not necessarily the tx sender.
+ * If you use relayers or `tradeFor/placeFor`, this should still be the `to` address.
+ */
+const TRADER_ADDRESS = '0xB0B81c2c7686c63acAE28F9778ca8Fa80f0C004b' as Address;
 const INSTRUMENT = '0x73ada1ea346cc3908f41cf67a040f0acd7808be0' as Address;
 const DURATION_MS = 30_000;
 const DEPTH = 20;
@@ -57,14 +62,14 @@ async function main(): Promise<void> {
     }
 
     try {
-        const orderHistory = await fetchMmOrderHistory({ chainId: CHAIN_ID, address: TRADE_ADDRESS }, authInfo);
+        const orderHistory = await fetchMmOrderHistory({ chainId: CHAIN_ID, address: TRADER_ADDRESS }, authInfo);
         console.log('orderHistory : ', orderHistory?.totalCount, 'list : ', orderHistory?.list?.[0]);
     } catch (error) {
         console.error('orderHistory API error:', (error as Error).message);
     }
 
     try {
-        const orderRealtime = await fetchMmOrderRealtime({ chainId: CHAIN_ID, address: TRADE_ADDRESS }, authInfo);
+        const orderRealtime = await fetchMmOrderRealtime({ chainId: CHAIN_ID, address: TRADER_ADDRESS }, authInfo);
         console.log('orderRealtime : ', orderRealtime?.length, 'list : ', orderRealtime?.[0]);
     } catch (error) {
         console.error('orderRealtime API error:', (error as Error).message);
@@ -78,14 +83,14 @@ async function main(): Promise<void> {
     }
 
     try {
-        const liquidityHistory = await fetchMmLiquidityHistory({ chainId: CHAIN_ID, address: USER_ADDRESS }, authInfo);
+        const liquidityHistory = await fetchMmLiquidityHistory({ chainId: CHAIN_ID, address: TRADER_ADDRESS }, authInfo);
         console.log('liquidityHistory : ', liquidityHistory?.totalCount, 'list : ', liquidityHistory?.list?.[0]);
     } catch (error) {
         console.error('liquidityHistory API error:', (error as Error).message);
     }
 
     try {
-        const liquidityList = await fetchMmLiquidityList({ chainId: CHAIN_ID, address: USER_ADDRESS }, authInfo);
+        const liquidityList = await fetchMmLiquidityList({ chainId: CHAIN_ID, address: TRADER_ADDRESS }, authInfo);
         console.log('liquidityList : ', liquidityList?.[0]);
     } catch (error) {
         console.error('liquidityList API error:', (error as Error).message);
@@ -120,14 +125,14 @@ async function main(): Promise<void> {
     }
 
     try {
-        const accountTxHistory = await fetchMmAccountTransactionHistory({ chainId: CHAIN_ID, address: USER_ADDRESS }, authInfo);
+        const accountTxHistory = await fetchMmAccountTransactionHistory({ chainId: CHAIN_ID, address: TRADER_ADDRESS }, authInfo);
         console.log('accountTxHistory : ', accountTxHistory?.totalCount);
     } catch (error) {
         console.error('accountTxHistory API error:', (error as Error).message);
     }
 
     try {
-        const tradeHistory = await fetchMmTradeHistory({ chainId: CHAIN_ID, address: USER_ADDRESS, symbol: SYMBOL }, authInfo);
+        const tradeHistory = await fetchMmTradeHistory({ chainId: CHAIN_ID, address: TRADER_ADDRESS, symbol: SYMBOL }, authInfo);
         console.log('tradeHistory : ', tradeHistory?.totalCount);
     } catch (error) {
         console.error('tradeHistory API error:', (error as Error).message);
@@ -165,7 +170,7 @@ async function main(): Promise<void> {
     }
 
     try {
-        const wallet = await fetchMmWalletBalance({ chainId: CHAIN_ID, address: USER_ADDRESS }, authInfo);
+        const wallet = await fetchMmWalletBalance({ chainId: CHAIN_ID, address: TRADER_ADDRESS }, authInfo);
         if (wallet?.portfolios?.length) {
             console.log(
                 'wallet balance snapshot:',
@@ -184,7 +189,7 @@ async function main(): Promise<void> {
     }
 
     try {
-        const positions = await fetchMmPositionList({ chainId: CHAIN_ID, address: USER_ADDRESS }, authInfo);
+        const positions = await fetchMmPositionList({ chainId: CHAIN_ID, address: TRADER_ADDRESS }, authInfo);
         if (positions?.length) {
             console.log(
                 'position list snapshot:',
@@ -241,7 +246,7 @@ async function main(): Promise<void> {
     );
 
     const portfolioSub = ws.subscribePortfolio(
-        { chainId: CHAIN_ID, userAddress: USER_ADDRESS, type: 'portfolio' },
+        { chainId: CHAIN_ID, userAddress: TRADER_ADDRESS, type: 'portfolio' },
         (payload) => {
             console.log(
                 `[portfolio] type=${payload.type} instrument=${payload.instrument ?? '-'} expiry=${payload.expiry ?? '-'}`

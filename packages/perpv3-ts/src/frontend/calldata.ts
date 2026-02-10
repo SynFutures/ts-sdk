@@ -1103,10 +1103,17 @@ export interface TransactionParam {
  * Base encoding options shared across all transaction types
  */
 export interface BaseEncodingOptions {
-    /** Agent address for 1CT (requires router) */
+    /**
+     * 1CT sub-account/agent address used by the router batching flow.
+     * This is typically the tx sender, and is not necessarily the on-chain portfolio owner.
+     */
     subAccountAddress?: Address;
     /** Router address for batchMulticall or batch operations */
     routerAddress?: Address;
+    /**
+     * Trader/portfolio owner address.
+     * When encoding `*For` calls (e.g. `tradeFor/placeFor/addFor/removeFor/cancelFor`), this is the `to` address.
+     */
     traderAddress?: Address;
 }
 

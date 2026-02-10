@@ -88,8 +88,6 @@
         "README.md"
     ],
     "scripts": {
-        "request-gemini-review": "./scripts/request-gemini-review.sh",
-        "create-pr": "./scripts/create-pr-with-review.sh",
         "build": "tsup",
         "build:check": "tsc --noEmit",
         "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
@@ -101,9 +99,6 @@
         "test": "pnpm run test:unit && pnpm run test:devnet",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",
-        "test:trade": "node --loader ts-node/esm src/tests/simulator/trade/runTradeParity.ts",
-        "fixtures:capture:abc": "ts-node --transpile-only scripts/captureAbcFixture.ts",
-        "fixtures:capture:trade": "ts-node --transpile-only scripts/captureAbcTradeScenarios.ts",
         "demo": "tsx examples/index.ts",
         "devnet:check": "node scripts/devnet/check.js",
         "devnet:regen": "tsx scripts/devnet/regen.ts"

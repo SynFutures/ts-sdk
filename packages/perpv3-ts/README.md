@@ -29,6 +29,17 @@ This repo includes a self-contained local devnet harness under `packages/perpv3-
 
 If `devnet/state.json` becomes stale (artifacts/preset changed), `test:devnet` will fail fast and instruct you to run `devnet:regen` and commit the updated snapshot files.
 
+Note on pnpm build scripts: pnpm may ignore dependency build scripts by default. If you see a warning about ignored build scripts for `@foundry-rs/anvil` or devnet tests fail to start Anvil, run `pnpm approve-builds` and then re-run `pnpm install`.
+
+Other useful package scripts:
+
+- Build bundles with tsup: `pnpm -C packages/perpv3-ts run build`
+- Type-check declarations: `pnpm -C packages/perpv3-ts run build:check`
+- Run unit tests: `pnpm -C packages/perpv3-ts run test:unit`
+- Run the full test suite (unit + devnet): `pnpm -C packages/perpv3-ts run test`
+- Validate devnet snapshot freshness: `pnpm -C packages/perpv3-ts run devnet:check`
+- Run demos in this repository (not published to npm): `pnpm -C packages/perpv3-ts run demo`
+
 ## Architecture
 
 ### Directory Structure
@@ -111,12 +122,7 @@ import { Side, UserSetting, PERP_EXPIRY } from '@synfutures/perpv3-ts/types';
 import { WAD } from '@synfutures/perpv3-ts/constants';
 
 // Create PerpClient - centralizes configuration
-const client = new PerpClient(
-    rpcConfig,
-    new UserSetting(10, 10, 3n * WAD, 1),
-    instrumentAddress,
-    PERP_EXPIRY
-);
+const client = new PerpClient(rpcConfig, new UserSetting(10, 10, 3n * WAD, 1), instrumentAddress, PERP_EXPIRY);
 
 // Fetch snapshot and quotation
 const snapshot = await client.getSnapshot(traderAddress);
@@ -131,6 +137,8 @@ const quotationWithSize = new QuotationWithSize(signedSize, quotation);
 const tradeInput = new TradeInput(traderAddress, baseQuantity, side);
 const [param, sim] = tradeInput.simulate(snapshot, quotationWithSize, client.userSetting);
 ```
+
+**Address note:** throughout this SDK, `traderAddress` means the on-chain account that owns the portfolio (positions, orders, ranges). If you use relayers or `tradeFor/placeFor` style calls, `traderAddress` is the `to` (beneficiary) address, not necessarily the transaction sender.
 
 ### Basic Setup (Legacy API)
 
@@ -168,12 +176,7 @@ const baseQuantity = parseUnits('1', 18);
 const signedSize = side === Side.LONG ? baseQuantity : -baseQuantity;
 
 // Fetch onchain context
-const onchainContext = await fetchOnchainContext(
-    instrumentAddress,
-    expiry,
-    rpcConfig,
-    traderAddress
-);
+const onchainContext = await fetchOnchainContext(instrumentAddress, expiry, rpcConfig, traderAddress);
 
 // Fetch quotation first (required for trade simulation)
 const onchainContextWithQuotation = await fetchOnchainContext(
@@ -480,7 +483,13 @@ const signer: ApiSigner = {
 };
 
 const apiConfig = { chainId: 143, signer };
-const onchainContextFromApi = await fetchOnchainContext(instrumentAddress, expiry, apiConfig, traderAddress, signedSize);
+const onchainContextFromApi = await fetchOnchainContext(
+    instrumentAddress,
+    expiry,
+    apiConfig,
+    traderAddress,
+    signedSize
+);
 
 // Inquire by tick
 const { size, quotation } = await inquireByTick(instrumentAddress, expiry, tick, rpcConfig);

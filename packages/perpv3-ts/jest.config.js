@@ -1,5 +1,6 @@
 /** @type {import('jest').Config} */
 export default {
+    // Note: ts-jest@29 supports Jest 30 via peer deps, so this combo is intentional.
     preset: 'ts-jest/presets/default-esm',
     extensionsToTreatAsEsm: ['.ts'],
     moduleNameMapper: {
@@ -14,14 +15,7 @@ export default {
         ],
     },
     testMatch: ['**/tests/**/*.test.ts', '**/?(*.)+(spec|test).ts'],
-    testPathIgnorePatterns: [
-        '/node_modules/',
-        '/dist/',
-        '/src/tests/devnet/',
-        '/src/tests/simulator/trade/trade.test.ts',
-        '/src/math/tests/mathParity.spec.ts',
-        '/src/abis/tests/selectorsParity.spec.ts',
-    ],
+    testPathIgnorePatterns: ['/node_modules/', '/dist/', '/src/tests/devnet/'],
     moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
     collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
     testEnvironment: 'node',
