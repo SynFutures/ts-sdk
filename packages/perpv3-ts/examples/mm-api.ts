@@ -31,13 +31,6 @@ const SYMBOL = 'BTC/USDC';
  * If you use relayers or `tradeFor/placeFor`, this should still be the `to` address.
  */
 const TRADER_ADDRESS = '0xB0B81c2c7686c63acAE28F9778ca8Fa80f0C004b' as Address;
-/**
- * Address whose on-chain limit orders you want to query.
- *
- * In most setups this equals TRADER_ADDRESS.
- * Keep it separate if your infra splits "order owner" vs "portfolio owner" addresses.
- */
-const ORDER_OWNER_ADDRESS = '0x8bcef483f1c9226c192430b8f5191ee801601480' as Address;
 const INSTRUMENT = '0x73ada1ea346cc3908f41cf67a040f0acd7808be0' as Address;
 const DURATION_MS = 30_000;
 const DEPTH = 20;
@@ -69,14 +62,14 @@ async function main(): Promise<void> {
     }
 
     try {
-        const orderHistory = await fetchMmOrderHistory({ chainId: CHAIN_ID, address: ORDER_OWNER_ADDRESS }, authInfo);
+        const orderHistory = await fetchMmOrderHistory({ chainId: CHAIN_ID, address: TRADER_ADDRESS }, authInfo);
         console.log('orderHistory : ', orderHistory?.totalCount, 'list : ', orderHistory?.list?.[0]);
     } catch (error) {
         console.error('orderHistory API error:', (error as Error).message);
     }
 
     try {
-        const orderRealtime = await fetchMmOrderRealtime({ chainId: CHAIN_ID, address: ORDER_OWNER_ADDRESS }, authInfo);
+        const orderRealtime = await fetchMmOrderRealtime({ chainId: CHAIN_ID, address: TRADER_ADDRESS }, authInfo);
         console.log('orderRealtime : ', orderRealtime?.length, 'list : ', orderRealtime?.[0]);
     } catch (error) {
         console.error('orderRealtime API error:', (error as Error).message);
