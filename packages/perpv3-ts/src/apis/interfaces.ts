@@ -500,6 +500,10 @@ export type FetchFuturesPairOrderBookResponse = IFuturesOrderBookAllSteps | null
 
 export interface FetchMmAccountTransactionHistoryInput {
     chainId: number;
+    /**
+     * Trader address (portfolio owner) to query.
+     * For `tradeFor/placeFor` flows this is the `to` (beneficiary) address, not necessarily the tx sender.
+     */
     address: string;
     page?: number;
     size?: number;
@@ -523,6 +527,10 @@ export interface FetchTradeHistoryResponse {
 
 export interface FetchTradeHistoryInput {
     chainId: number;
+    /**
+     * Trader address (execution/position owner) to query.
+     * For `tradeFor/placeFor` flows this is the `to` (beneficiary) address, not necessarily the tx sender.
+     */
     address: string;
     symbol?: string;
     startTime?: number;
@@ -627,6 +635,10 @@ export type FetchMmKlineResponse = FetchMmKlineItem[];
 
 export interface FetchMmLiquidityHistoryInput {
     chainId: number;
+    /**
+     * Trader address (range/liquidity owner) to query.
+     * For `addFor/removeFor` flows this is the `to` (beneficiary) address, not necessarily the tx sender.
+     */
     address: string;
     symbol?: string;
     startTime?: number;
@@ -662,6 +674,10 @@ export type FetchMmLiquidityHistoryResponse = {
 
 export interface FetchMmOrderHistoryInput {
     chainId: number;
+    /**
+     * Trader address (limit order owner) to query.
+     * For `placeFor/cancelFor` flows this is the `to` (beneficiary) address, not necessarily the tx sender.
+     */
     address: string;
     symbol?: string;
     startTime?: number;
@@ -702,6 +718,10 @@ export interface FetchMmOrderHistoryResponse {
 
 export interface FetchMmOrderRealtimeInput {
     chainId: number;
+    /**
+     * Trader address (limit order owner) to query.
+     * For `placeFor` flows this is the `to` (beneficiary) address, not necessarily the tx sender.
+     */
     address: string;
 }
 
@@ -732,6 +752,10 @@ export type FetchTokenCoinsWithSymbolResponse = FetchTokenCoinsWithSymbolItem[];
 
 export interface FetchMmLiquidityListInput {
     chainId: number;
+    /**
+     * Trader address (range/liquidity owner) to query.
+     * For `addFor/removeFor` flows this is the `to` (beneficiary) address, not necessarily the tx sender.
+     */
     address: string;
 }
 
@@ -767,6 +791,10 @@ export type FetchMmOrderBookResponse = IFuturesOrderBookAllSteps | null;
 // mm portfolio
 export interface FetchMmWalletBalanceInput {
     chainId: number;
+    /**
+     * Trader address (Gate / collateral owner) to query.
+     * For `depositFor/withdrawFor` flows this is the beneficiary address, not necessarily the tx sender.
+     */
     address: string;
 }
 
@@ -801,6 +829,10 @@ export interface FetchMmWalletBalanceResponse {
 
 export interface FetchMmPositionListInput {
     chainId: number;
+    /**
+     * Trader address (position owner) to query.
+     * For `tradeFor` flows this is the `to` (beneficiary) address, not necessarily the tx sender.
+     */
     address: string;
 }
 

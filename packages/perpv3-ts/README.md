@@ -132,6 +132,8 @@ const tradeInput = new TradeInput(traderAddress, baseQuantity, side);
 const [param, sim] = tradeInput.simulate(snapshot, quotationWithSize, client.userSetting);
 ```
 
+**Address note:** throughout this SDK, `traderAddress` means the on-chain account that owns the portfolio (positions, orders, ranges). If you use relayers or `tradeFor/placeFor` style calls, `traderAddress` is the `to` (beneficiary) address, not necessarily the transaction sender.
+
 ### Basic Setup (Legacy API)
 
 ```typescript

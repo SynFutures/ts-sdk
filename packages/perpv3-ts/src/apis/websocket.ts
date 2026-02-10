@@ -315,6 +315,10 @@ export interface MmOrderBookSubscribeParams {
 
 export interface PortfolioSubscribeParams {
     chainId: number;
+    /**
+     * Trader address (portfolio owner) to subscribe to.
+     * Note: this is the on-chain beneficiary/owner address, not necessarily the tx sender.
+     */
     userAddress: Address;
     type: 'portfolio';
 }
