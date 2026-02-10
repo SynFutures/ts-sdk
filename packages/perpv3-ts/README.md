@@ -29,6 +29,15 @@ This repo includes a self-contained local devnet harness under `packages/perpv3-
 
 If `devnet/state.json` becomes stale (artifacts/preset changed), `test:devnet` will fail fast and instruct you to run `devnet:regen` and commit the updated snapshot files.
 
+Other useful package scripts:
+
+- Build bundles with tsup: `pnpm -C packages/perpv3-ts run build`
+- Type-check declarations: `pnpm -C packages/perpv3-ts run build:check`
+- Run unit tests: `pnpm -C packages/perpv3-ts run test:unit`
+- Run the full test suite (unit + devnet): `pnpm -C packages/perpv3-ts run test`
+- Validate devnet snapshot freshness: `pnpm -C packages/perpv3-ts run devnet:check`
+- Run demos in this repository (not published to npm): `pnpm -C packages/perpv3-ts run demo`
+
 ## Architecture
 
 ### Directory Structure
