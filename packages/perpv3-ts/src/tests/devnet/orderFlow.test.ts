@@ -85,7 +85,10 @@ function createUserSetting() {
 }
 
 async function waitForTx(hash: Hash) {
-    await ctx.publicClient.waitForTransactionReceipt({ hash });
+    const receipt = await ctx.publicClient.waitForTransactionReceipt({ hash });
+    if (receipt.status !== 'success') {
+        throw new Error(`Transaction reverted (hash=${hash})`);
+    }
 }
 
 async function transferQuote(to: Address, amount: bigint) {
@@ -980,7 +983,8 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
         });
         await waitForTx(crossOneHash);
 
-        // Cross two order levels by targeting the third order tick (matching Hardhat behavior).
+        // Cross two order levels and ensure we also take the third level.
+        // Target a tick strictly above the third order tick to avoid stopping right on the boundary.
         // To ensure order1 is fully consumed, we need to trade at least order1's size.
         // inquireByTick may return a smaller size if AMM liquidity absorbs part of the trade.
         const takerBeforeCrossTwo = await fetchOnchainContext(
@@ -989,7 +993,8 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
             ctx.rpcConfig,
             takerWallet.account.address
         );
-        const crossTwo = await inquireByTick(INSTRUMENT_ADDRESS, EXPIRY, orderTicks[2]!, ctx.rpcConfig);
+        const crossTwoTargetTick = orderTicks[2]! + 1;
+        const crossTwo = await inquireByTick(INSTRUMENT_ADDRESS, EXPIRY, crossTwoTargetTick, ctx.rpcConfig);
         const crossTwoSide = crossTwo.size >= 0n ? Side.LONG : Side.SHORT;
         // Ensure we trade at least enough to consume order1 (placed with orderBaseQuantity)
         const minCrossTwoSize = orderBaseQuantity;
@@ -1067,9 +1072,13 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
 
         expect(abs(order0.taken)).toBeGreaterThanOrEqual(abs(order0.order.size));
         expect(abs(order1.taken)).toBeGreaterThanOrEqual(abs(order1.order.size));
-        // The remaining fills can vary slightly across Anvil builds/runtimes; do not require a specific level to be taken.
+        expect(abs(order2.taken)).toBeGreaterThan(0n);
 
-        const expectedFinalSize = order0.order.size + order1.order.size + order2.taken + order3.taken;
+        const clampTakenToOrderSize = (entry: { order: { size: bigint }; taken: bigint }): bigint =>
+            abs(entry.taken) >= abs(entry.order.size) ? entry.order.size : entry.taken;
+
+        const expectedFinalSize =
+            order0.order.size + order1.order.size + clampTakenToOrderSize(order2) + clampTakenToOrderSize(order3);
 
         const fill0Hash = await makerWallet.writeContract({
             address: INSTRUMENT_ADDRESS,
@@ -1111,33 +1120,43 @@ describe('devnet instrument order flow (ported from v3-contracts hardhat Instrum
         expect(makerAfterFill.portfolio.position.size).toBe(order0.order.size + order1.order.size);
 
         const cancelDeadline = userSetting.getDeadline(makerAfterFill.blockInfo.timestamp);
-        const cancel2Hash = await makerWallet.writeContract({
-            address: INSTRUMENT_ADDRESS,
-            abi: CURRENT_INSTRUMENT_ABI,
-            functionName: 'cancel',
-            args: [
-                encodeCancelParam({
-                    expiry: EXPIRY,
-                    ticks: [order2.order.tick],
-                    deadline: cancelDeadline,
-                }),
-            ],
-        });
-        await waitForTx(cancel2Hash);
+        const settleOrder = async (entry: { order: { tick: number; nonce: number; size: bigint }; taken: bigint }) => {
+            const fullyTaken = abs(entry.taken) >= abs(entry.order.size);
+            if (fullyTaken) {
+                const fillHash = await makerWallet.writeContract({
+                    address: INSTRUMENT_ADDRESS,
+                    abi: CURRENT_INSTRUMENT_ABI,
+                    functionName: 'fill',
+                    args: [
+                        encodeFillParam({
+                            expiry: EXPIRY,
+                            target: makerWallet.account.address,
+                            tick: entry.order.tick,
+                            nonce: entry.order.nonce,
+                        }),
+                    ],
+                });
+                await waitForTx(fillHash);
+                return;
+            }
 
-        const cancel3Hash = await makerWallet.writeContract({
-            address: INSTRUMENT_ADDRESS,
-            abi: CURRENT_INSTRUMENT_ABI,
-            functionName: 'cancel',
-            args: [
-                encodeCancelParam({
-                    expiry: EXPIRY,
-                    ticks: [order3.order.tick],
-                    deadline: cancelDeadline,
-                }),
-            ],
-        });
-        await waitForTx(cancel3Hash);
+            const cancelHash = await makerWallet.writeContract({
+                address: INSTRUMENT_ADDRESS,
+                abi: CURRENT_INSTRUMENT_ABI,
+                functionName: 'cancel',
+                args: [
+                    encodeCancelParam({
+                        expiry: EXPIRY,
+                        ticks: [entry.order.tick],
+                        deadline: cancelDeadline,
+                    }),
+                ],
+            });
+            await waitForTx(cancelHash);
+        };
+
+        await settleOrder(order2);
+        await settleOrder(order3);
 
         const makerAfterCancel = await fetchOnchainContext(
             INSTRUMENT_ADDRESS,
