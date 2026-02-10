@@ -8,10 +8,9 @@ import type { RpcConfig } from '../queries/config';
 import { fetchLiquidityDetails, fetchOnchainContext, inquireByBaseSize, inquireByTick } from '../queries/rpc';
 
 const CHAIN_ID = 8453;
-const DEFAULT_RPC_URL = 'https://base-mainnet.public.blastapi.io';
 const DEFAULT_INSTRUMENT = '0xec6c44e704eb1932ec5fe1e4aba58db6fee71460' as Address;
 
-const rpcUrl = process.env.BASE_RPC ?? DEFAULT_RPC_URL;
+const rpcUrl = process.env.BASE_RPC;
 const instrumentAddress = (process.env.BASE_INSTRUMENT ?? DEFAULT_INSTRUMENT) as Address;
 const expiryRaw = process.env.BASE_EXPIRY;
 const expiry = expiryRaw ? Number(expiryRaw) : PERP_EXPIRY;
@@ -19,6 +18,11 @@ const expiry = expiryRaw ? Number(expiryRaw) : PERP_EXPIRY;
 jest.setTimeout(120_000);
 
 describe('Base observer calls', () => {
+    if (!rpcUrl) {
+        test.skip('BASE_RPC is not set, skipping Base observer test', () => {});
+        return;
+    }
+
     if (expiryRaw && !Number.isFinite(expiry)) {
         test.skip('BASE_EXPIRY is set but invalid, skipping Base observer test', () => {});
         return;
