@@ -29,6 +29,8 @@ This repo includes a self-contained local devnet harness under `packages/perpv3-
 
 If `devnet/state.json` becomes stale (artifacts/preset changed), `test:devnet` will fail fast and instruct you to run `devnet:regen` and commit the updated snapshot files.
 
+Note on pnpm build scripts: pnpm may ignore dependency build scripts by default. If you see a warning about ignored build scripts for `@foundry-rs/anvil` or devnet tests fail to start Anvil, run `pnpm approve-builds` and then re-run `pnpm install`.
+
 Other useful package scripts:
 
 - Build bundles with tsup: `pnpm -C packages/perpv3-ts run build`
@@ -120,12 +122,7 @@ import { Side, UserSetting, PERP_EXPIRY } from '@synfutures/perpv3-ts/types';
 import { WAD } from '@synfutures/perpv3-ts/constants';
 
 // Create PerpClient - centralizes configuration
-const client = new PerpClient(
-    rpcConfig,
-    new UserSetting(10, 10, 3n * WAD, 1),
-    instrumentAddress,
-    PERP_EXPIRY
-);
+const client = new PerpClient(rpcConfig, new UserSetting(10, 10, 3n * WAD, 1), instrumentAddress, PERP_EXPIRY);
 
 // Fetch snapshot and quotation
 const snapshot = await client.getSnapshot(traderAddress);
@@ -179,12 +176,7 @@ const baseQuantity = parseUnits('1', 18);
 const signedSize = side === Side.LONG ? baseQuantity : -baseQuantity;
 
 // Fetch onchain context
-const onchainContext = await fetchOnchainContext(
-    instrumentAddress,
-    expiry,
-    rpcConfig,
-    traderAddress
-);
+const onchainContext = await fetchOnchainContext(instrumentAddress, expiry, rpcConfig, traderAddress);
 
 // Fetch quotation first (required for trade simulation)
 const onchainContextWithQuotation = await fetchOnchainContext(
@@ -491,7 +483,13 @@ const signer: ApiSigner = {
 };
 
 const apiConfig = { chainId: 143, signer };
-const onchainContextFromApi = await fetchOnchainContext(instrumentAddress, expiry, apiConfig, traderAddress, signedSize);
+const onchainContextFromApi = await fetchOnchainContext(
+    instrumentAddress,
+    expiry,
+    apiConfig,
+    traderAddress,
+    signedSize
+);
 
 // Inquire by tick
 const { size, quotation } = await inquireByTick(instrumentAddress, expiry, tick, rpcConfig);
