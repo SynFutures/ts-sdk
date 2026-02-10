@@ -13,7 +13,7 @@
         "init": "./scripts/init.sh",
         "prepare": "husky",
         "lint": "eslint",
-        "format": "prettier --write packages/**/*.ts apps/**/*.ts",
+        "format": "prettier --write packages/**/*.ts",
         "clean": "pnpm -r clean",
         "release": "changeset publish",
         "release:dry": "changeset version && changeset publish --dry-run"
