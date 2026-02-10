@@ -58,6 +58,6 @@ for i in "${link_test_templates[@]}"
 do
 	echo ${i}
 	if [ ! -e "$packageDir/test/${i}" ];	then
-		ln -vs "../../templates/test/$i.tmpl" "$packageDir/$i"
+		ln -vs "../../../templates/test/$i.tmpl" "$packageDir/test/$i"
 	fi
 done
