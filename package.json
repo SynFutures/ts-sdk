@@ -10,6 +10,7 @@
         "nx": "nx run-many --target=build --all",
         "test": "nx run-many --target=test --all",
         "deps": "pnpm -r i",
+        "init": "./scripts/init.sh",
         "prepare": "husky",
         "lint": "eslint",
         "format": "prettier --write packages/**/*.ts apps/**/*.ts",

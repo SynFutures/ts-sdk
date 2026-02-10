@@ -14,7 +14,7 @@ if [ "$ROOT_PACKAGE_NAME" != "@synfutures/ts-sdk" ]; then
 fi
 
 if [ -z "$packageName" ] || [[ "$packageName" =~ [^a-zA-Z0-9-] ]]; then
-	echo "Usage: npm run init -- PACKAGE_NAME"
+	echo "Usage: pnpm run init -- PACKAGE_NAME"
 	exit 1
 fi
 
