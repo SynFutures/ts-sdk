@@ -1,5 +1,11 @@
 # @synfutures/perpv3-ts
 
+## 0.2.7
+
+### Patch Changes
+
+- fb7dc0b: Expose portfolio orderInfo oid/orderId fields in WS stream types
+
 ## 0.2.6
 
 ### Patch Changes
