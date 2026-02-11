@@ -547,6 +547,12 @@ const orderBookSub = ws.subscribeOrderBook(
 const portfolioSub = ws.subscribePortfolio({ chainId: 143, userAddress, type: 'portfolio' }, (payload) => {
     // WebSocket notifies that something changed; fetch the latest details from the API.
     console.log('portfolio changed', payload.type, payload.instrument, payload.expiry);
+    // For limit order updates, the stream includes both:
+    // - `payload.orderInfo.oid` (packed order key: tick + nonce, decimal string)
+    // - `payload.orderInfo.orderId` (client order ID used by /orderId API)
+    if (payload.type === 'order') {
+        console.log('order changed', payload.orderInfo?.type, payload.orderInfo?.oid, payload.orderInfo?.orderId);
+    }
 });
 
 // Later, clean up

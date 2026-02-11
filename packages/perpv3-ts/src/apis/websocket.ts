@@ -56,12 +56,27 @@ export type OrderBookStreamData = {
 };
 
 export type PortfolioStreamType = 'order' | 'range' | 'position' | 'gate';
+export type PortfolioOrderInfo = {
+    /**
+     * Packed order key (tick + nonce) for limit orders (decimal string from WS).
+     */
+    oid?: string;
+    /**
+     * Client order ID (used for /orderId API).
+     */
+    orderId?: string;
+    /**
+     * Order update type (e.g. 'placed', 'canceled').
+     */
+    type?: string;
+};
 export type PortfolioStreamData = {
     chainId?: number;
     userAddress: Address;
     instrument?: Address;
     expiry?: number | string;
     type: PortfolioStreamType;
+    orderInfo?: PortfolioOrderInfo;
 };
 
 export type KlineStreamData = {
@@ -502,8 +517,8 @@ export class PublicWebsocketClient {
             options?.maxReconnectAttempts !== undefined
                 ? options.maxReconnectAttempts
                 : options?.reconnectDelayMs !== undefined
-                    ? Number.POSITIVE_INFINITY
-                    : 10;
+                  ? Number.POSITIVE_INFINITY
+                  : 10;
     }
 
     // -----------------------------------------------------------------------
@@ -639,7 +654,7 @@ export class PublicWebsocketClient {
             throw new Error('Trades subscription requires a non-empty `pairs` array.');
         }
         const id = this.nextSubscriptionId++;
-        const pairSet = new Set(params.pairs.map(p => p.toLowerCase()));
+        const pairSet = new Set(params.pairs.map((p) => p.toLowerCase()));
         this.tradesSubscriptions.set(id, { id, params, handler, pairSet });
         this.connect();
         this.sendSubscribeIfOpen(params);
@@ -921,7 +936,9 @@ export class PublicWebsocketClient {
                         continue;
                     }
                 }
-                record.handler(data as unknown as MarketListChangedData | BlockNumChangedData, { params: record.params });
+                record.handler(data as unknown as MarketListChangedData | BlockNumChangedData, {
+                    params: record.params,
+                });
             }
         }
     }
@@ -963,21 +980,21 @@ export class PublicWebsocketClient {
 
         const event: PublicWsRequestResultEvent = request
             ? {
-                id: message.id,
-                method: request.method,
-                params: request.params,
-                result: message.result,
-                ok,
-                sentAtMs: request.sentAtMs,
-                receivedAtMs,
-                latencyMs: receivedAtMs - request.sentAtMs,
-            }
+                  id: message.id,
+                  method: request.method,
+                  params: request.params,
+                  result: message.result,
+                  ok,
+                  sentAtMs: request.sentAtMs,
+                  receivedAtMs,
+                  latencyMs: receivedAtMs - request.sentAtMs,
+              }
             : {
-                id: message.id,
-                result: message.result,
-                ok,
-                receivedAtMs,
-            };
+                  id: message.id,
+                  result: message.result,
+                  ok,
+                  receivedAtMs,
+              };
 
         this.onRequestResult?.(event);
     }
@@ -1106,8 +1123,8 @@ export class PublicWebsocketClient {
             typeof record.instrument === 'string'
                 ? record.instrument
                 : typeof record.instrumentAddress === 'string'
-                    ? record.instrumentAddress
-                    : undefined;
+                  ? record.instrumentAddress
+                  : undefined;
 
         if (chainId === undefined || expiry === undefined || typeof instrument !== 'string') return null;
 
@@ -1152,15 +1169,15 @@ export class PublicWebsocketClient {
             typeof record.instrument === 'string'
                 ? record.instrument
                 : typeof record.instrumentAddress === 'string'
-                    ? record.instrumentAddress
-                    : defaults.instrument;
+                  ? record.instrumentAddress
+                  : defaults.instrument;
 
         const instrumentAddress =
             typeof record.instrumentAddress === 'string'
                 ? record.instrumentAddress
                 : typeof record.instrument === 'string'
-                    ? record.instrument
-                    : defaults.instrument;
+                  ? record.instrument
+                  : defaults.instrument;
         if (!instrument || !instrumentAddress) return null;
 
         const normalizedInstrument = instrument.toLowerCase();
@@ -1279,8 +1296,8 @@ export class PublicWebsocketClient {
         const base: GenericStreamData = Array.isArray(data)
             ? { data }
             : data && typeof data === 'object'
-                ? { ...(data as Record<string, unknown>) }
-                : {};
+              ? { ...(data as Record<string, unknown>) }
+              : {};
 
         const mergeField = <T>(key: string, value: T | undefined): void => {
             if (value !== undefined) {
@@ -1384,9 +1401,9 @@ export class PublicWebsocketClient {
         const requestParams =
             'params' in params
                 ? (() => {
-                    const { params: extra, ...rest } = params as RawSubscribeParams;
-                    return { ...(rest as unknown as Record<string, unknown>), ...(extra ?? {}) };
-                })()
+                      const { params: extra, ...rest } = params as RawSubscribeParams;
+                      return { ...(rest as unknown as Record<string, unknown>), ...(extra ?? {}) };
+                  })()
                 : { ...(params as unknown as Record<string, unknown>) };
 
         return this.normalizeRequestParams(requestParams);
@@ -1407,7 +1424,9 @@ export class PublicWebsocketClient {
 
         const pairs = normalized.pairs;
         if (Array.isArray(pairs)) {
-            normalized.pairs = pairs.filter((pair): pair is string => typeof pair === 'string').map((pair) => pair.toLowerCase());
+            normalized.pairs = pairs
+                .filter((pair): pair is string => typeof pair === 'string')
+                .map((pair) => pair.toLowerCase());
         }
 
         return normalized;
@@ -1419,8 +1438,8 @@ export class PublicWebsocketClient {
             urlObj.protocol === 'wss:'
                 ? `https://${urlObj.host}`
                 : urlObj.protocol === 'ws:'
-                    ? `http://${urlObj.host}`
-                    : `${urlObj.protocol}//${urlObj.host}`;
+                  ? `http://${urlObj.host}`
+                  : `${urlObj.protocol}//${urlObj.host}`;
         return {
             'User-Agent': DEFAULT_USER_AGENT,
             Origin: origin,

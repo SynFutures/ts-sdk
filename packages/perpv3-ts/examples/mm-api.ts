@@ -83,7 +83,10 @@ async function main(): Promise<void> {
     }
 
     try {
-        const liquidityHistory = await fetchMmLiquidityHistory({ chainId: CHAIN_ID, address: TRADER_ADDRESS }, authInfo);
+        const liquidityHistory = await fetchMmLiquidityHistory(
+            { chainId: CHAIN_ID, address: TRADER_ADDRESS },
+            authInfo
+        );
         console.log('liquidityHistory : ', liquidityHistory?.totalCount, 'list : ', liquidityHistory?.list?.[0]);
     } catch (error) {
         console.error('liquidityHistory API error:', (error as Error).message);
@@ -125,14 +128,20 @@ async function main(): Promise<void> {
     }
 
     try {
-        const accountTxHistory = await fetchMmAccountTransactionHistory({ chainId: CHAIN_ID, address: TRADER_ADDRESS }, authInfo);
+        const accountTxHistory = await fetchMmAccountTransactionHistory(
+            { chainId: CHAIN_ID, address: TRADER_ADDRESS },
+            authInfo
+        );
         console.log('accountTxHistory : ', accountTxHistory?.totalCount);
     } catch (error) {
         console.error('accountTxHistory API error:', (error as Error).message);
     }
 
     try {
-        const tradeHistory = await fetchMmTradeHistory({ chainId: CHAIN_ID, address: TRADER_ADDRESS, symbol: SYMBOL }, authInfo);
+        const tradeHistory = await fetchMmTradeHistory(
+            { chainId: CHAIN_ID, address: TRADER_ADDRESS, symbol: SYMBOL },
+            authInfo
+        );
         console.log('tradeHistory : ', tradeHistory?.totalCount);
     } catch (error) {
         console.error('tradeHistory API error:', (error as Error).message);
@@ -251,6 +260,11 @@ async function main(): Promise<void> {
             console.log(
                 `[portfolio] type=${payload.type} instrument=${payload.instrument ?? '-'} expiry=${payload.expiry ?? '-'}`
             );
+            if (payload.type === 'order') {
+                console.log(
+                    `[portfolio-order] status=${payload.orderInfo?.type ?? '-'} oid=${payload.orderInfo?.oid ?? '-'} orderId=${payload.orderInfo?.orderId ?? '-'}`
+                );
+            }
         }
     );
 
