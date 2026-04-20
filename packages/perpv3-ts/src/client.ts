@@ -14,6 +14,7 @@ import {
     inquireByBaseSize,
     inquireByTick,
     isApiConfig,
+    resolveApiConfig,
     type ApiConfig,
     type ReadOptions,
     type RpcConfig,
@@ -24,7 +25,7 @@ import {
     type Quotation,
 } from './types';
 import { WebSocketManager } from './wss';
-import { httpClient, MarketMakerModule, MarketModule } from './apis';
+import { httpClient as defaultHttpClient, MarketMakerModule, MarketModule } from './apis';
 
 /**
  * PerpClient is a scoped client for interacting with a specific trading pair (instrument + expiry).
@@ -71,7 +72,7 @@ export class PerpClient {
             rpcFallback?: RpcConfig;
         }
     ) {
-        this._config = config;
+        this._config = isApiConfig(config) ? resolveApiConfig(config) : config;
         this._userSetting = userSetting;
         this._instrumentAddress = instrumentAddress;
         this._expiry = expiry;
@@ -85,11 +86,12 @@ export class PerpClient {
         this.wsUrl = options?.wsUrl ?? DEFAULT_PUBLIC_WS_URL;
         this.wsOptions = options?.wsOptions;
         if (isApiConfig(this._config)) {
+            const client = this._config.httpClient ?? defaultHttpClient;
             if (this._config.authInfo) {
-                this._mm = new MarketMakerModule(httpClient, this._config.authInfo);
+                this._mm = new MarketMakerModule(client, this._config.authInfo);
             }
             if (this._config.signer) {
-                this._market = new MarketModule(httpClient, this._config.signer);
+                this._market = new MarketModule(client, this._config.signer);
             }
         }
     }

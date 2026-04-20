@@ -4,8 +4,9 @@ import type { ApiSigner } from '../apis/interfaces';
 import { httpClient } from '../apis';
 import { WAD } from '../constants';
 import { PerpClient } from '../client';
-import type { ApiConfig, RpcConfig } from '../queries';
+import { inquireByBaseSize, type ApiConfig, type RpcConfig } from '../queries';
 import { UserSetting } from '../types';
+import { HttpClient } from '../utils';
 
 const CHAIN_ID = 8453;
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
@@ -164,7 +165,9 @@ describe('PerpClient fallback (API -> rpcFallback)', () => {
             signer: { sign: () => ({}) },
         };
 
-        expect(() => new PerpClient(apiConfig, userSetting, instrument, expiry, { rpcFallback })).toThrow('rpcFallback.chainId');
+        expect(() => new PerpClient(apiConfig, userSetting, instrument, expiry, { rpcFallback })).toThrow(
+            'rpcFallback.chainId'
+        );
     });
 
     test('getSnapshot falls back to rpcFallback when API fails', async () => {
@@ -275,5 +278,47 @@ describe('PerpClient fallback (API -> rpcFallback)', () => {
         expect(getSpy).toHaveBeenCalled();
 
         getSpy.mockRestore();
+    });
+});
+
+describe('direct API query helpers', () => {
+    test('inquireByBaseSize honors ApiConfig.baseUrl instead of using the global httpClient', async () => {
+        const instrument = '0x0000000000000000000000000000000000000001' as Address;
+        const expiry = 0xffffffff;
+        const signer: ApiSigner = { sign: () => ({}) };
+
+        const globalGetSpy = jest.spyOn(httpClient, 'get').mockImplementation(async () => {
+            throw new Error('global-client-used');
+        });
+        const customGetSpy = jest.spyOn(HttpClient.prototype, 'get').mockResolvedValue({
+            data: {
+                data: {
+                    benchmark: '0',
+                    sqrtFairPX96: '0',
+                    tick: 0,
+                    mark: '0',
+                    entryNotional: '0',
+                    fee: '0',
+                    minAmount: '0',
+                    sqrtPostFairPX96: '0',
+                    postTick: 0,
+                },
+            },
+        } as any);
+
+        try {
+            const quotation = await inquireByBaseSize(instrument, expiry, 1n, {
+                chainId: CHAIN_ID,
+                baseUrl: 'https://custom.example',
+                signer,
+            });
+
+            expect(quotation.tick).toBe(0);
+            expect(globalGetSpy).not.toHaveBeenCalled();
+            expect(customGetSpy).toHaveBeenCalled();
+        } finally {
+            customGetSpy.mockRestore();
+            globalGetSpy.mockRestore();
+        }
     });
 });

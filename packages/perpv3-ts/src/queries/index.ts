@@ -13,7 +13,7 @@ import {
     inquireByTick as inquireByTickFromRpc,
     type FetchOrderBookOptions,
 } from './rpc';
-import { isApiConfig } from './config';
+import { isApiConfig, resolveApiConfig } from './config';
 import type { ApiConfig, ReadOptions, RpcConfig } from './config';
 
 // ============================================================================
@@ -42,7 +42,7 @@ export async function fetchOnchainContext(
 ): Promise<PairSnapshot> {
     if (isApiConfig(config)) {
         // API doesn't support options parameter
-        return fetchOnchainContextFromApi(instrumentAddress, expiry, config, traderAddress, signedSize);
+        return fetchOnchainContextFromApi(instrumentAddress, expiry, resolveApiConfig(config), traderAddress, signedSize);
     }
     return fetchOnchainContextFromRpc(instrumentAddress, expiry, config, traderAddress, signedSize, options);
 }
@@ -66,7 +66,7 @@ export async function inquireByTick(
 ): Promise<{ size: bigint; quotation: Quotation }> {
     if (isApiConfig(config)) {
         // API doesn't support options parameter
-        return inquireByTickFromApi(instrumentAddress, expiry, tick, config);
+        return inquireByTickFromApi(instrumentAddress, expiry, tick, resolveApiConfig(config));
     }
     return inquireByTickFromRpc(instrumentAddress, expiry, tick, config, options);
 }
@@ -83,18 +83,21 @@ export async function inquireByBaseSize(
     options?: ReadOptions
 ): Promise<Quotation> {
     if (isApiConfig(config)) {
-        if (!config.signer) {
+        const { signer } = config;
+        if (!signer) {
             throw Errors.apiRequestFailed('Signer is required for inquireByBaseSize');
         }
+        const resolved = resolveApiConfig(config);
         // API doesn't support options parameter
         const quotation = await fetchFuturesInstrumentInquire(
             {
-                chainId: config.chainId,
+                chainId: resolved.chainId,
                 instrument: instrumentAddress,
                 expiry,
                 size: signedSize.toString(),
             },
-            config.signer
+            signer,
+            resolved.httpClient
         );
         if (!quotation) {
             throw Errors.missingQuotation();
@@ -123,16 +126,19 @@ export async function fetchOrderBook(
     options?: ReadOptions
 ): Promise<IFuturesOrderBookAllSteps | null> {
     if (isApiConfig(config)) {
-        if (!config.signer) {
+        const { signer } = config;
+        if (!signer) {
             throw Errors.apiRequestFailed('Signer is required for fetchOrderBook');
         }
+        const resolved = resolveApiConfig(config);
         return fetchFuturesPairOrderBook(
             {
-                chainId: config.chainId,
+                chainId: resolved.chainId,
                 address: instrument,
                 expiry,
             },
-            config.signer
+            signer,
+            resolved.httpClient
         );
     }
 
@@ -144,4 +150,4 @@ export async function fetchOrderBook(
 // Re-export types
 export type { FetchOrderBookOptions } from './rpc';
 export type { ApiConfig, RpcConfig, ReadOptions, BlockTag } from './config';
-export { isApiConfig, isRpcConfig } from './config';
+export { isApiConfig, isRpcConfig, resolveApiConfig } from './config';
