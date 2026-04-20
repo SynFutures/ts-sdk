@@ -29,7 +29,7 @@ import { HttpClient } from './utils';
 
 function resolveApiConfig(config: ApiConfig): ApiConfig {
     if (!config.baseUrl || config.httpClient) {
-        return config;
+        return { ...config };
     }
     return { ...config, httpClient: new HttpClient({ baseUrl: config.baseUrl }) };
 }
