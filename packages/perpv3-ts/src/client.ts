@@ -14,6 +14,7 @@ import {
     inquireByBaseSize,
     inquireByTick,
     isApiConfig,
+    resolveApiConfig,
     type ApiConfig,
     type ReadOptions,
     type RpcConfig,
@@ -25,14 +26,6 @@ import {
 } from './types';
 import { WebSocketManager } from './wss';
 import { httpClient as defaultHttpClient, MarketMakerModule, MarketModule } from './apis';
-import { HttpClient } from './utils';
-
-function resolveApiConfig(config: ApiConfig): ApiConfig {
-    if (!config.baseUrl || config.httpClient) {
-        return { ...config };
-    }
-    return { ...config, httpClient: new HttpClient({ baseUrl: config.baseUrl }) };
-}
 
 /**
  * PerpClient is a scoped client for interacting with a specific trading pair (instrument + expiry).

@@ -1,6 +1,6 @@
 import type { Address, PublicClient } from 'viem';
 import { ApiSigner, AuthInfo } from '../apis/interfaces';
-import type { HttpClient } from '../utils';
+import { HttpClient } from '../utils';
 
 export type BlockTag = 'latest' | 'earliest' | 'pending';
 
@@ -32,4 +32,15 @@ export function isApiConfig(config: ApiConfig | RpcConfig): config is ApiConfig 
 
 export function isRpcConfig(config: ApiConfig | RpcConfig): config is RpcConfig {
     return 'publicClient' in config;
+}
+
+/**
+ * Resolve `ApiConfig.baseUrl` into a dedicated `HttpClient` on the returned config.
+ * Idempotent: returns a shallow copy when `httpClient` is already set or no `baseUrl` is provided.
+ */
+export function resolveApiConfig(config: ApiConfig): ApiConfig {
+    if (!config.baseUrl || config.httpClient) {
+        return { ...config };
+    }
+    return { ...config, httpClient: new HttpClient({ baseUrl: config.baseUrl }) };
 }
