@@ -1,5 +1,6 @@
 import type { Address, PublicClient } from 'viem';
 import { ApiSigner, AuthInfo } from '../apis/interfaces';
+import type { HttpClient } from '../utils';
 
 export type BlockTag = 'latest' | 'earliest' | 'pending';
 
@@ -11,8 +12,11 @@ export interface ReadOptions {
 // Configuration types for API and RPC
 export interface ApiConfig {
     chainId: number;
+    baseUrl?: string;
     authInfo?: AuthInfo;
     signer?: ApiSigner;
+    /** @internal Resolved by PerpClient from baseUrl; callers should not set this directly. */
+    httpClient?: HttpClient;
 }
 
 export interface RpcConfig {

@@ -103,8 +103,9 @@ export const fetchFuturesInstrument = async (
 export const fetchMarketOnChainContext = async (
     params: FetchOnChainContextInput,
     signer: ApiSigner,
+    client: HttpClient = httpClient,
 ): Promise<FetchOnChainContextResponse | null> => {
-    const market = new MarketModule(httpClient, signer);
+    const market = new MarketModule(client, signer);
     return market.fetchMarketOnChainContext(params);
 };
 
@@ -119,16 +120,18 @@ export const fetchMarketOnChainContextQuery = async (
 export const fetchFuturesInstrumentInquire = async (
     params: FetchFuturesInstrumentInquireInput,
     signer: ApiSigner,
+    client: HttpClient = httpClient,
 ): Promise<FetchFuturesInstrumentInquireResponse> => {
-    const market = new MarketModule(httpClient, signer);
+    const market = new MarketModule(client, signer);
     return market.fetchFuturesInstrumentInquire(params);
 };
 
 export const fetchFuturesInstrumentInquireByTick = async (
     params: FetchFuturesInstrumentInquireByTickInput,
     signer: ApiSigner,
+    client: HttpClient = httpClient,
 ): Promise<FetchFuturesInstrumentInquireByTickResponse> => {
-    const market = new MarketModule(httpClient, signer);
+    const market = new MarketModule(client, signer);
     return market.fetchFuturesInstrumentInquireByTick(params);
 };
 
@@ -143,8 +146,9 @@ export const fetchFuturesInstrumentInquireByNotional = async (
 export const fetchFuturesPairOrderBook = async (
     params: FetchFuturesPairOrderBookInput,
     signer: ApiSigner,
+    client: HttpClient = httpClient,
 ): Promise<FetchFuturesPairOrderBookResponse> => {
-    const market = new MarketModule(httpClient, signer);
+    const market = new MarketModule(client, signer);
     return market.fetchFuturesPairOrderBook(params);
 };
 

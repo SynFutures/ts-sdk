@@ -94,7 +94,8 @@ export async function inquireByBaseSize(
                 expiry,
                 size: signedSize.toString(),
             },
-            config.signer
+            config.signer,
+            config.httpClient
         );
         if (!quotation) {
             throw Errors.missingQuotation();
@@ -132,7 +133,8 @@ export async function fetchOrderBook(
                 address: instrument,
                 expiry,
             },
-            config.signer
+            config.signer,
+            config.httpClient
         );
     }
 

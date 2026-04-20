@@ -61,7 +61,8 @@ export async function fetchOnchainContext(
 
     const onChainContextResponse = await fetchMarketOnChainContext(
         { chainId, instrument: instrumentAddress, expiry, userAddress: userAddressParam, signedSize: signedSizeParam },
-        config.signer
+        config.signer,
+        config.httpClient
     );
 
     if (!onChainContextResponse?.instrument) {
@@ -130,7 +131,7 @@ export async function inquireByTick(
     instrumentAddress: Address,
     expiry: number,
     tick: number,
-    config: ApiConfig
+    config: ApiConfig,
 ): Promise<{ size: bigint; quotation: Quotation }> {
     if (!config.signer) {
         throw Errors.apiRequestFailed('Signer is required for inquireByTick');
@@ -143,7 +144,8 @@ export async function inquireByTick(
             expiry,
             tick,
         },
-        config.signer
+        config.signer,
+        config.httpClient
     );
 
     if (!result || result.size === undefined) {
