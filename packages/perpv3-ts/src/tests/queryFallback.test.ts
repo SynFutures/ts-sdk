@@ -1,7 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import type { Address, PublicClient } from 'viem';
 import type { ApiSigner } from '../apis/interfaces';
-import { httpClient } from '../apis';
+import { fetchFuturesInstrumentInquireByNotional, httpClient } from '../apis';
 import { WAD } from '../constants';
 import { PerpClient } from '../client';
 import { inquireByBaseSize, type ApiConfig, type RpcConfig } from '../queries';
@@ -314,6 +314,54 @@ describe('direct API query helpers', () => {
             });
 
             expect(quotation.tick).toBe(0);
+            expect(globalGetSpy).not.toHaveBeenCalled();
+            expect(customGetSpy).toHaveBeenCalled();
+        } finally {
+            customGetSpy.mockRestore();
+            globalGetSpy.mockRestore();
+        }
+    });
+
+    test('fetchFuturesInstrumentInquireByNotional honors custom HttpClient instead of the global one', async () => {
+        const instrument = '0x0000000000000000000000000000000000000001' as Address;
+        const expiry = 0xffffffff;
+        const signer: ApiSigner = { sign: () => ({}) };
+
+        const globalGetSpy = jest.spyOn(httpClient, 'get').mockImplementation(async () => {
+            throw new Error('global-client-used');
+        });
+        const customGetSpy = jest.spyOn(HttpClient.prototype, 'get').mockResolvedValue({
+            data: {
+                data: {
+                    benchmark: '0',
+                    sqrtFairPX96: '0',
+                    tick: 0,
+                    mark: '0',
+                    entryNotional: '0',
+                    fee: '0',
+                    size: '0',
+                    minAmount: '0',
+                    sqrtPostFairPX96: '0',
+                    postTick: 0,
+                },
+            },
+        } as any);
+
+        try {
+            const quotation = await fetchFuturesInstrumentInquireByNotional(
+                {
+                    chainId: CHAIN_ID,
+                    instrument,
+                    expiry,
+                    notional: '1000000000000000000',
+                    long: true,
+                },
+                signer,
+                new HttpClient({ baseUrl: 'https://custom.example' }),
+            );
+
+            expect(quotation).not.toBeNull();
+            expect(quotation).toMatchObject({ tick: 0 });
             expect(globalGetSpy).not.toHaveBeenCalled();
             expect(customGetSpy).toHaveBeenCalled();
         } finally {
