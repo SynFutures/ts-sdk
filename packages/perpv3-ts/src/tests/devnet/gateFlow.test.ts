@@ -1,9 +1,7 @@
-import type { Address, Hash } from 'viem';
-import { createWalletClient, http } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
+import { erc20Abi } from 'viem';
 
-import { CURRENT_GATE_ABI, encodeDepositParam, encodeWithdrawParam } from '../../index';
-import { createDevnetContext } from './devnet';
+import { CURRENT_GATE_ABI, encodeWithdrawParam } from '../../index';
+import { createDevnetContext, createDevnetHelpers } from './devnet';
 
 const ctx = createDevnetContext();
 
@@ -14,76 +12,11 @@ if (!defaultQuote) {
 }
 
 const QUOTE_TOKEN = defaultQuote.address;
+const { createUserWallet, waitForTx, transferQuote, approveQuote, depositQuote } = createDevnetHelpers(
+    ctx,
+    QUOTE_TOKEN
+);
 const QUOTE_UNIT = 10n ** BigInt(defaultQuote.decimals);
-
-const ERC20_ABI = [
-    {
-        name: 'transfer',
-        type: 'function',
-        stateMutability: 'nonpayable',
-        inputs: [
-            { name: 'to', type: 'address' },
-            { name: 'amount', type: 'uint256' },
-        ],
-        outputs: [{ type: 'bool' }],
-    },
-    {
-        name: 'approve',
-        type: 'function',
-        stateMutability: 'nonpayable',
-        inputs: [
-            { name: 'spender', type: 'address' },
-            { name: 'amount', type: 'uint256' },
-        ],
-        outputs: [{ type: 'bool' }],
-    },
-    {
-        name: 'balanceOf',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [{ name: 'account', type: 'address' }],
-        outputs: [{ type: 'uint256' }],
-    },
-] as const;
-
-function createUserWallet(addressIndex: number) {
-    const account = mnemonicToAccount(ctx.preset.anvil.mnemonic, { addressIndex });
-    return createWalletClient({ chain: ctx.chain, transport: http(ctx.manifest.rpcUrl), account });
-}
-
-async function waitForTx(hash: Hash) {
-    await ctx.publicClient.waitForTransactionReceipt({ hash });
-}
-
-async function transferQuote(to: Address, amount: bigint) {
-    const hash = await ctx.walletClients.admin.writeContract({
-        address: QUOTE_TOKEN,
-        abi: ERC20_ABI,
-        functionName: 'transfer',
-        args: [to, amount],
-    });
-    await waitForTx(hash);
-}
-
-async function approveQuote(wallet: ReturnType<typeof createUserWallet>, amount: bigint) {
-    const hash = await wallet.writeContract({
-        address: QUOTE_TOKEN,
-        abi: ERC20_ABI,
-        functionName: 'approve',
-        args: [ctx.manifest.contracts.gate, amount],
-    });
-    await waitForTx(hash);
-}
-
-async function depositQuote(wallet: ReturnType<typeof createUserWallet>, amount: bigint) {
-    const hash = await wallet.writeContract({
-        address: ctx.manifest.contracts.gate,
-        abi: CURRENT_GATE_ABI,
-        functionName: 'deposit',
-        args: [encodeDepositParam(QUOTE_TOKEN, amount)],
-    });
-    await waitForTx(hash);
-}
 
 async function withdrawQuote(wallet: ReturnType<typeof createUserWallet>, amount: bigint) {
     const hash = await wallet.writeContract({
@@ -122,7 +55,7 @@ describe('devnet Gate deposit/withdraw (ported from v3-contracts hardhat Instrum
 
         const beforeBalance = await ctx.publicClient.readContract({
             address: QUOTE_TOKEN,
-            abi: ERC20_ABI,
+            abi: erc20Abi,
             functionName: 'balanceOf',
             args: [wallet.account.address],
         });
@@ -139,7 +72,7 @@ describe('devnet Gate deposit/withdraw (ported from v3-contracts hardhat Instrum
 
         const afterDepositBalance = await ctx.publicClient.readContract({
             address: QUOTE_TOKEN,
-            abi: ERC20_ABI,
+            abi: erc20Abi,
             functionName: 'balanceOf',
             args: [wallet.account.address],
         });
@@ -157,11 +90,10 @@ describe('devnet Gate deposit/withdraw (ported from v3-contracts hardhat Instrum
 
         const afterWithdrawBalance = await ctx.publicClient.readContract({
             address: QUOTE_TOKEN,
-            abi: ERC20_ABI,
+            abi: erc20Abi,
             functionName: 'balanceOf',
             args: [wallet.account.address],
         });
         expect(afterWithdrawBalance).toBe(afterDepositBalance + withdrawAmount);
     });
 });
-

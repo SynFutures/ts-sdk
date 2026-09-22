@@ -1,5 +1,4 @@
-import type { Address, Hash } from 'viem';
-import { CURRENT_GATE_ABI, CURRENT_INSTRUMENT_ABI } from '../../index';
+import { CURRENT_INSTRUMENT_ABI } from '../../index';
 import {
     AddInput,
     PERP_EXPIRY,
@@ -10,14 +9,13 @@ import {
     UserSetting,
     WAD,
     encodeAddParam,
-    encodeDepositParam,
     encodeRemoveParam,
     encodeTradeParam,
     fetchOnchainContext,
     inquireByBaseSize,
 } from '../../index';
 import { Range } from '../../types';
-import { createDevnetContext } from './devnet';
+import { createDevnetContext, createDevnetHelpers } from './devnet';
 
 const ctx = createDevnetContext();
 
@@ -27,86 +25,13 @@ if (!defaultQuote) {
     throw new Error(`Missing quote token info in manifest for ${defaultInstrument.quoteSymbol}`);
 }
 const QUOTE_TOKEN = defaultQuote.address;
+const { waitForTx, transferQuote, approveQuote, depositQuote } = createDevnetHelpers(ctx, QUOTE_TOKEN);
 const QUOTE_UNIT = 10n ** BigInt(defaultQuote.decimals);
 const INSTRUMENT_ADDRESS = defaultInstrument.address;
 const EXPIRY = defaultInstrument.expiry;
 const BASE_TRADE_SIZE = WAD / 20n; // 0.05 base, avoids size-related reverts on small-liquidity devnet
 const DEFAULT_SLIPPAGE_BPS = 50;
 const DEFAULT_LEVERAGE = 4n * WAD;
-
-const ERC20_ABI = [
-    {
-        name: 'transfer',
-        type: 'function',
-        stateMutability: 'nonpayable',
-        inputs: [
-            { name: 'to', type: 'address' },
-            { name: 'amount', type: 'uint256' },
-        ],
-        outputs: [{ type: 'bool' }],
-    },
-    {
-        name: 'approve',
-        type: 'function',
-        stateMutability: 'nonpayable',
-        inputs: [
-            { name: 'spender', type: 'address' },
-            { name: 'amount', type: 'uint256' },
-        ],
-        outputs: [{ type: 'bool' }],
-    },
-    {
-        name: 'balanceOf',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [{ name: 'account', type: 'address' }],
-        outputs: [{ type: 'uint256' }],
-    },
-    {
-        name: 'allowance',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [
-            { name: 'owner', type: 'address' },
-            { name: 'spender', type: 'address' },
-        ],
-        outputs: [{ type: 'uint256' }],
-    },
-] as const;
-
-async function waitForTx(hash: Hash) {
-    await ctx.publicClient.waitForTransactionReceipt({ hash });
-}
-
-async function transferQuote(from: 'admin', to: Address, amount: bigint) {
-    const hash = await ctx.walletClients[from].writeContract({
-        address: QUOTE_TOKEN,
-        abi: ERC20_ABI,
-        functionName: 'transfer',
-        args: [to, amount],
-    });
-    await waitForTx(hash);
-}
-
-async function approveQuote(owner: 'trader', spender: Address, amount: bigint) {
-    const hash = await ctx.walletClients[owner].writeContract({
-        address: QUOTE_TOKEN,
-        abi: ERC20_ABI,
-        functionName: 'approve',
-        args: [spender, amount],
-    });
-    await waitForTx(hash);
-}
-
-async function depositQuote(amount: bigint) {
-    const hash = await ctx.walletClients.trader.writeContract({
-        address: ctx.manifest.contracts.gate,
-        abi: CURRENT_GATE_ABI,
-        functionName: 'deposit',
-        args: [encodeDepositParam(QUOTE_TOKEN, amount)],
-    });
-    await waitForTx(hash);
-}
 
 function createUserSetting() {
     return new UserSetting(3600, DEFAULT_SLIPPAGE_BPS, DEFAULT_LEVERAGE);
@@ -116,12 +41,7 @@ describe('devnet SDK (ported from v3-contracts hardhat sdk_test)', () => {
     it('inquireByBaseSize matches Instrument.inquire', async () => {
         const signedSize = BASE_TRADE_SIZE;
 
-        const quotationFromObserver = await inquireByBaseSize(
-            INSTRUMENT_ADDRESS,
-            EXPIRY,
-            signedSize,
-            ctx.rpcConfig
-        );
+        const quotationFromObserver = await inquireByBaseSize(INSTRUMENT_ADDRESS, EXPIRY, signedSize, ctx.rpcConfig);
 
         const quotationFromInstrument = (await ctx.publicClient.readContract({
             address: INSTRUMENT_ADDRESS,
@@ -138,24 +58,14 @@ describe('devnet SDK (ported from v3-contracts hardhat sdk_test)', () => {
         const transferAmount = 10_000n * QUOTE_UNIT;
         const depositAmount = 1_000n * QUOTE_UNIT;
 
-        await transferQuote('admin', traderAddress, transferAmount);
-        await approveQuote('trader', ctx.manifest.contracts.gate, transferAmount);
+        await transferQuote(traderAddress, transferAmount);
+        await approveQuote(ctx.walletClients.trader, transferAmount);
 
-        const before = await fetchOnchainContext(
-            INSTRUMENT_ADDRESS,
-            EXPIRY,
-            ctx.rpcConfig,
-            traderAddress
-        );
+        const before = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, traderAddress);
 
-        await depositQuote(depositAmount);
+        await depositQuote(ctx.walletClients.trader, depositAmount);
 
-        const after = await fetchOnchainContext(
-            INSTRUMENT_ADDRESS,
-            EXPIRY,
-            ctx.rpcConfig,
-            traderAddress
-        );
+        const after = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, traderAddress);
 
         expect(after.quoteState.reserve - before.quoteState.reserve).toBe(depositAmount);
     });
@@ -165,18 +75,13 @@ describe('devnet SDK (ported from v3-contracts hardhat sdk_test)', () => {
         const transferAmount = 20_000n * QUOTE_UNIT;
         const depositAmount = 10_000n * QUOTE_UNIT;
 
-        await transferQuote('admin', traderAddress, transferAmount);
-        await approveQuote('trader', ctx.manifest.contracts.gate, transferAmount);
-        await depositQuote(depositAmount);
+        await transferQuote(traderAddress, transferAmount);
+        await approveQuote(ctx.walletClients.trader, transferAmount);
+        await depositQuote(ctx.walletClients.trader, depositAmount);
 
         const userSetting = createUserSetting();
 
-        const beforeAdd = await fetchOnchainContext(
-            INSTRUMENT_ADDRESS,
-            EXPIRY,
-            ctx.rpcConfig,
-            traderAddress
-        );
+        const beforeAdd = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, traderAddress);
         expect(beforeAdd.portfolio.ranges.length).toBe(0);
 
         const { tick: ammTick } = beforeAdd.amm;
@@ -195,12 +100,7 @@ describe('devnet SDK (ported from v3-contracts hardhat sdk_test)', () => {
         });
         await waitForTx(addHash);
 
-        const afterAdd = await fetchOnchainContext(
-            INSTRUMENT_ADDRESS,
-            EXPIRY,
-            ctx.rpcConfig,
-            traderAddress
-        );
+        const afterAdd = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, traderAddress);
 
         expect(afterAdd.portfolio.ranges.length).toBe(1);
         expect(afterAdd.portfolio.rids.length).toBe(1);
@@ -221,12 +121,7 @@ describe('devnet SDK (ported from v3-contracts hardhat sdk_test)', () => {
         });
         await waitForTx(removeHash);
 
-        const afterRemove = await fetchOnchainContext(
-            INSTRUMENT_ADDRESS,
-            EXPIRY,
-            ctx.rpcConfig,
-            traderAddress
-        );
+        const afterRemove = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, traderAddress);
 
         expect(afterRemove.portfolio.ranges.length).toBe(0);
     });
@@ -236,18 +131,13 @@ describe('devnet SDK (ported from v3-contracts hardhat sdk_test)', () => {
         const transferAmount = 20_000n * QUOTE_UNIT;
         const depositAmount = 10_000n * QUOTE_UNIT;
 
-        await transferQuote('admin', traderAddress, transferAmount);
-        await approveQuote('trader', ctx.manifest.contracts.gate, transferAmount);
-        await depositQuote(depositAmount);
+        await transferQuote(traderAddress, transferAmount);
+        await approveQuote(ctx.walletClients.trader, transferAmount);
+        await depositQuote(ctx.walletClients.trader, depositAmount);
 
         const userSetting = createUserSetting();
 
-        const before = await fetchOnchainContext(
-            INSTRUMENT_ADDRESS,
-            EXPIRY,
-            ctx.rpcConfig,
-            traderAddress
-        );
+        const before = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, traderAddress);
         expect(before.expiry).toBe(PERP_EXPIRY);
         expect(before.portfolio.position.size).toBe(0n);
 
@@ -281,12 +171,7 @@ describe('devnet SDK (ported from v3-contracts hardhat sdk_test)', () => {
         });
         await waitForTx(tradeHash);
 
-        const after = await fetchOnchainContext(
-            INSTRUMENT_ADDRESS,
-            EXPIRY,
-            ctx.rpcConfig,
-            traderAddress
-        );
+        const after = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, traderAddress);
 
         expect(after.portfolio.position.size).toBe(tradeParam.size);
         expect(after.portfolio.position.size).not.toBe(0n);

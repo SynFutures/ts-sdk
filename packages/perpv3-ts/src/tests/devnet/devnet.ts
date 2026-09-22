@@ -1,7 +1,9 @@
+import { assertTransactionSuccess } from '@derivation-tech/viem-kit';
+import { CURRENT_GATE_ABI, encodeDepositParam } from '../../index';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import type { Address } from 'viem';
-import { createPublicClient, createWalletClient, http } from 'viem';
+import type { Address, Hash } from 'viem';
+import { createPublicClient, createWalletClient, erc20Abi, http } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 import type { RpcConfig } from '../../index';
@@ -108,4 +110,58 @@ export function createDevnetContext() {
             trader: traderWalletClient,
         },
     } as const;
+}
+
+/** Helpers are bound to a test's context and quote token; no shared mutable chain state. */
+export function createDevnetHelpers(ctx: ReturnType<typeof createDevnetContext>, quoteToken: Address) {
+    function createUserWallet(addressIndex: number) {
+        const account = mnemonicToAccount(ctx.preset.anvil.mnemonic, { addressIndex });
+        return createWalletClient({ chain: ctx.chain, transport: http(ctx.manifest.rpcUrl), account });
+    }
+    async function waitForTx(hash: Hash) {
+        return assertTransactionSuccess(await ctx.publicClient.waitForTransactionReceipt({ hash }));
+    }
+    async function transferQuote(to: Address, amount: bigint) {
+        await waitForTx(
+            await ctx.walletClients.admin.writeContract({
+                address: quoteToken,
+                abi: erc20Abi,
+                functionName: 'transfer',
+                args: [to, amount],
+            })
+        );
+    }
+    async function approveQuote(
+        wallet: ReturnType<typeof createUserWallet>,
+        amount: bigint,
+        spender = ctx.manifest.contracts.gate
+    ) {
+        await waitForTx(
+            await wallet.writeContract({
+                address: quoteToken,
+                abi: erc20Abi,
+                functionName: 'approve',
+                args: [spender, amount],
+            })
+        );
+    }
+    async function depositQuote(wallet: ReturnType<typeof createUserWallet>, amount: bigint) {
+        await waitForTx(
+            await wallet.writeContract({
+                address: ctx.manifest.contracts.gate,
+                abi: CURRENT_GATE_ABI,
+                functionName: 'deposit',
+                args: [encodeDepositParam(quoteToken, amount)],
+            })
+        );
+    }
+    async function getQuoteBalance(address: Address): Promise<bigint> {
+        return ctx.publicClient.readContract({
+            address: quoteToken,
+            abi: erc20Abi,
+            functionName: 'balanceOf',
+            args: [address],
+        });
+    }
+    return { createUserWallet, waitForTx, transferQuote, approveQuote, depositQuote, getQuoteBalance };
 }

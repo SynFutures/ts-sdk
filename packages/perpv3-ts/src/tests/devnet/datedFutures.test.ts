@@ -25,7 +25,9 @@ const ctx = createDevnetContext();
 
 const futuresInstrument = ctx.manifest.instruments.find((instrument) => instrument.expiry !== PERP_EXPIRY);
 if (!futuresInstrument) {
-    throw new Error('Missing dated futures instrument in devnet manifest. Run: pnpm -C packages/perpv3-ts run devnet:regen');
+    throw new Error(
+        'Missing dated futures instrument in devnet manifest. Run: pnpm -C packages/perpv3-ts run devnet:regen'
+    );
 }
 
 const INSTRUMENT_ADDRESS = futuresInstrument.address;
@@ -118,7 +120,12 @@ function createUserSetting() {
 
 describe('devnet dated futures', () => {
     it('fetchOnchainContext exposes a non-PERP pairSymbol', async () => {
-        const snapshot = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, ctx.accounts.trader.address);
+        const snapshot = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            ctx.accounts.trader.address
+        );
 
         expect(snapshot.expiry).toBe(EXPIRY);
         expect(snapshot.expiry).not.toBe(PERP_EXPIRY);
@@ -153,7 +160,10 @@ describe('devnet dated futures', () => {
         const tickUpper = lpBefore.instrumentSetting.alignRangeTickUpper(lpBefore.amm.tick + 2000);
         const addMarginWad = 5_000n * WAD;
 
-        const [addParam] = new AddInput(lpWallet.account.address, addMarginWad, tickLower, tickUpper).simulate(lpBefore, userSetting);
+        const [addParam] = new AddInput(lpWallet.account.address, addMarginWad, tickLower, tickUpper).simulate(
+            lpBefore,
+            userSetting
+        );
         const addHash = await lpWallet.writeContract({
             address: INSTRUMENT_ADDRESS,
             abi: CURRENT_INSTRUMENT_ABI,
@@ -162,10 +172,20 @@ describe('devnet dated futures', () => {
         });
         await waitForTx(addHash);
 
-        const lpAfterAdd = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, lpWallet.account.address);
+        const lpAfterAdd = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            lpWallet.account.address
+        );
         expect(lpAfterAdd.portfolio.ranges.length).toBeGreaterThan(0);
 
-        const traderBefore = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, traderWallet.account.address);
+        const traderBefore = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            traderWallet.account.address
+        );
         expect(traderBefore.portfolio.position.size).toBe(0n);
 
         let baseQuantity = WAD / 20n;
@@ -198,7 +218,12 @@ describe('devnet dated futures', () => {
         });
         await waitForTx(tradeHash);
 
-        const traderAfterTrade = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, traderWallet.account.address);
+        const traderAfterTrade = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            traderWallet.account.address
+        );
         expect(traderAfterTrade.portfolio.position.size).toBe(tradeParam.size);
 
         const settlingStart = EXPIRY - SETTLING_DURATION_SECONDS;
@@ -219,7 +244,12 @@ describe('devnet dated futures', () => {
             })
         );
 
-        const settling = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, traderWallet.account.address);
+        const settling = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            traderWallet.account.address
+        );
         expect(settling.amm.status).toBe(Status.SETTLING);
 
         await testClient.increaseTime({ seconds: SETTLING_DURATION_SECONDS + 1 });
@@ -233,7 +263,12 @@ describe('devnet dated futures', () => {
             })
         );
 
-        const settled = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, traderWallet.account.address);
+        const settled = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            traderWallet.account.address
+        );
         expect(settled.amm.status).toBe(Status.SETTLED);
 
         await waitForTx(
@@ -253,10 +288,20 @@ describe('devnet dated futures', () => {
             })
         );
 
-        const traderAfterSettle = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, traderWallet.account.address);
+        const traderAfterSettle = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            traderWallet.account.address
+        );
         expect(traderAfterSettle.portfolio.position.size).toBe(0n);
 
-        const lpAfterSettle = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, lpWallet.account.address);
+        const lpAfterSettle = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            lpWallet.account.address
+        );
         expect(lpAfterSettle.portfolio.position.size).toBe(0n);
     });
 });

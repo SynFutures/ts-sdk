@@ -1,5 +1,5 @@
-import { mnemonicToAccount } from 'viem/accounts';
-import { createWalletClient, encodeFunctionData, http, zeroAddress } from 'viem';
+import { erc20Abi } from 'viem';
+import { encodeFunctionData, zeroAddress } from 'viem';
 
 import {
     CURRENT_GATE_ABI,
@@ -8,7 +8,7 @@ import {
     encodeWithdrawParam,
     splitSignature,
 } from '../../index';
-import { createDevnetContext } from './devnet';
+import { createDevnetContext, createDevnetHelpers } from './devnet';
 
 const ctx = createDevnetContext();
 
@@ -19,42 +19,8 @@ if (!defaultQuote) {
 }
 
 const QUOTE_TOKEN = defaultQuote.address;
+const { createUserWallet, waitForTx } = createDevnetHelpers(ctx, QUOTE_TOKEN);
 const QUOTE_UNIT = 10n ** BigInt(defaultQuote.decimals);
-
-const ERC20_ABI = [
-    {
-        name: 'transfer',
-        type: 'function',
-        stateMutability: 'nonpayable',
-        inputs: [
-            { name: 'to', type: 'address' },
-            { name: 'amount', type: 'uint256' },
-        ],
-        outputs: [{ type: 'bool' }],
-    },
-    {
-        name: 'approve',
-        type: 'function',
-        stateMutability: 'nonpayable',
-        inputs: [
-            { name: 'spender', type: 'address' },
-            { name: 'amount', type: 'uint256' },
-        ],
-        outputs: [{ type: 'bool' }],
-    },
-    {
-        name: 'balanceOf',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [{ name: 'account', type: 'address' }],
-        outputs: [{ type: 'uint256' }],
-    },
-] as const;
-
-function createUserWallet(addressIndex: number) {
-    const account = mnemonicToAccount(ctx.preset.anvil.mnemonic, { addressIndex });
-    return createWalletClient({ chain: ctx.chain, transport: http(ctx.manifest.rpcUrl), account });
-}
 
 describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter tests)', () => {
     it('supports direct setSubAccount/removeSubAccount', async () => {
@@ -67,7 +33,7 @@ describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter
             functionName: 'setSubAccount',
             args: [subAccountWallet.account.address],
         });
-        await ctx.publicClient.waitForTransactionReceipt({ hash: setHash });
+        await waitForTx(setHash);
 
         const currentSubAccount = await ctx.publicClient.readContract({
             address: ctx.manifest.contracts.handler,
@@ -83,7 +49,7 @@ describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter
             functionName: 'removeSubAccount',
             args: [],
         });
-        await ctx.publicClient.waitForTransactionReceipt({ hash: removeHash });
+        await waitForTx(removeHash);
 
         const cleared = await ctx.publicClient.readContract({
             address: ctx.manifest.contracts.handler,
@@ -144,7 +110,7 @@ describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter
             functionName: 'executeSubAccountManagement',
             args: [userWallet.account.address, setMessage.action, setMessage.subAccount, deadline, setV, setR, setS],
         });
-        await ctx.publicClient.waitForTransactionReceipt({ hash: setHash });
+        await waitForTx(setHash);
 
         const currentSubAccount = await ctx.publicClient.readContract({
             address: ctx.manifest.contracts.handler,
@@ -183,7 +149,7 @@ describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter
                 removeS,
             ],
         });
-        await ctx.publicClient.waitForTransactionReceipt({ hash: removeHash });
+        await waitForTx(removeHash);
 
         const cleared = await ctx.publicClient.readContract({
             address: ctx.manifest.contracts.handler,
@@ -204,26 +170,26 @@ describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter
             functionName: 'setSubAccount',
             args: [subAccountWallet.account.address],
         });
-        await ctx.publicClient.waitForTransactionReceipt({ hash: setHash });
+        await waitForTx(setHash);
 
         const transferAmount = 10_000n * QUOTE_UNIT;
         const depositAmount = 1_000n * QUOTE_UNIT;
 
         const transferHash = await ctx.walletClients.admin.writeContract({
             address: QUOTE_TOKEN,
-            abi: ERC20_ABI,
+            abi: erc20Abi,
             functionName: 'transfer',
             args: [userWallet.account.address, transferAmount],
         });
-        await ctx.publicClient.waitForTransactionReceipt({ hash: transferHash });
+        await waitForTx(transferHash);
 
         const approveHash = await userWallet.writeContract({
             address: QUOTE_TOKEN,
-            abi: ERC20_ABI,
+            abi: erc20Abi,
             functionName: 'approve',
             args: [ctx.manifest.contracts.gate, transferAmount],
         });
-        await ctx.publicClient.waitForTransactionReceipt({ hash: approveHash });
+        await waitForTx(approveHash);
 
         const depositArg = encodeDepositParam(QUOTE_TOKEN, depositAmount);
         const gateCallData = encodeFunctionData({
@@ -236,9 +202,15 @@ describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter
             address: ctx.manifest.contracts.handler,
             abi: CURRENT_GELATO_RELAY_ROUTER_ABI,
             functionName: 'batch',
-            args: [subAccountWallet.account.address, userWallet.account.address, ctx.manifest.contracts.gate, gateCallData, false],
+            args: [
+                subAccountWallet.account.address,
+                userWallet.account.address,
+                ctx.manifest.contracts.gate,
+                gateCallData,
+                false,
+            ],
         });
-        await ctx.publicClient.waitForTransactionReceipt({ hash: batchHash });
+        await waitForTx(batchHash);
 
         const reserve = await ctx.publicClient.readContract({
             address: ctx.manifest.contracts.gate,
@@ -259,7 +231,7 @@ describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter
             functionName: 'setSubAccount',
             args: [subAccountWallet.account.address],
         });
-        await ctx.publicClient.waitForTransactionReceipt({ hash: setHash });
+        await waitForTx(setHash);
 
         const transferAmount = 10_000n * QUOTE_UNIT;
         const depositAmount = 1_000n * QUOTE_UNIT;
@@ -267,19 +239,19 @@ describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter
 
         const transferHash = await ctx.walletClients.admin.writeContract({
             address: QUOTE_TOKEN,
-            abi: ERC20_ABI,
+            abi: erc20Abi,
             functionName: 'transfer',
             args: [userWallet.account.address, transferAmount],
         });
-        await ctx.publicClient.waitForTransactionReceipt({ hash: transferHash });
+        await waitForTx(transferHash);
 
         const approveHash = await userWallet.writeContract({
             address: QUOTE_TOKEN,
-            abi: ERC20_ABI,
+            abi: erc20Abi,
             functionName: 'approve',
             args: [ctx.manifest.contracts.gate, transferAmount],
         });
-        await ctx.publicClient.waitForTransactionReceipt({ hash: approveHash });
+        await waitForTx(approveHash);
 
         const depositArg = encodeDepositParam(QUOTE_TOKEN, depositAmount);
         const gateDepositCallData = encodeFunctionData({
@@ -300,11 +272,11 @@ describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter
                 false,
             ],
         });
-        await ctx.publicClient.waitForTransactionReceipt({ hash: depositHash });
+        await waitForTx(depositHash);
 
         const balanceAfterDeposit = await ctx.publicClient.readContract({
             address: QUOTE_TOKEN,
-            abi: ERC20_ABI,
+            abi: erc20Abi,
             functionName: 'balanceOf',
             args: [userWallet.account.address],
         });
@@ -328,7 +300,7 @@ describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter
                 false,
             ],
         });
-        await ctx.publicClient.waitForTransactionReceipt({ hash: withdrawHash });
+        await waitForTx(withdrawHash);
 
         const reserveAfterWithdraw = await ctx.publicClient.readContract({
             address: ctx.manifest.contracts.gate,
@@ -340,7 +312,7 @@ describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter
 
         const balanceAfterWithdraw = await ctx.publicClient.readContract({
             address: QUOTE_TOKEN,
-            abi: ERC20_ABI,
+            abi: erc20Abi,
             functionName: 'balanceOf',
             args: [userWallet.account.address],
         });
@@ -357,7 +329,7 @@ describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter
             functionName: 'setSubAccount',
             args: [subAccountWallet.account.address],
         });
-        await ctx.publicClient.waitForTransactionReceipt({ hash: setHash });
+        await waitForTx(setHash);
 
         const transferAmount = 10_000n * QUOTE_UNIT;
         const depositAmount0 = 400n * QUOTE_UNIT;
@@ -365,19 +337,19 @@ describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter
 
         const transferHash = await ctx.walletClients.admin.writeContract({
             address: QUOTE_TOKEN,
-            abi: ERC20_ABI,
+            abi: erc20Abi,
             functionName: 'transfer',
             args: [userWallet.account.address, transferAmount],
         });
-        await ctx.publicClient.waitForTransactionReceipt({ hash: transferHash });
+        await waitForTx(transferHash);
 
         const approveHash = await userWallet.writeContract({
             address: QUOTE_TOKEN,
-            abi: ERC20_ABI,
+            abi: erc20Abi,
             functionName: 'approve',
             args: [ctx.manifest.contracts.gate, transferAmount],
         });
-        await ctx.publicClient.waitForTransactionReceipt({ hash: approveHash });
+        await waitForTx(approveHash);
 
         const depositArg0 = encodeDepositParam(QUOTE_TOKEN, depositAmount0);
         const depositArg1 = encodeDepositParam(QUOTE_TOKEN, depositAmount1);
@@ -405,7 +377,7 @@ describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter
                 false,
             ],
         });
-        await ctx.publicClient.waitForTransactionReceipt({ hash: batchHash });
+        await waitForTx(batchHash);
 
         const reserve = await ctx.publicClient.readContract({
             address: ctx.manifest.contracts.gate,
