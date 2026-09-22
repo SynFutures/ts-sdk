@@ -8,7 +8,6 @@ import { PERP_EXPIRY } from '@synfutures/perpv3-ts';
 
 const CHAIN_ID = 143;
 const INSTRUMENT = '0x73ada1ea346cc3908f41cf67a040f0acd7808be0' as Address;
-const USER_ADDRESS = '0xB0B81c2c7686c63acAE28F9778ca8Fa80f0C004b' as Address;
 
 async function main(): Promise<void> {
     console.log('=== Market API examples ===');

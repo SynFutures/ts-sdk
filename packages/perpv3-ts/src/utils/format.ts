@@ -201,7 +201,7 @@ export function formatArray(values: unknown[], formatter: (value: unknown) => st
 
 function shortenDecimals(value: string, fixedDecimals = 6): string {
     if (!value.includes('.')) return value;
-    const [_integer, fraction] = value.split('.');
+    const [, fraction] = value.split('.');
     if (fraction.length <= fixedDecimals) return value;
     const trimmed = Number(value).toFixed(fixedDecimals);
     return trimmed;

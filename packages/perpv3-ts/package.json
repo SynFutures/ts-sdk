@@ -151,7 +151,7 @@
         "verify": "pnpm run lint && pnpm run build:check && pnpm run typecheck:build && pnpm run typecheck:tests && pnpm run typecheck:tools && pnpm run typecheck:public && pnpm run typecheck:examples && pnpm run typecheck:docs && pnpm run test:unit --runInBand && pnpm run build && pnpm run verify:consumer",
         "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
         "prepack": "pnpm run build && pnpm run build:check",
-        "lint": "eslint",
+        "lint": "eslint . --max-warnings=0",
         "format": "prettier --write . --ignore-path ../../.prettierignore",
         "test:unit": "jest --config jest.config.js",
         "test:devnet": "jest --config jest.devnet.config.js",

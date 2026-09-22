@@ -6,7 +6,7 @@ import type { ApiSigner, SignParams, SignResult } from '@synfutures/perpv3-ts/ap
 export class ApiSign implements ApiSigner {
     constructor(private readonly nonce: string) {}
 
-    sign(params: SignParams): SignResult {
+    sign(_params: SignParams): SignResult {
         // NOTE: This is a mock signature generation.
         // In a real-world scenario, you would use the params and a secret key to generate a valid signature.
         return {
