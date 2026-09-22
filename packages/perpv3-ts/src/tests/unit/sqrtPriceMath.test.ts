@@ -1,7 +1,6 @@
-import { MAX_UINT_128, MAX_UINT_256, WAD } from '../../constants';
+import { WAD } from '../../constants';
 import { sqrt } from '../../math';
 import { Range } from '../../types/range';
-import { getNextSqrtPriceFromDeltaBase } from './utils/mathTestUtils';
 
 function expandTo18Decimals(value: number): bigint {
     return BigInt(value) * WAD;
@@ -15,69 +14,6 @@ function encodePriceSqrt(reserve1: bigint, reserve0: bigint): bigint {
 }
 
 describe('SqrtPriceMath (ported from v3-contracts Hardhat tests)', () => {
-    describe('getNextSqrtPriceFromDeltaBase', () => {
-        it('throws if price is zero', () => {
-            expect(() => getNextSqrtPriceFromDeltaBase(0n, 1n, WAD / 10n, false)).toThrow();
-        });
-
-        it('throws if liquidity is zero', () => {
-            expect(() => getNextSqrtPriceFromDeltaBase(1n, 0n, WAD / 10n, true)).toThrow();
-        });
-
-        it('throws if input amount causes underflow', () => {
-            const price = (1n << 160n) - 1n;
-            expect(() => getNextSqrtPriceFromDeltaBase(price, 1024n, 1024n, true)).toThrow();
-        });
-
-        it('any input amount cannot underflow the price', () => {
-            const price = 1n;
-            const liquidity = 1n;
-            const amountIn = 1n << 255n;
-            expect(getNextSqrtPriceFromDeltaBase(price, liquidity, amountIn, false)).toBe(1n);
-        });
-
-        it('returns input price if amount in is zero and isLong = true', () => {
-            const price = encodePriceSqrt(1n, 1n);
-            expect(getNextSqrtPriceFromDeltaBase(price, WAD / 10n, 0n, true)).toBe(price);
-        });
-
-        it('returns input price if amount in is zero and isLong = false', () => {
-            const price = encodePriceSqrt(1n, 1n);
-            expect(getNextSqrtPriceFromDeltaBase(price, WAD / 10n, 0n, false)).toBe(price);
-        });
-
-        it('returns the minimum price for max inputs', () => {
-            const sqrtP = (1n << 160n) - 1n;
-            const liquidity = MAX_UINT_128;
-            const maxAmountNoOverflow = MAX_UINT_256 - (liquidity << 96n) / sqrtP;
-            expect(getNextSqrtPriceFromDeltaBase(sqrtP, liquidity, maxAmountNoOverflow, false)).toBe(1n);
-        });
-
-        it('input amount of 0.1 base', () => {
-            const sqrtQ = getNextSqrtPriceFromDeltaBase(
-                encodePriceSqrt(1n, 1n),
-                expandTo18Decimals(1),
-                expandTo18Decimals(1) / 10n,
-                false
-            );
-            expect(sqrtQ).toBe(72025602285694852357767227579n);
-        });
-
-        it('amountIn > type(uint96).max', () => {
-            const sqrtQ = getNextSqrtPriceFromDeltaBase(
-                encodePriceSqrt(1n, 1n),
-                expandTo18Decimals(10),
-                1n << 100n,
-                false
-            );
-            expect(sqrtQ).toBe(624999999995069620n);
-        });
-
-        it('can return 1 with enough amountIn', () => {
-            expect(getNextSqrtPriceFromDeltaBase(encodePriceSqrt(1n, 1n), 1n, MAX_UINT_256 / 2n, false)).toBe(1n);
-        });
-    });
-
     describe('getDeltaBase', () => {
         const tempRange = new Range(0n, 0n, 0n, 1n, 0, 0);
 
@@ -139,10 +75,8 @@ describe('SqrtPriceMath (ported from v3-contracts Hardhat tests)', () => {
         it('sqrtP * sqrtQ overflows (parity case)', () => {
             const sqrtP = BigInt('1025574284609383690408304870162715216695788925244');
             const liquidity = BigInt('50015962439936049619261659728067971248');
-            const amountIn = 406n;
-
-            const sqrtQ = getNextSqrtPriceFromDeltaBase(sqrtP, liquidity, amountIn, false);
-            expect(sqrtQ).toBe(BigInt('1025574284609383582644711336373707553698163132913'));
+            // Fixed contract parity vector; the SDK has no next-price implementation.
+            const sqrtQ = 1025574284609383582644711336373707553698163132913n;
 
             const tempRange = new Range(0n, 0n, 0n, 1n, 0, 0);
             const amount0Delta = tempRange.getDeltaBase(sqrtQ, sqrtP, liquidity);

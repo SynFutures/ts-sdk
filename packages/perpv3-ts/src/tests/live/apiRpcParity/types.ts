@@ -1,6 +1,6 @@
 import type { Address } from 'viem';
-import type { ApiConfig, RpcConfig } from '../../../queries/config';
-import type { Amm, BlockInfo, InstrumentSetting, PairSnapshot, Portfolio, UserSetting } from '../../../types';
+import type { RpcConfig } from '../../../queries/config';
+import type { PairSnapshot, UserSetting } from '../../../types';
 
 export type ScenarioType =
     | 'marketByMargin'
@@ -94,19 +94,9 @@ export type Scenario =
     | AdjustMarginByLeverageScenario
     | LimitOrderScenario;
 
-export interface PortfolioContext {
-    instrumentSetting: InstrumentSetting;
-    portfolio: Portfolio;
-    amm: Amm;
-    markPrice?: bigint;
-    blockInfo: BlockInfo;
-}
-
 export interface PreparedScenario {
     scenario: Scenario;
-    apiConfig: ApiConfig;
     userSetting: UserSetting;
     onchainContext: PairSnapshot;
-    portfolioContext: PortfolioContext;
     rpcConfig: RpcConfig;
 }

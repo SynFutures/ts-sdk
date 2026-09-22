@@ -1,632 +1,80 @@
 import { expect } from '@jest/globals';
-import type { Address } from 'viem';
 import { AdjustInput } from '../../../actions/adjust';
 import { PlaceInput } from '../../../actions/order';
 import { TradeInput } from '../../../actions/trade';
-import { WAD, ZERO } from '../../../constants';
 import { abs } from '../../../math';
-import { fetchOnchainContext } from '../../../queries';
-import { createQueryMarketModule } from '../../../queries/api';
-import type { ApiConfig, RpcConfig } from '../../../queries/config';
-import { fetchOnchainContext as fetchOnchainContextFromRpc } from '../../../queries/rpc';
-import {
-    InstrumentSetting,
-    PairSnapshot,
-    Position,
-    QuotationWithSize,
-    Side,
-    SimulationError,
-    UserSetting,
-    type Amm,
-    type BlockInfo,
-    type OnchainContext,
-    type Portfolio,
-    type Quotation,
-} from '../../../types';
+import { fetchOnchainContext as fetchRpcContext } from '../../../queries/rpc';
+import { PairSnapshot, QuotationWithSize, Side, UserSetting } from '../../../types';
 import { compareTradeResults, normalizeData } from './assertions';
-import { scenarioReadOptions } from './fixtures';
-import type {
-    AdjustMarginByLeverageScenario,
-    AdjustMarginScenario,
-    BaseScenario,
-    LimitOrderScenario,
-    MarketByLeverageScenario,
-    MarketByMarginScenario,
-    MarketCloseScenario,
-    PortfolioContext,
-    PreparedScenario,
-} from './types';
+import { scenarioReadOptions, scenarioSignedSize } from './fixtures';
+import type { PreparedScenario, Scenario } from './types';
 
-export async function executeScenario(entry: PreparedScenario): Promise<void> {
-    const { scenario, apiConfig, userSetting, rpcConfig, onchainContext, portfolioContext } = entry;
-    const { instrumentAddress, expiry, traderAddress } = scenario;
-
+export function simulateScenario(scenario: Scenario, snapshot: PairSnapshot, settings: UserSetting): unknown {
+    const trader = scenario.traderAddress;
     switch (scenario.type) {
         case 'marketByMargin':
-            await runMarketByMarginScenario(
-                scenario,
-                apiConfig,
-                instrumentAddress,
-                expiry,
-                traderAddress,
-                userSetting,
-                rpcConfig,
-                onchainContext,
-                portfolioContext
-            );
-            return;
         case 'marketByLeverage':
-            await runMarketByLeverageScenario(
-                scenario,
-                apiConfig,
-                instrumentAddress,
-                expiry,
-                traderAddress,
-                userSetting,
-                rpcConfig,
-                onchainContext,
-                portfolioContext
-            );
-            return;
-        case 'marketClose':
-            await runMarketCloseScenario(
-                scenario,
-                apiConfig,
-                instrumentAddress,
-                expiry,
-                traderAddress,
-                userSetting,
-                rpcConfig,
-                onchainContext,
-                portfolioContext
-            );
-            return;
+        case 'marketClose': {
+            const signedSize = scenarioSignedSize(scenario)!;
+            if (!snapshot.quotation) throw new Error('The API snapshot must include the requested quotation');
+            const margin = scenario.type === 'marketByMargin' ? BigInt(scenario.input.margin) : undefined;
+            const input = new TradeInput(trader, abs(signedSize), signedSize > 0n ? Side.LONG : Side.SHORT, margin);
+            const leverage =
+                scenario.type === 'marketByLeverage' ? BigInt(scenario.input.targetLeverage) : settings.leverage;
+            const userSetting = withLeverage(settings, leverage);
+            return input.simulate(snapshot, new QuotationWithSize(signedSize, snapshot.quotation), userSetting);
+        }
         case 'adjustMargin':
-            await runAdjustMarginScenario(
-                scenario,
-                instrumentAddress,
-                expiry,
-                traderAddress,
-                rpcConfig,
-                onchainContext,
-                portfolioContext
+            return new AdjustInput(trader, BigInt(scenario.input.amount), scenario.input.transferIn).simulate(
+                snapshot,
+                settings
             );
-            return;
         case 'adjustMarginByLeverage':
-            await runAdjustMarginByLeverageScenario(
-                scenario,
-                instrumentAddress,
-                expiry,
-                traderAddress,
-                rpcConfig,
-                onchainContext,
-                portfolioContext
+            return new AdjustInput(trader).simulate(
+                snapshot,
+                withLeverage(settings, BigInt(scenario.input.targetLeverage))
             );
-            return;
-        case 'limitOrder':
-            await runLimitOrderScenario(
-                scenario,
-                apiConfig,
-                instrumentAddress,
-                expiry,
-                traderAddress,
-                userSetting,
-                rpcConfig,
-                onchainContext
+        case 'limitOrder': {
+            const input = new PlaceInput(
+                trader,
+                scenario.input.tick,
+                BigInt(scenario.input.baseQuantity),
+                scenario.input.side === 'LONG' ? Side.LONG : Side.SHORT
             );
-            return;
-        default:
-            throwUnsupportedScenario(scenario);
+            return input.simulate(
+                snapshot,
+                withLeverage(
+                    settings,
+                    BigInt(scenario.input.leverage),
+                    scenario.input.dappSetting?.markPriceBufferInBps
+                )
+            );
+        }
     }
 }
 
-function throwUnsupportedScenario(scenario: never): never {
-    throw new Error(`Unsupported scenario type: ${String(scenario)}`);
+function withLeverage(settings: UserSetting, leverage: bigint, buffer = settings.markPriceBufferInBps): UserSetting {
+    return new UserSetting(settings.deadlineOffset, settings.slippage, leverage, buffer, settings.strictMode);
 }
 
-async function runMarketByMarginScenario(
-    scenario: MarketByMarginScenario,
-    apiConfig: ApiConfig,
-    instrumentAddress: Address,
-    expiry: number,
-    traderAddress: Address,
-    userSetting: UserSetting,
-    rpcConfig: RpcConfig,
-    onchainContext: PairSnapshot,
-    portfolioContext?: PortfolioContext
-): Promise<void> {
-    const side = toSide(scenario.input.side);
-    const baseQuantity = BigInt(scenario.input.baseQuantity);
-    const marginAmount = BigInt(scenario.input.margin);
-
-    if (baseQuantity <= 0n) {
-        throw new SimulationError('Trade size must be positive');
-    }
-    if (marginAmount <= 0n) {
-        throw new SimulationError('Margin must be positive');
-    }
-
-    const signedSize = directionFromSide(side) * baseQuantity;
-
-    const artifacts = await loadMarketArtifacts(
-        scenario,
-        apiConfig,
-        traderAddress,
-        signedSize,
-        onchainContext,
-        portfolioContext
-    );
-
-    const tradeInput = new TradeInput(traderAddress, bigAbs(signedSize), side, marginAmount);
-
-    const apiOnchainContextWithQuotation = onchainContext.with({
-        portfolio: {
-            ...createEmptyPortfolio(),
-            position: artifacts.marketContext.position,
-        },
-        quotation: artifacts.marketContext.quotation,
-    });
-
-    const apiQuotationWithSize = artifacts.quotationWithSize;
-    const [, apiResult] = tradeInput.simulate(apiOnchainContextWithQuotation, apiQuotationWithSize, userSetting);
-
-    const rpcOnchainContext = await fetchOnchainContextFromRpc(
-        instrumentAddress,
-        expiry,
+export async function executeScenario({
+    scenario,
+    userSetting,
+    rpcConfig,
+    onchainContext,
+}: PreparedScenario): Promise<void> {
+    const rpcContext = await fetchRpcContext(
+        scenario.instrumentAddress,
+        scenario.expiry,
         rpcConfig,
-        traderAddress,
-        signedSize,
-        scenarioReadOptions(scenario, artifacts.blockNumber)
-    );
-    if (!rpcOnchainContext.quotation) {
-        throw new Error('Quotation is required');
-    }
-    const rpcQuotationWithSize = new QuotationWithSize(signedSize, rpcOnchainContext.quotation);
-    const [, rpcResult] = tradeInput.simulate(rpcOnchainContext, rpcQuotationWithSize, userSetting);
-
-    compareTradeResults(apiResult, rpcResult);
-}
-
-async function runMarketByLeverageScenario(
-    scenario: MarketByLeverageScenario,
-    apiConfig: ApiConfig,
-    instrumentAddress: Address,
-    expiry: number,
-    traderAddress: Address,
-    userSetting: UserSetting,
-    rpcConfig: RpcConfig,
-    onchainContext: PairSnapshot,
-    portfolioContext?: PortfolioContext
-): Promise<void> {
-    const side = toSide(scenario.input.side);
-    const baseQuantity = BigInt(scenario.input.baseQuantity);
-    const targetLeverage = BigInt(scenario.input.targetLeverage);
-
-    if (baseQuantity <= 0n) {
-        throw new SimulationError('Trade size must be positive');
-    }
-    if (targetLeverage <= 0n) {
-        throw new SimulationError('Leverage must be positive');
-    }
-
-    const signedSize = directionFromSide(side) * baseQuantity;
-
-    const artifacts = await loadMarketArtifacts(
-        scenario,
-        apiConfig,
-        traderAddress,
-        signedSize,
-        onchainContext,
-        portfolioContext
-    );
-
-    const tradeInput = new TradeInput(traderAddress, bigAbs(signedSize), side);
-
-    const apiOnchainContextWithQuotation = onchainContext.with({
-        portfolio: {
-            ...createEmptyPortfolio(),
-            position: artifacts.marketContext.position,
-        },
-        quotation: artifacts.marketContext.quotation,
-    });
-
-    const apiQuotationWithSize = artifacts.quotationWithSize;
-    const [, apiResult] = tradeInput.simulate(apiOnchainContextWithQuotation, apiQuotationWithSize, userSetting);
-
-    const rpcOnchainContext = await fetchOnchainContextFromRpc(
-        instrumentAddress,
-        expiry,
-        rpcConfig,
-        traderAddress,
-        signedSize,
-        scenarioReadOptions(scenario, artifacts.blockNumber)
-    );
-    if (!rpcOnchainContext.quotation) {
-        throw new Error('Quotation is required');
-    }
-    const rpcQuotationWithSize = new QuotationWithSize(signedSize, rpcOnchainContext.quotation);
-    const [, rpcResult] = tradeInput.simulate(rpcOnchainContext, rpcQuotationWithSize, userSetting);
-
-    compareTradeResults(apiResult, rpcResult);
-}
-
-async function runMarketCloseScenario(
-    scenario: MarketCloseScenario,
-    apiConfig: ApiConfig,
-    instrumentAddress: Address,
-    expiry: number,
-    traderAddress: Address,
-    userSetting: UserSetting,
-    rpcConfig: RpcConfig,
-    onchainContext: PairSnapshot,
-    portfolioContext?: PortfolioContext
-): Promise<void> {
-    const baseQuantity = BigInt(scenario.input.baseQuantity);
-    const signedSize = -baseQuantity;
-
-    if (baseQuantity === 0n) {
-        throw new SimulationError('Close size cannot be zero');
-    }
-
-    const closeSide = signedSize >= ZERO ? Side.LONG : Side.SHORT;
-    const closeInput = new TradeInput(traderAddress, abs(signedSize), closeSide);
-
-    const artifacts = await loadMarketArtifacts(
-        scenario,
-        apiConfig,
-        traderAddress,
-        signedSize,
-        onchainContext,
-        portfolioContext
-    );
-
-    const apiOnchainContextWithQuotation = onchainContext.with({
-        portfolio: {
-            ...createEmptyPortfolio(),
-            position: artifacts.marketContext.position,
-        },
-        quotation: artifacts.marketContext.quotation,
-    });
-
-    const apiQuotationWithSize = artifacts.quotationWithSize;
-    const [, apiResult] = closeInput.simulate(apiOnchainContextWithQuotation, apiQuotationWithSize, userSetting);
-
-    const rpcOnchainContext = await fetchOnchainContextFromRpc(
-        instrumentAddress,
-        expiry,
-        rpcConfig,
-        traderAddress,
-        signedSize,
-        scenarioReadOptions(scenario, artifacts.blockNumber)
-    );
-    if (!rpcOnchainContext.quotation) {
-        throw new Error('Quotation is required');
-    }
-    const rpcQuotationWithSize = new QuotationWithSize(signedSize, rpcOnchainContext.quotation);
-    const [, rpcResult] = closeInput.simulate(rpcOnchainContext, rpcQuotationWithSize, userSetting);
-
-    compareTradeResults(apiResult, rpcResult);
-
-    const expectedLiquidation = rpcResult.postPosition.liquidationPrice(
-        artifacts.marketContext.amm,
-        artifacts.marketContext.instrumentSetting.maintenanceMarginRatio
-    );
-    const actualLiquidation = rpcResult.postPosition.liquidationPrice(
-        rpcOnchainContext.amm,
-        rpcOnchainContext.instrumentSetting.maintenanceMarginRatio
-    );
-    expect(actualLiquidation.toString()).toBe(expectedLiquidation.toString());
-}
-
-async function runAdjustMarginScenario(
-    scenario: AdjustMarginScenario,
-    instrumentAddress: Address,
-    expiry: number,
-    traderAddress: Address,
-    rpcConfig: RpcConfig,
-    onchainContext: PairSnapshot,
-    portfolioContext?: PortfolioContext
-): Promise<void> {
-    const amount = BigInt(scenario.input.amount);
-
-    if (amount <= 0n) {
-        throw new SimulationError('Margin amount must be positive');
-    }
-
-    const instrumentSetting = portfolioContext?.instrumentSetting ?? onchainContext.instrumentSetting;
-
-    const userSetting = new UserSetting(0, 0, 3n * WAD);
-    const adjustInput = new AdjustInput(traderAddress, amount, scenario.input.transferIn);
-
-    const apiOnchainContext = onchainContext.with({
-        portfolio: portfolioContext?.portfolio ?? createEmptyPortfolio(),
-    });
-    const [, apiResult] = adjustInput.simulate(apiOnchainContext, userSetting);
-
-    const rpcOnchainContext = await fetchOnchainContextFromRpc(
-        instrumentAddress,
-        expiry,
-        rpcConfig,
-        traderAddress,
-        undefined,
+        scenario.traderAddress,
+        scenarioSignedSize(scenario),
         scenarioReadOptions(scenario, onchainContext.blockInfo.height)
     );
-    const [, rpcResult] = adjustInput.simulate(rpcOnchainContext, userSetting);
-
-    const apiMarkPrice = apiOnchainContext.priceData.markPrice;
-    const rpcMarkPrice = rpcOnchainContext.priceData.markPrice;
-
-    expect(rpcResult.postPosition.leverage(rpcOnchainContext.amm, rpcMarkPrice).toString()).toBe(
-        apiResult.postPosition.leverage(apiOnchainContext.amm, apiMarkPrice).toString()
+    expect(normalizeData(rpcContext.blockInfo)).toEqual(normalizeData(onchainContext.blockInfo));
+    // Keep both providers' portfolios and funding indices intact: differences must fail parity.
+    compareTradeResults(
+        simulateScenario(scenario, onchainContext, userSetting),
+        simulateScenario(scenario, rpcContext, userSetting)
     );
-    expect(rpcResult.postPosition.balance.toString()).toBe(apiResult.postPosition.balance.toString());
-
-    const expectedLiquidation = apiResult.postPosition.liquidationPrice(
-        apiOnchainContext.amm,
-        instrumentSetting.maintenanceMarginRatio
-    );
-    const actualLiquidation = rpcResult.postPosition.liquidationPrice(
-        rpcOnchainContext.amm,
-        instrumentSetting.maintenanceMarginRatio
-    );
-
-    expect(actualLiquidation.toString()).toBe(expectedLiquidation.toString());
-}
-
-async function runAdjustMarginByLeverageScenario(
-    scenario: AdjustMarginByLeverageScenario,
-    instrumentAddress: Address,
-    expiry: number,
-    traderAddress: Address,
-    rpcConfig: RpcConfig,
-    onchainContext: PairSnapshot,
-    portfolioContext?: PortfolioContext
-): Promise<void> {
-    const targetLeverage = BigInt(scenario.input.targetLeverage);
-
-    if (targetLeverage <= 0n) {
-        throw new SimulationError('Target leverage must be positive');
-    }
-
-    const instrumentSetting = portfolioContext?.instrumentSetting ?? onchainContext.instrumentSetting;
-
-    const userSetting = new UserSetting(0, 0, targetLeverage);
-    const adjustInput = new AdjustInput(traderAddress);
-
-    const apiOnchainContext = onchainContext.with({
-        portfolio: portfolioContext?.portfolio ?? createEmptyPortfolio(),
-    });
-    const [apiParam, apiResult] = adjustInput.simulate(apiOnchainContext, userSetting);
-
-    const rpcOnchainContext = await fetchOnchainContextFromRpc(
-        instrumentAddress,
-        expiry,
-        rpcConfig,
-        traderAddress,
-        undefined,
-        scenarioReadOptions(scenario, onchainContext.blockInfo.height)
-    );
-    const [rpcParam, rpcResult] = adjustInput.simulate(rpcOnchainContext, userSetting);
-
-    expect(rpcParam.net >= ZERO).toBe(apiParam.net >= ZERO);
-    expect(rpcParam.net.toString()).toBe(apiParam.net.toString());
-    expect(rpcResult.postPosition.balance.toString()).toBe(apiResult.postPosition.balance.toString());
-
-    const expectedLiquidation = apiResult.postPosition.liquidationPrice(
-        apiOnchainContext.amm,
-        instrumentSetting.maintenanceMarginRatio
-    );
-    const actualLiquidation = rpcResult.postPosition.liquidationPrice(
-        rpcOnchainContext.amm,
-        instrumentSetting.maintenanceMarginRatio
-    );
-
-    expect(actualLiquidation.toString()).toBe(expectedLiquidation.toString());
-}
-
-async function runLimitOrderScenario(
-    scenario: LimitOrderScenario,
-    apiConfig: ApiConfig,
-    instrumentAddress: Address,
-    expiry: number,
-    traderAddress: Address,
-    userSetting: UserSetting,
-    rpcConfig: RpcConfig,
-    onchainContext?: PairSnapshot
-): Promise<void> {
-    const baseQuantity = BigInt(scenario.input.baseQuantity);
-    const leverage = BigInt(scenario.input.leverage);
-    const tick = scenario.input.tick;
-
-    if (baseQuantity <= 0n) {
-        throw new SimulationError('Order size must be positive');
-    }
-    if (leverage <= 0n) {
-        throw new SimulationError('Leverage must be positive');
-    }
-    if (tick <= 0) {
-        throw new SimulationError('Tick must be positive');
-    }
-
-    const context =
-        onchainContext ?? (await fetchOnchainContext(scenario.instrumentAddress, scenario.expiry, apiConfig));
-
-    const { instrumentSetting } = context;
-    const portfolio = context.portfolio ?? createEmptyPortfolio();
-
-    const side = toSide(scenario.input.side);
-    const isLong = side === Side.LONG;
-    let targetTick = tick;
-    if (isLong && targetTick >= context.amm.tick) {
-        targetTick = instrumentSetting.alignOrderTick(context.amm.tick - instrumentSetting.orderSpacing);
-    } else if (!isLong && targetTick <= context.amm.tick) {
-        targetTick = instrumentSetting.alignOrderTick(context.amm.tick + instrumentSetting.orderSpacing);
-    }
-
-    const markPriceBufferInBps =
-        scenario.input.dappSetting?.markPriceBufferInBps ?? userSetting.markPriceBufferInBps ?? 0;
-    const userSettingWithBuffer = new UserSetting(
-        userSetting.deadlineOffset,
-        userSetting.slippage,
-        leverage,
-        markPriceBufferInBps,
-        userSetting.strictMode
-    );
-
-    const placeInput = new PlaceInput(traderAddress, targetTick, baseQuantity, side);
-
-    const apiContextWithPortfolio = context.with({
-        portfolio,
-    });
-    const [apiPlaceParam] = placeInput.simulate(apiContextWithPortfolio, userSettingWithBuffer);
-
-    const rpcContext = await fetchOnchainContextFromRpc(
-        instrumentAddress,
-        expiry,
-        rpcConfig,
-        undefined,
-        undefined,
-        scenarioReadOptions(scenario, context.blockInfo.height)
-    );
-
-    const rpcContextWithPortfolio = new PairSnapshot({
-        ...getOnchainContextOptions(rpcContext),
-        portfolio,
-    });
-    const [rpcPlaceParam] = placeInput.simulate(rpcContextWithPortfolio, userSettingWithBuffer);
-
-    expect(normalizeData(apiPlaceParam)).toEqual(normalizeData(rpcPlaceParam));
-}
-
-interface MarketArtifacts {
-    marketContext: {
-        instrumentSetting: InstrumentSetting;
-        amm: Amm;
-        markPrice?: bigint;
-        blockInfo: BlockInfo;
-        position: Position;
-        quotation: Quotation;
-    };
-    quotationWithSize: QuotationWithSize;
-    blockNumber?: number;
-}
-
-function toSide(side: 'LONG' | 'SHORT'): Side {
-    return side === 'LONG' ? Side.LONG : Side.SHORT;
-}
-
-function directionFromSide(side: Side): 1n | -1n {
-    return side === Side.LONG ? 1n : -1n;
-}
-
-function bigAbs(value: bigint): bigint {
-    return value < 0n ? -value : value;
-}
-
-function createEmptyPortfolio(): Portfolio {
-    return {
-        oids: [],
-        rids: [],
-        orders: [],
-        ranges: [],
-        ordersTaken: [],
-        position: Position.empty(),
-    };
-}
-
-async function loadMarketArtifacts(
-    scenario: BaseScenario,
-    apiConfig: ApiConfig,
-    traderAddress: Address,
-    signedSize: bigint,
-    onchainContext?: PairSnapshot,
-    portfolioContext?: PortfolioContext
-): Promise<MarketArtifacts> {
-    const context =
-        onchainContext ?? (await fetchOnchainContext(scenario.instrumentAddress, scenario.expiry, apiConfig));
-
-    let resolvedPortfolio = portfolioContext?.portfolio;
-    if (!resolvedPortfolio) {
-        const ctxWithTrader = await fetchOnchainContext(
-            scenario.instrumentAddress,
-            scenario.expiry,
-            apiConfig,
-            traderAddress
-        );
-        resolvedPortfolio = ctxWithTrader.portfolio;
-    }
-
-    const position = resolvedPortfolio?.position ?? createEmptyPortfolio().position;
-
-    const market = createQueryMarketModule(apiConfig);
-    const quotation = await market.fetchFuturesInstrumentInquire({
-        chainId: scenario.chainId,
-        expiry: scenario.expiry,
-        instrument: scenario.instrumentAddress,
-        size: signedSize.toString(),
-    });
-
-    if (!quotation) {
-        throw new SimulationError('Quotation is required to build simulation context');
-    }
-
-    if (quotation.entryNotional === 0n && signedSize !== 0n) {
-        throw new SimulationError(`Invalid quotation: entryNotional is zero for size ${signedSize}`);
-    }
-
-    if (process.env.DEBUG_PARITY_TEST && context.blockInfo?.height) {
-        console.log(`[DEBUG] Context block: ${context.blockInfo.height}, Quotation fetch time: ${Date.now()}`);
-    }
-
-    const markPrice = context.priceData.markPrice;
-    const { instrumentSetting } = context;
-
-    const marketContext = {
-        instrumentSetting,
-        amm: context.amm,
-        markPrice,
-        blockInfo: context.blockInfo,
-        position,
-        quotation,
-    };
-
-    const quotationWithSize = new QuotationWithSize(signedSize, quotation);
-
-    return {
-        marketContext,
-        quotationWithSize,
-        blockNumber: context.blockInfo?.height,
-    };
-}
-
-function getOnchainContextOptions(context: PairSnapshot): OnchainContext {
-    const inst = context.instrumentSetting;
-    return {
-        setting: {
-            symbol: inst.symbol,
-            config: inst.configAddress,
-            gate: inst.gateAddress,
-            market: inst.marketAddress,
-            quote: inst.quoteAddress,
-            decimals: inst.quoteDecimals,
-            param: inst.quoteParam,
-            initialMarginRatio: inst.initialMarginRatio,
-            maintenanceMarginRatio: inst.maintenanceMarginRatio,
-            placePaused: inst.placePaused,
-            fundingHour: inst.fundingHour,
-            disableOrderRebate: inst.disableOrderRebate,
-        },
-        condition: inst.condition,
-        amm: context.amm,
-        priceData: context.priceData,
-        spacing: {
-            pearl: inst.pearlSpacing,
-            order: inst.orderSpacing,
-            range: inst.rangeSpacing,
-        },
-        blockInfo: context.blockInfo,
-        portfolio: context.portfolio,
-        quotation: context.quotation,
-        quoteState: context.quoteState,
-    };
 }

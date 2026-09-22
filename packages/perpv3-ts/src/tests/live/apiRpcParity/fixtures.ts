@@ -96,16 +96,28 @@ export function scenarioReadOptions(
     scenario: Pick<BaseScenario, 'blockNumber' | 'blockTag'>,
     contextBlock?: number
 ): ReadOptions {
-    if (scenario.blockNumber !== undefined && scenario.blockTag !== undefined) {
-        throw new Error('Choose blockNumber or blockTag, not both.');
-    }
-    if (scenario.blockTag !== undefined) return { blockTag: scenario.blockTag };
-    if (scenario.blockNumber !== undefined) {
-        if (!/^\d+$/.test(scenario.blockNumber)) throw new Error('blockNumber must be a non-negative integer string.');
-        return { blockNumber: BigInt(scenario.blockNumber) };
-    }
     if (contextBlock === undefined || !Number.isSafeInteger(contextBlock) || contextBlock < 0) {
         throw new Error('API context must include a valid block height for parity checks.');
     }
+    if (scenario.blockTag !== undefined)
+        throw new Error('Parity requires the API context block, not a moving block tag.');
+    if (
+        scenario.blockNumber !== undefined &&
+        (!/^\d+$/.test(scenario.blockNumber) || BigInt(scenario.blockNumber) !== BigInt(contextBlock))
+    ) {
+        throw new Error('Explicit blockNumber must match the API context block.');
+    }
     return { blockNumber: BigInt(contextBlock) };
+}
+
+export function scenarioSignedSize(scenario: Scenario): bigint | undefined {
+    switch (scenario.type) {
+        case 'marketByMargin':
+        case 'marketByLeverage':
+            return BigInt(scenario.input.baseQuantity) * (scenario.input.side === 'LONG' ? 1n : -1n);
+        case 'marketClose':
+            return -BigInt(scenario.input.baseQuantity);
+        default:
+            return undefined;
+    }
 }

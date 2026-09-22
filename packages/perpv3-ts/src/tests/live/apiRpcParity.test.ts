@@ -9,6 +9,7 @@ import {
     resolveChain,
     resolveObserverAddress,
     resolveRpcUrl,
+    scenarioSignedSize,
 } from './apiRpcParity/fixtures';
 import { executeScenario } from './apiRpcParity/runners';
 import type { PreparedScenario, Scenario } from './apiRpcParity/types';
@@ -49,16 +50,9 @@ async function prepareScenario(scenario: Scenario): Promise<PreparedScenario> {
         scenario.instrumentAddress,
         scenario.expiry,
         apiConfig,
-        scenario.traderAddress
+        scenario.traderAddress,
+        scenarioSignedSize(scenario)
     );
-    const portfolioContext = {
-        instrumentSetting: onchainContext.instrumentSetting,
-        portfolio: onchainContext.portfolio,
-        amm: onchainContext.amm,
-        markPrice: onchainContext.priceData.markPrice,
-        blockInfo: onchainContext.blockInfo,
-    };
-
     const publicClient = createPublicClient({
         chain,
         transport: http(rpcUrl),
@@ -70,7 +64,7 @@ async function prepareScenario(scenario: Scenario): Promise<PreparedScenario> {
         observerAddress,
     };
 
-    return { scenario, apiConfig, userSetting, onchainContext, portfolioContext, rpcConfig };
+    return { scenario, userSetting, onchainContext, rpcConfig };
 }
 
 const fixture = process.env.SIMULATE_PARITY_FIXTURE;
