@@ -48,8 +48,8 @@ export async function runFullyTakenOrderFlow(): Promise<void> {
     await transferQuote(makerWallet.account.address, transferAmount);
     await transferQuote(takerWallet.account.address, transferAmount);
 
-    await approveQuote(makerWallet, ctx.manifest.contracts.gate, transferAmount);
-    await approveQuote(takerWallet, ctx.manifest.contracts.gate, transferAmount);
+    await approveQuote(makerWallet, transferAmount);
+    await approveQuote(takerWallet, transferAmount);
 
     await depositQuote(makerWallet, depositAmount);
     await depositQuote(takerWallet, depositAmount);
@@ -197,7 +197,7 @@ export async function runCancelOrderFlow(): Promise<void> {
     const depositAmount = 10_000n * QUOTE_UNIT;
 
     await transferQuote(makerWallet.account.address, transferAmount);
-    await approveQuote(makerWallet, ctx.manifest.contracts.gate, transferAmount);
+    await approveQuote(makerWallet, transferAmount);
     await depositQuote(makerWallet, depositAmount);
 
     const userSetting = createUserSetting();
@@ -256,8 +256,8 @@ export async function runSharedRangeLiquidityFlow(): Promise<void> {
     await transferQuote(traderWallet.account.address, transferAmount);
     await transferQuote(lpWallet.account.address, transferAmount);
 
-    await approveQuote(traderWallet, ctx.manifest.contracts.gate, transferAmount);
-    await approveQuote(lpWallet, ctx.manifest.contracts.gate, transferAmount);
+    await approveQuote(traderWallet, transferAmount);
+    await approveQuote(lpWallet, transferAmount);
 
     const traderBeforeAdd = await fetchOnchainContext(
         INSTRUMENT_ADDRESS,
@@ -412,9 +412,9 @@ export async function runSameTickOrderFlow(): Promise<void> {
     await transferQuote(trader1Wallet.account.address, transferAmount);
     await transferQuote(lpWallet.account.address, transferAmount);
 
-    await approveQuote(trader0Wallet, ctx.manifest.contracts.gate, transferAmount);
-    await approveQuote(trader1Wallet, ctx.manifest.contracts.gate, transferAmount);
-    await approveQuote(lpWallet, ctx.manifest.contracts.gate, transferAmount);
+    await approveQuote(trader0Wallet, transferAmount);
+    await approveQuote(trader1Wallet, transferAmount);
+    await approveQuote(lpWallet, transferAmount);
 
     await depositQuote(trader0Wallet, depositAmount);
     await depositQuote(trader1Wallet, depositAmount);
@@ -536,8 +536,8 @@ export async function runTradePullsEoaMarginWithMultipleRanges(): Promise<void> 
     await transferQuote(lpWallet.account.address, transferAmount);
     await transferQuote(traderWallet.account.address, transferAmount);
 
-    await approveQuote(lpWallet, ctx.manifest.contracts.gate, transferAmount);
-    await approveQuote(traderWallet, ctx.manifest.contracts.gate, transferAmount);
+    await approveQuote(lpWallet, transferAmount);
+    await approveQuote(traderWallet, transferAmount);
 
     const lpBefore = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, lpWallet.account.address);
     const { instrumentSetting } = lpBefore;
@@ -705,8 +705,8 @@ export async function runMultiOrderFillAndCancelFlow(): Promise<void> {
     await transferQuote(makerWallet.account.address, transferAmount);
     await transferQuote(takerWallet.account.address, transferAmount);
 
-    await approveQuote(makerWallet, ctx.manifest.contracts.gate, transferAmount);
-    await approveQuote(takerWallet, ctx.manifest.contracts.gate, transferAmount);
+    await approveQuote(makerWallet, transferAmount);
+    await approveQuote(takerWallet, transferAmount);
 
     await depositQuote(makerWallet, depositAmount);
     await depositQuote(takerWallet, depositAmount);
