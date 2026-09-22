@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { build } from 'esbuild';
 import { execFileSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -38,6 +39,10 @@ try {
     run('pnpm', ['pack', '--pack-destination', temporary], packageDir);
     const archive = readdirSync(temporary).find((name) => name.endsWith('.tgz'));
     assert(archive, 'Missing PerpV3 tarball');
+    const archivePath = join(temporary, archive);
+    log(run('pnpm', ['exec', 'publint', archivePath, '--strict'], packageDir).trim());
+    // The SDK uses exports-aware resolution (Node16/NodeNext/Bundler), not legacy node10.
+    log(run('pnpm', ['exec', 'attw', archivePath, '--profile', 'node16'], packageDir).trim());
     const installed = join(consumer, 'node_modules/@synfutures/perpv3-ts');
     mkdirSync(installed, { recursive: true });
     run('tar', ['-xzf', join(temporary, archive), '-C', installed, '--strip-components=1']);
@@ -89,8 +94,6 @@ try {
     );
     run(consumerNode, ['--disallow-code-generation-from-strings', 'entries.mjs']);
     run(consumerNode, ['--disallow-code-generation-from-strings', 'entries.cjs']);
-    const tsupRequire = createRequire(require.resolve('tsup/package.json'));
-    const { build } = tsupRequire('esbuild');
     const browser = join(temporary, 'browser.cjs');
     const bundle = await build({
         entryPoints: [join(consumer, 'dist/index.mjs')],
@@ -109,7 +112,7 @@ try {
     );
     run(consumerNode, ['--disallow-code-generation-from-strings', browser]);
     log(
-        `Packed consumer passed on Node ${run(consumerNode, ['-p', 'process.versions.node']).trim()}: ${entries.length} ESM/CJS entries, NodeNext types, calldata/parser runtime, browser bundle, exact viem-kit tarball files`
+        `Packed consumer passed on Node ${run(consumerNode, ['-p', 'process.versions.node']).trim()}: ${entries.length} ESM/CJS entries, NodeNext types, shared entry identity, calldata/parser runtime, browser bundle, exact viem-kit tarball files`
     );
 } catch (error) {
     if (error.stdout) log(error.stdout.toString());
