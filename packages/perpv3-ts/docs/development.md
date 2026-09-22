@@ -116,3 +116,26 @@ both CJS and ESM under Node16 resolution and bundler resolution.
 Set `PERPV3_CONSUMER_NODE` to an absolute Node executable path to run the packed
 consumer on another supported runtime. Package-check tools and TypeScript continue
 to run on the development Node version.
+
+## Release tooling
+
+Changesets 3 and `changesets/action@v2` share the root release commands:
+
+- `pnpm run release:dry` reports the pending version plan without applying it.
+- `pnpm run release:version` (also `make version`) applies changesets and refreshes
+  only the lockfile with lifecycle scripts disabled. It changes package versions,
+  changelogs and the lockfile. With no pending changesets, Changesets exits with code 1
+  and the command stops before refreshing the lockfile.
+- `pnpm run release` (also `make publish`) publishes packages; `make release` versions
+  and then publishes. These require release authorization.
+
+The workflow uses the v2 inputs `version-script`, `publish-script` and `github-token`.
+A temporary npm config preserves both private registry scopes (`@synfutures` and
+`@derivation-tech`). Its token is supplied through `NODE_AUTH_TOKEN` only to the
+install and release steps, because installing the private contract artifacts also
+requires authentication. Verification steps do not receive the registry token.
+
+Changesets 3 skips private-package versioning by default and defaults peer-dependent
+bumps to patch. Describe incompatible public changes with an explicit changeset;
+do not rely on a peer dependency update to select a breaking release. Keep the
+local viem-kit override's publication guard until the dependency is released.

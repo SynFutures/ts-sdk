@@ -20,11 +20,10 @@ changeset-dry-run:
 	DRY_RUN=true $(CHANGESET_SCRIPT)
 
 version:
-	pnpm changeset version
-	pnpm install
+	pnpm run release:version
 
 publish:
-	pnpm changeset publish
+	pnpm run release
 
 release: version
 	$(MAKE) publish

@@ -43,6 +43,8 @@ and the generated changeset before committing it.
 
 `make version` changes package versions and the lockfile. `make publish` publishes
 packages. `make release` performs both operations. The `release:dry` script reports pending changeset status without applying versions.
+Changesets 3 and `changesets/action@v2` use `pnpm run release:version` to apply versions
+and refresh only the lockfile, with lifecycle scripts disabled.
 
 Replace the local viem-kit override with the released dependency before publishing.
 The PerpV3 `prepublishOnly` check rejects a remaining override. Release execution
