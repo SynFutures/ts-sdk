@@ -1,23 +1,19 @@
-import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { MarketMakerModule } from '../apis/mm';
 import type { AuthInfo } from '../apis/interfaces';
-import type { HttpClient } from '../utils/axios';
+import { HttpClient } from '../utils/axios';
+import { apiEnvelopeResponse } from './helpers/http';
 
 type CapturedRequest = {
     url?: string;
 };
 
 function createMockHttpClient(captured: CapturedRequest): HttpClient {
-    const client = {
-        get: async <T>(url: string, _config?: AxiosRequestConfig): Promise<AxiosResponse<T>> => {
-            captured.url = url;
-            return {
-                data: { data: [] },
-            } as unknown as AxiosResponse<T>;
-        },
-    };
-
-    return client as unknown as HttpClient;
+    const client = new HttpClient();
+    jest.spyOn(client, 'get').mockImplementation(async (url) => {
+        captured.url = url;
+        return apiEnvelopeResponse([]);
+    });
+    return client;
 }
 
 describe('MarketMakerModule.fetchTickers', () => {
@@ -48,4 +44,3 @@ describe('MarketMakerModule.fetchTickers', () => {
         expect(captured.url).toBe('/v4/public/mm/tickers?chainId=1&symbol=BTC%2FUSDC');
     });
 });
-

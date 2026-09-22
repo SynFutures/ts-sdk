@@ -1,403 +1,338 @@
-import {
-	INSTRUMENT_BIGINT_KEYS,
-	INQUIRE_BIGINT_KEYS,
-	INQUIRE_BY_TICK_BIGINT_KEYS,
-	PORTFOLIO_BIG_INT_KEYS,
-	API_URLS,
-	GATE_BALANCE_BIGINT_KEYS,
-	ORDER_DATA_BIGINT_KEYS,
-	DEPTH_CHART_BIGINT_KEYS,
-	PRICE_DATA_BIGINT_KEYS,
-	QUOTE_STATE_BIGINT_KEYS,
-} from './constants';
+import { API_URLS } from './constants';
 import type {
-	FetchFuturesInstrumentInput,
-	FetchFuturesInstrumentResponse,
-	FetchFuturesInstrumentInquireInput,
-	FetchFuturesInstrumentInquireResponse,
-	FetchFuturesInstrumentInquireByTickInput,
-	FetchFuturesInstrumentInquireByTickResponse,
-	FetchFuturesInstrumentInquireByNotionalInput,
-	FetchFuturesInstrumentInquireByNotionalResponse,
-	FetchGateBalanceResponse,
-	FetchGateBalanceInput,
-	FetchOnChainContextInput,
-	FetchOnChainContextResponse,
-	TotalValueRequest,
-	TotalValueResponse,
-	FetchFuturesPairOrderBookInput,
-	OrderDataFromApi,
-	IFuturesOrderBookAllSteps,
-	FetchFuturesPairOrderBookResponse,
-	FetchFuturesPairKlineChartInput,
-	FetchFuturesPairDepthChartInput,
-	FetchFuturesPairDepthChartResponse,
-	KlineDataFromApi,
-	FetchFuturesPairKlineChartResponse,
-	FetchMarketPairInfoInput,
-	FetchMarketPairInfoResponse,
-	FetchMarketPairListResponse,
-	IMarketPair,
-	FetchOnChainContextQueryInput,
-	FetchOnChainContextQueryResponse,
-	ApiSigner,
+    FetchFuturesInstrumentInput,
+    FetchFuturesInstrumentResponse,
+    FetchFuturesInstrumentInquireInput,
+    FetchFuturesInstrumentInquireResponse,
+    FetchFuturesInstrumentInquireByTickInput,
+    FetchFuturesInstrumentInquireByTickResponse,
+    FetchFuturesInstrumentInquireByNotionalInput,
+    FetchFuturesInstrumentInquireByNotionalResponse,
+    FetchGateBalanceResponse,
+    FetchGateBalanceInput,
+    FetchOnChainContextInput,
+    FetchOnChainContextResponse,
+    TotalValueRequest,
+    TotalValueResponse,
+    FetchFuturesPairOrderBookInput,
+    FetchFuturesPairOrderBookResponse,
+    FetchFuturesPairKlineChartInput,
+    FetchFuturesPairDepthChartInput,
+    FetchFuturesPairDepthChartResponse,
+    KlineDataFromApi,
+    FetchFuturesPairKlineChartResponse,
+    FetchMarketPairInfoInput,
+    FetchMarketPairInfoResponse,
+    FetchMarketPairListResponse,
+    IMarketPair,
+    FetchOnChainContextQueryInput,
+    FetchOnChainContextQueryResponse,
+    ApiSigner,
+    OnChainContextQueryResponseFromApi,
 } from './interfaces';
-import { bigIntObjectCheckByKeys, HttpClient } from '../utils';
-import { buildOnChainContextFromQuery, normalizeMinimalPearlTuple } from './utils';
+import { HttpClient } from '../utils';
+import { buildOnChainContextFromQuery } from './utils';
 import { getDepthRangeDataByLiquidityDetails } from '../frontend/chart';
-import { BaseApiModule } from './base';
+import { ApiEnvelope, BaseApiModule, getApiData } from './base';
+import {
+    decodeDepthChartLiquidityDetails,
+    decodeFuturesInstrument,
+    decodeGateBalances,
+    decodeOrderBookSteps,
+    decodePortfolioList,
+    decodePriceData,
+    decodeQuotation,
+    decodeQuotationWithSize,
+    decodeQuoteState,
+} from './decoders';
+import { isRecord, requireRecord } from './codecs';
+
+function hasOnChainQueryShape(value: unknown): value is OnChainContextQueryResponseFromApi {
+    return (
+        isRecord(value) &&
+        value.Setting !== undefined &&
+        value.Amm !== undefined &&
+        value.PriceData !== undefined &&
+        value.Spacing !== undefined &&
+        value.BlockInfo !== undefined
+    );
+}
 
 /**
  * MarketModule - Market API endpoints
  */
 export class MarketModule extends BaseApiModule {
-	constructor(httpClient: HttpClient, signer: ApiSigner) {
-		super(httpClient, signer);
-	}
+    constructor(httpClient: HttpClient, signer: ApiSigner) {
+        super(httpClient, signer);
+    }
 
-	/**
-	 * Fetch futures instrument
-	 */
-	async fetchFuturesInstrument(
-		params: FetchFuturesInstrumentInput,
-	): Promise<FetchFuturesInstrumentResponse> {
-		const requestUrl = API_URLS.MARKET.INSTRUMENT;
-		const res = await this.makeSignedRequest<{ data: any }>(requestUrl, params);
+    /**
+     * Fetch futures instrument
+     */
+    async fetchFuturesInstrument(params: FetchFuturesInstrumentInput): Promise<FetchFuturesInstrumentResponse> {
+        const requestUrl = API_URLS.MARKET.INSTRUMENT;
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, params);
+        const rawData = getApiData(res);
 
-		if (res?.data?.data) {
-			return bigIntObjectCheckByKeys(res.data.data, INSTRUMENT_BIGINT_KEYS);
-		}
-		return null;
-	}
+        if (rawData !== null) {
+            return decodeFuturesInstrument(rawData);
+        }
+        return null;
+    }
 
-	/**
-	 * Fetch market on-chain context
-	 */
-	async fetchMarketOnChainContext(
-		params: FetchOnChainContextInput,
-	): Promise<FetchOnChainContextResponse | null> {
-		const requestUrl = API_URLS.MARKET.ONCHAIN_CONTEXT;
-		const requestParams = {
-			chainId: params.chainId,
-			instrument: params.instrument,
-			expiry: params.expiry,
-			...(params.userAddress ? { userAddress: params.userAddress } : {}),
-			...(params.signedSize !== undefined ? { signedSize: params.signedSize } : {}),
-		};
-		const res = await this.makeSignedRequest<{ data: any }>(requestUrl, requestParams);
-		if (!res?.data?.data) {
-			return null;
-		}
+    /**
+     * Fetch market on-chain context
+     */
+    async fetchMarketOnChainContext(params: FetchOnChainContextInput): Promise<FetchOnChainContextResponse | null> {
+        const requestUrl = API_URLS.MARKET.ONCHAIN_CONTEXT;
+        const requestParams = {
+            chainId: params.chainId,
+            instrument: params.instrument,
+            expiry: params.expiry,
+            ...(params.userAddress ? { userAddress: params.userAddress } : {}),
+            ...(params.signedSize !== undefined ? { signedSize: params.signedSize } : {}),
+        };
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
+        const rawData = getApiData(res);
+        if (rawData === null) {
+            return null;
+        }
 
-		const { instrument: instrumentData, inquireRes, portfolioRes, priceData, quoteState } = res.data.data;
+        const payload = requireRecord(rawData, 'market on-chain context');
+        const { instrument: instrumentData, inquireRes, portfolioRes, priceData, quoteState } = payload;
 
-		const normalizedInstrument = instrumentData
-			? bigIntObjectCheckByKeys(instrumentData, INSTRUMENT_BIGINT_KEYS)
-			: null;
+        const normalizedInstrument = instrumentData == null ? null : decodeFuturesInstrument(instrumentData);
 
-		const normalizedQuotation = inquireRes
-			? (() => {
-				const inquireData = bigIntObjectCheckByKeys(inquireRes, INQUIRE_BIGINT_KEYS);
-				return {
-					...inquireData,
-					tick: Number(inquireData.tick),
-					postTick: Number(inquireData.postTick),
-				};
-			})()
-			: null;
+        const normalizedQuotation = inquireRes == null ? null : decodeQuotation(inquireRes);
 
-		const normalizedPortfolio = portfolioRes
-			? bigIntObjectCheckByKeys(portfolioRes, [...PORTFOLIO_BIG_INT_KEYS])
-			: null;
+        const normalizedPortfolio = portfolioRes == null ? null : decodePortfolioList(portfolioRes);
 
-		const normalizedPriceData = priceData ? bigIntObjectCheckByKeys(priceData, PRICE_DATA_BIGINT_KEYS) : null;
+        const normalizedPriceData = priceData == null ? null : decodePriceData(priceData);
 
-		const normalizedQuoteState = quoteState ? bigIntObjectCheckByKeys(quoteState, QUOTE_STATE_BIGINT_KEYS) : null;
+        const normalizedQuoteState = quoteState == null ? null : decodeQuoteState(quoteState);
 
-		return {
-			instrument: normalizedInstrument,
-			inquireRes: normalizedQuotation,
-			portfolioRes: normalizedPortfolio,
-			priceData: normalizedPriceData,
-			quoteState: normalizedQuoteState,
-		};
-	}
+        return {
+            instrument: normalizedInstrument,
+            inquireRes: normalizedQuotation,
+            portfolioRes: normalizedPortfolio,
+            priceData: normalizedPriceData,
+            quoteState: normalizedQuoteState,
+        };
+    }
 
-	/**
-	 * Fetch market on-chain context query
-	 */
-	async fetchMarketOnChainContextQuery(
-		params: FetchOnChainContextQueryInput,
-	): Promise<FetchOnChainContextQueryResponse> {
-		const requestUrl = API_URLS.MARKET.ONCHAIN_CONTEXT_QUERY;
-		const requestParams = {
-			chainId: params.chainId,
-			instrument: params.instrument,
-			expiry: params.expiry,
-			...(params.userAddress ? { userAddress: params.userAddress } : {}),
-			...(params.signedSize !== undefined ? { signedSize: params.signedSize } : {}),
-		};
-		const res = await this.makeSignedRequest<{ data: any }>(requestUrl, requestParams);
+    /**
+     * Fetch market on-chain context query
+     */
+    async fetchMarketOnChainContextQuery(
+        params: FetchOnChainContextQueryInput
+    ): Promise<FetchOnChainContextQueryResponse> {
+        const requestUrl = API_URLS.MARKET.ONCHAIN_CONTEXT_QUERY;
+        const requestParams = {
+            chainId: params.chainId,
+            instrument: params.instrument,
+            expiry: params.expiry,
+            ...(params.userAddress ? { userAddress: params.userAddress } : {}),
+            ...(params.signedSize !== undefined ? { signedSize: params.signedSize } : {}),
+        };
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
 
-		if (!res?.data?.data) {
-			return null;
-		}
+        const rawData = getApiData(res);
+        if (!rawData) {
+            return null;
+        }
 
-		const rawData = res.data.data;
+        if (!hasOnChainQueryShape(rawData)) {
+            return null;
+        }
 
-		if (!rawData?.Setting || !rawData?.Amm || !rawData?.PriceData || !rawData?.Spacing || !rawData?.BlockInfo) {
-			return null;
-		}
+        return buildOnChainContextFromQuery(rawData);
+    }
 
-		return buildOnChainContextFromQuery(rawData);
-	}
+    /**
+     * Fetch futures instrument inquire
+     */
+    async fetchFuturesInstrumentInquire(
+        params: FetchFuturesInstrumentInquireInput
+    ): Promise<FetchFuturesInstrumentInquireResponse> {
+        const requestUrl = API_URLS.MARKET.INQUIRE;
+        const requestParams = {
+            chainId: params.chainId,
+            instrument: params.instrument,
+            expiry: params.expiry,
+            size: params.size,
+        };
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
+        const rawData = getApiData(res);
+        if (rawData !== null) {
+            return decodeQuotation(rawData);
+        }
+        return null;
+    }
 
-	/**
-	 * Fetch futures instrument inquire
-	 */
-	async fetchFuturesInstrumentInquire(
-		params: FetchFuturesInstrumentInquireInput,
-	): Promise<FetchFuturesInstrumentInquireResponse> {
-		const requestUrl = API_URLS.MARKET.INQUIRE;
-		const requestParams = {
-			chainId: params.chainId,
-			instrument: params.instrument,
-			expiry: params.expiry,
-			size: params.size,
-		};
-		const res = await this.makeSignedRequest<{ data: any }>(requestUrl, requestParams);
-		if (res?.data?.data) {
-			const data = bigIntObjectCheckByKeys(res.data.data, INQUIRE_BIGINT_KEYS);
+    /**
+     * Fetch futures instrument inquire by tick
+     */
+    async fetchFuturesInstrumentInquireByTick(
+        params: FetchFuturesInstrumentInquireByTickInput
+    ): Promise<FetchFuturesInstrumentInquireByTickResponse> {
+        const requestUrl = API_URLS.MARKET.INQUIRE_BY_TICK;
+        const requestParams = {
+            chainId: params.chainId,
+            instrument: params.instrument,
+            expiry: params.expiry,
+            tick: params.tick,
+        };
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
+        const rawData = getApiData(res);
+        if (rawData !== null) {
+            return decodeQuotationWithSize(rawData);
+        }
+        return null;
+    }
 
-			return {
-				...data,
-				tick: Number(data.tick),
-				postTick: Number(data.postTick),
-			};
-		}
-		return null;
-	}
+    /**
+     * Fetch futures instrument inquire by notional
+     */
+    async fetchFuturesInstrumentInquireByNotional(
+        params: FetchFuturesInstrumentInquireByNotionalInput
+    ): Promise<FetchFuturesInstrumentInquireByNotionalResponse> {
+        const requestUrl = API_URLS.MARKET.INQUIRE_BY_NOTIONAL;
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, params);
+        const rawData = getApiData(res);
+        if (rawData !== null) {
+            return decodeQuotationWithSize(rawData);
+        }
+        return null;
+    }
 
-	/**
-	 * Fetch futures instrument inquire by tick
-	 */
-	async fetchFuturesInstrumentInquireByTick(
-		params: FetchFuturesInstrumentInquireByTickInput,
-	): Promise<FetchFuturesInstrumentInquireByTickResponse> {
-		const requestUrl = API_URLS.MARKET.INQUIRE_BY_TICK;
-		const requestParams = {
-			chainId: params.chainId,
-			instrument: params.instrument,
-			expiry: params.expiry,
-			tick: params.tick,
-		};
-		const res = await this.makeSignedRequest<{ data: any }>(requestUrl, requestParams);
-		if (res?.data?.data) {
-			const data = bigIntObjectCheckByKeys(res.data.data, INQUIRE_BY_TICK_BIGINT_KEYS);
+    /**
+     * Fetch futures pair order book
+     */
+    async fetchFuturesPairOrderBook(
+        params: FetchFuturesPairOrderBookInput
+    ): Promise<FetchFuturesPairOrderBookResponse> {
+        const requestUrl = API_URLS.MARKET.ORDER_BOOK;
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, params);
+        const rawData = getApiData(res);
 
-			return {
-				benchmark: data.benchmark,
-				sqrtFairPX96: data.sqrtFairPX96,
-				tick: Number(data.tick),
-				mark: data.mark,
-				entryNotional: data.entryNotional,
-				fee: data.fee,
-				size: BigInt(data.size || 0),
-				minAmount: data.minAmount,
-				sqrtPostFairPX96: data.sqrtPostFairPX96,
-				postTick: Number(data.postTick),
-			};
-		}
-		return null;
-	}
+        if (rawData !== null) {
+            return decodeOrderBookSteps(rawData);
+        }
+        return null;
+    }
 
-	/**
-	 * Fetch futures instrument inquire by notional
-	 */
-	async fetchFuturesInstrumentInquireByNotional(
-		params: FetchFuturesInstrumentInquireByNotionalInput,
-	): Promise<FetchFuturesInstrumentInquireByNotionalResponse> {
-		const requestUrl = API_URLS.MARKET.INQUIRE_BY_NOTIONAL;
-		const res = await this.makeSignedRequest<{ data: any }>(requestUrl, params);
-		if (res?.data?.data) {
-			const data = bigIntObjectCheckByKeys(res.data.data, INQUIRE_BY_TICK_BIGINT_KEYS);
+    /**
+     * Fetch user gate balance from API
+     */
+    async fetchUserGateBalance(params: FetchGateBalanceInput): Promise<FetchGateBalanceResponse> {
+        const requestUrl = API_URLS.MARKET.GATE_BALANCE;
+        const requestParams = {
+            chainId: params.chainId,
+            userAddress: params.userAddress,
+        };
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
+        const rawData = getApiData(res);
+        if (rawData !== null) {
+            const payload = requireRecord(rawData, 'gate balance response');
+            if (payload.portfolios !== undefined) {
+                return decodeGateBalances(payload.portfolios);
+            }
+        }
+        return null;
+    }
 
-			return {
-				benchmark: data.benchmark,
-				sqrtFairPX96: data.sqrtFairPX96,
-				tick: Number(data.tick),
-				mark: data.mark,
-				entryNotional: data.entryNotional,
-				fee: data.fee,
-				size: BigInt(data.size || 0),
-				minAmount: data.minAmount,
-				sqrtPostFairPX96: data.sqrtPostFairPX96,
-				postTick: Number(data.postTick),
-			};
-		}
-		return null;
-	}
+    /**
+     * Fetch user total value
+     */
+    async fetchUserTotalValue(params: TotalValueRequest): Promise<TotalValueResponse> {
+        const requestUrl = API_URLS.MARKET.USER_VOLUME;
+        const requestParams = {
+            chainId: params.chainId,
+            userAddress: params.userAddress,
+        };
+        const res = await this.makeSignedRequest<ApiEnvelope<TotalValueResponse>>(requestUrl, requestParams);
+        return getApiData(res) ?? undefined;
+    }
 
-	/**
-	 * Fetch futures pair order book
-	 */
-	async fetchFuturesPairOrderBook(
-		params: FetchFuturesPairOrderBookInput,
-	): Promise<FetchFuturesPairOrderBookResponse> {
-		const requestUrl = API_URLS.MARKET.ORDER_BOOK;
-		const res = await this.makeSignedRequest<{ data: any }>(requestUrl, params);
+    /**
+     * Fetch futures pair kline chart
+     */
+    async fetchFuturesPairKlineChart(
+        params: FetchFuturesPairKlineChartInput
+    ): Promise<FetchFuturesPairKlineChartResponse> {
+        const requestUrl = API_URLS.MARKET.KLINE_CHARTS;
+        const requestParams = {
+            chainId: params.chainId,
+            instrument: params.instrument,
+            expiry: params.expiry,
+            interval: params.interval,
+            ...(params.endTime && { endTime: params.endTime }),
+            limit: params.limit ?? 1000,
+        };
+        const res = await this.makeSignedRequest<ApiEnvelope<KlineDataFromApi[]>>(requestUrl, requestParams);
+        const rawData = getApiData(res) ?? [];
+        return rawData.map((d) => ({
+            ...d,
+            timestamp: d.openTimestamp,
+        }));
+    }
 
-		if (res?.data?.data) {
-			const newData = Object.entries(res.data.data).reduce((acc, [key, depth]: [string, any]) => {
-				const bids: OrderDataFromApi[] = (depth.bids || [])
-					.map((b: OrderDataFromApi) => bigIntObjectCheckByKeys(b, ORDER_DATA_BIGINT_KEYS))
-					.sort((a: OrderDataFromApi, b: OrderDataFromApi) => b.tick - a.tick);
+    /**
+     * Fetch futures pair depth chart
+     */
+    async fetchFuturesPairDepthChart(
+        params: FetchFuturesPairDepthChartInput
+    ): Promise<FetchFuturesPairDepthChartResponse> {
+        const requestUrl = API_URLS.MARKET.DEPTH_CHARTS;
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, params);
+        const rawData = getApiData(res);
+        if (rawData !== null) {
+            const data = decodeDepthChartLiquidityDetails(rawData);
+            const newData = getDepthRangeDataByLiquidityDetails(data, data.size, data.stepRatio);
+            return newData;
+        }
+        return null;
+    }
 
-				const asks: OrderDataFromApi[] = (depth.asks || [])
-					.map((a: OrderDataFromApi) => bigIntObjectCheckByKeys(a, ORDER_DATA_BIGINT_KEYS))
-					.sort((a: OrderDataFromApi, b: OrderDataFromApi) => a.tick - b.tick);
+    /**
+     * Fetch market pair info
+     */
+    async fetchMarketPairInfo(params: FetchMarketPairInfoInput): Promise<FetchMarketPairInfoResponse> {
+        const requestUrl = API_URLS.MARKET.PAIR_INFO;
+        const requestParams = {
+            chainId: params.chainId,
+            address: params.address,
+            expiry: params.expiry,
+        };
+        const res = await this.makeSignedRequest<ApiEnvelope<IMarketPair>>(requestUrl, requestParams);
+        const p = getApiData(res);
+        if (p !== null) {
+            return {
+                ...p,
+                chainId: params.chainId,
+            };
+        }
+        return null;
+    }
 
-				acc[key] = { asks, bids };
-				return acc;
-			}, {} as IFuturesOrderBookAllSteps);
-
-			return newData;
-		}
-		return null;
-	}
-
-	/**
-	 * Fetch user gate balance from API
-	 */
-	async fetchUserGateBalance(
-		params: FetchGateBalanceInput,
-	): Promise<FetchGateBalanceResponse> {
-		const requestUrl = API_URLS.MARKET.GATE_BALANCE;
-		const requestParams = {
-			chainId: params.chainId,
-			userAddress: params.userAddress,
-		};
-		const res = await this.makeSignedRequest<{ data: { portfolios?: any } }>(requestUrl, requestParams);
-		if (res?.data?.data?.portfolios) {
-			const data = bigIntObjectCheckByKeys(res.data.data.portfolios, GATE_BALANCE_BIGINT_KEYS);
-			return data;
-		}
-		return null;
-	}
-
-	/**
-	 * Fetch user total value
-	 */
-	async fetchUserTotalValue(
-		params: TotalValueRequest,
-	): Promise<TotalValueResponse> {
-		const requestUrl = API_URLS.MARKET.USER_VOLUME;
-		const requestParams = {
-			chainId: params.chainId,
-			userAddress: params.userAddress,
-		};
-		const res = await this.makeSignedRequest<{ data: TotalValueResponse }>(requestUrl, requestParams);
-		return res?.data?.data;
-	}
-
-	/**
-	 * Fetch futures pair kline chart
-	 */
-	async fetchFuturesPairKlineChart(
-		params: FetchFuturesPairKlineChartInput,
-	): Promise<FetchFuturesPairKlineChartResponse> {
-		const requestUrl = API_URLS.MARKET.KLINE_CHARTS;
-		const requestParams = {
-			chainId: params.chainId,
-			instrument: params.instrument,
-			expiry: params.expiry,
-			interval: params.interval,
-			...(params.endTime && { endTime: params.endTime }),
-			limit: params.limit ?? 1000,
-		};
-		const res = await this.makeSignedRequest<{ data: KlineDataFromApi[] }>(requestUrl, requestParams);
-		const rawData = res?.data?.data ?? [];
-		return rawData.map((d) => ({
-			...d,
-			timestamp: d.openTimestamp,
-		}));
-	}
-
-	/**
-	 * Fetch futures pair depth chart
-	 */
-	async fetchFuturesPairDepthChart(
-		params: FetchFuturesPairDepthChartInput,
-	): Promise<FetchFuturesPairDepthChartResponse> {
-		const requestUrl = API_URLS.MARKET.DEPTH_CHARTS;
-		const res = await this.makeSignedRequest<{ data: any }>(requestUrl, params);
-		if (res?.data?.data) {
-			const data = bigIntObjectCheckByKeys(res.data.data, DEPTH_CHART_BIGINT_KEYS);
-			const tick2PearlRaw = (data as { tick2Pearl?: unknown }).tick2Pearl;
-			const tick2PearlEntries =
-				tick2PearlRaw && typeof tick2PearlRaw === 'object'
-					? Object.entries(tick2PearlRaw as Record<string, unknown>)
-					: [];
-
-			data.tick2Pearl = tick2PearlEntries.reduce((acc, [key, value]) => {
-				const pearlTuple = normalizeMinimalPearlTuple(value);
-				if (!pearlTuple) {
-					return acc;
-				}
-				const [liquidityNet, left] = pearlTuple;
-				acc.set(Number(key), { liquidityNet, left });
-				return acc;
-			}, new Map());
-
-			const newData = getDepthRangeDataByLiquidityDetails(data, data.size, data.stepRatio);
-			return newData;
-		}
-		return null;
-	}
-
-	/**
-	 * Fetch market pair info
-	 */
-	async fetchMarketPairInfo(
-		params: FetchMarketPairInfoInput,
-	): Promise<FetchMarketPairInfoResponse> {
-		const requestUrl = API_URLS.MARKET.PAIR_INFO;
-		const requestParams = {
-			chainId: params.chainId,
-			address: params.address,
-			expiry: params.expiry,
-		};
-		const res = await this.makeSignedRequest<{ data: any }>(requestUrl, requestParams);
-		if (res?.data?.data) {
-			const p = res?.data?.data;
-			return {
-				...p,
-				chainId: params.chainId,
-			};
-		}
-		return null;
-	}
-
-	/**
-	 * Fetch market pair list
-	 */
-	async fetchMarketPairList(
-		params: { chainId: number },
-	): Promise<FetchMarketPairListResponse> {
-		const requestUrl = API_URLS.MARKET.PAIR_LIST;
-		const requestParams = {
-			chainId: params.chainId,
-		};
-		const res = await this.makeSignedRequest<{ data: IMarketPair[] }>(requestUrl, requestParams);
-		if (res?.data?.data) {
-			return res?.data?.data.map((p: IMarketPair) => {
-				return {
-					...p,
-					chainId: params.chainId,
-				};
-			});
-		}
-		return undefined;
-	}
+    /**
+     * Fetch market pair list
+     */
+    async fetchMarketPairList(params: { chainId: number }): Promise<FetchMarketPairListResponse> {
+        const requestUrl = API_URLS.MARKET.PAIR_LIST;
+        const requestParams = {
+            chainId: params.chainId,
+        };
+        const res = await this.makeSignedRequest<ApiEnvelope<IMarketPair[]>>(requestUrl, requestParams);
+        const data = getApiData(res);
+        if (data !== null) {
+            return data.map((p: IMarketPair) => {
+                return {
+                    ...p,
+                    chainId: params.chainId,
+                };
+            });
+        }
+        return undefined;
+    }
 }
-
