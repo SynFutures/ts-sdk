@@ -34,7 +34,9 @@ const ctx = createDevnetContext();
 
 const futuresInstrument = ctx.manifest.instruments.find((instrument) => instrument.expiry !== PERP_EXPIRY);
 if (!futuresInstrument) {
-    throw new Error('Missing dated futures instrument in devnet manifest. Run: pnpm -C packages/perpv3-ts run devnet:regen');
+    throw new Error(
+        'Missing dated futures instrument in devnet manifest. Run: pnpm -C packages/perpv3-ts run devnet:regen'
+    );
 }
 
 const INSTRUMENT_ADDRESS = futuresInstrument.address;
@@ -259,13 +261,7 @@ async function executeTrade(
 ) {
     const before = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, wallet.account.address);
 
-    const sizeCandidates = [
-        WAD / 10n,
-        WAD / 5n,
-        WAD / 2n,
-        WAD,
-        2n * WAD,
-    ] as const;
+    const sizeCandidates = [WAD / 10n, WAD / 5n, WAD / 2n, WAD, 2n * WAD] as const;
 
     let signedSize = rng.pick([1n, -1n]) * rng.pick(sizeCandidates);
     const positionSizeBefore = before.portfolio.position.size;
@@ -390,7 +386,12 @@ describe('devnet dated futures integration (ported from v3-contracts hardhat int
             let placeBaseQuantity = rng.pick([WAD / 10n, WAD / 5n, WAD / 2n, WAD] as const);
             let placeParam: ReturnType<PlaceInput['simulate']>[0] | undefined;
             for (let attempt = 0; attempt < 8; attempt += 1) {
-                const placeInput = new PlaceInput(makerWallet.account.address, orderTick, placeBaseQuantity, Side.SHORT);
+                const placeInput = new PlaceInput(
+                    makerWallet.account.address,
+                    orderTick,
+                    placeBaseQuantity,
+                    Side.SHORT
+                );
                 try {
                     [placeParam] = placeInput.simulate(makerBeforePlace, userSetting);
                     break;
@@ -507,7 +508,9 @@ describe('devnet dated futures integration (ported from v3-contracts hardhat int
                 ctx.rpcConfig,
                 makerWallet.account.address
             );
-            const cancelTick = makerBeforeCancelPlace.instrumentSetting.alignTickStrictlyBelow(makerBeforeCancelPlace.amm.tick);
+            const cancelTick = makerBeforeCancelPlace.instrumentSetting.alignTickStrictlyBelow(
+                makerBeforeCancelPlace.amm.tick
+            );
             const cancelPlaceInput = new PlaceInput(makerWallet.account.address, cancelTick, WAD / 5n, Side.LONG);
             const [cancelPlaceParam] = cancelPlaceInput.simulate(makerBeforeCancelPlace, userSetting);
 
@@ -599,7 +602,12 @@ describe('devnet dated futures integration (ported from v3-contracts hardhat int
                 const targetTick = wadToTick(makerDuringSettling.priceData.markPrice);
                 await setSpotPrice(tickToWad(targetTick));
 
-                const closeQuotation = await inquireByBaseSize(INSTRUMENT_ADDRESS, EXPIRY, closeSignedSize, ctx.rpcConfig);
+                const closeQuotation = await inquireByBaseSize(
+                    INSTRUMENT_ADDRESS,
+                    EXPIRY,
+                    closeSignedSize,
+                    ctx.rpcConfig
+                );
                 const closeQuotationWithSize = new QuotationWithSize(closeSignedSize, closeQuotation);
                 const closeSide = closeSignedSize >= 0n ? Side.LONG : Side.SHORT;
                 const [closeTradeParam] = new TradeInput(
@@ -748,7 +756,7 @@ describe('devnet dated futures integration (ported from v3-contracts hardhat int
         } catch (error) {
             const context = `seed=${seed} steps=${steps}\n${actionLog.join('\n')}`;
             const message = error instanceof Error ? error.message : String(error);
-            throw new Error(`${message}\n\n${context}`, { cause: error as unknown });
+            throw new Error(`${message}\n\n${context}`, { cause: error });
         }
     });
 });

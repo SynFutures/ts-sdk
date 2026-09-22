@@ -202,6 +202,7 @@ export class PerpClient {
                         options
                     );
                 } catch (rpcError) {
+                    // eslint-disable-next-line preserve-caught-error -- Both failures are retained in AggregateError.errors.
                     throw new AggregateError(
                         [apiError, rpcError],
                         'PerpClient.getSnapshot failed: API request and rpcFallback request both failed'
@@ -240,6 +241,7 @@ export class PerpClient {
                 try {
                     return await inquireByTick(this._instrumentAddress, this._expiry, tick, this._rpcFallback, options);
                 } catch (rpcError) {
+                    // eslint-disable-next-line preserve-caught-error -- Both failures are retained in AggregateError.errors.
                     throw new AggregateError(
                         [apiError, rpcError],
                         'PerpClient.getQuotation failed: API request and rpcFallback request both failed'
@@ -277,6 +279,7 @@ export class PerpClient {
                         options
                     );
                 } catch (rpcError) {
+                    // eslint-disable-next-line preserve-caught-error -- Both failures are retained in AggregateError.errors.
                     throw new AggregateError(
                         [apiError, rpcError],
                         'PerpClient.inquire failed: API request and rpcFallback request both failed'
@@ -319,6 +322,7 @@ export class PerpClient {
             try {
                 return await fetchOrderBook(this._instrumentAddress, this._expiry, this._rpcFallback, length, options);
             } catch (rpcError) {
+                // eslint-disable-next-line preserve-caught-error -- Both failures are retained in AggregateError.errors.
                 throw new AggregateError(
                     [apiError, rpcError],
                     'PerpClient.getOrderBook failed: API request and rpcFallback request both failed'

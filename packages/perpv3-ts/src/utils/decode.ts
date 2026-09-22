@@ -40,7 +40,7 @@ export function decodeParamForDepositAndWithdraw(arg: string): { token: string; 
     let offset = 0;
     const value = bytes32ToBigInt(arg);
     const token = pickAddress(value, offset, (offset += ADDRESS_LENGTH));
-    const quantity = pickBigInt(value, offset, (offset += QUANTITY_LENGTH));
+    const quantity = pickBigInt(value, offset, offset + QUANTITY_LENGTH);
     return { quantity, token };
 }
 
@@ -54,13 +54,13 @@ export function decodeAddParam(args: string[]): AddParam {
     const value1 = bytes32ToBigInt(arg1);
     const expiry = pickNumber(value1, offset, (offset += EXPIRY_LENGTH));
     const limitTicks = Number(pickBigInt(value1, offset, (offset += LIMIT_TICKS_LENGTH)));
-    const deadline = pickNumber(value1, offset, (offset += DEADLINE_LENGTH));
+    const deadline = pickNumber(value1, offset, offset + DEADLINE_LENGTH);
 
     offset = 0;
     const value2 = bytes32ToBigInt(arg2);
     const amount = pickBigInt(value2, offset, (offset += AMOUNT_LENGTH));
     const tickDeltaUpper = pickNumber(value2, offset, (offset += TICK_LENGTH));
-    const tickDeltaLower = pickNumber(value2, offset, (offset += TICK_LENGTH));
+    const tickDeltaLower = pickNumber(value2, offset, offset + TICK_LENGTH);
 
     return {
         limitTicks,
@@ -82,13 +82,13 @@ export function decodeRemoveParam(args: string[]): RemoveParam {
     const value1 = bytes32ToBigInt(arg1);
     const expiry = pickNumber(value1, offset, (offset += EXPIRY_LENGTH));
     const limitTicks = Number(pickBigInt(value1, offset, (offset += LIMIT_TICKS_LENGTH)));
-    const deadline = pickNumber(value1, offset, (offset += DEADLINE_LENGTH));
+    const deadline = pickNumber(value1, offset, offset + DEADLINE_LENGTH);
 
     offset = 0;
     const value2 = bytes32ToBigInt(arg2);
     const target = pickAddress(value2, offset, (offset += ADDRESS_LENGTH));
     const tickLower = asInt24(pickNumber(value2, offset, (offset += TICK_LENGTH)));
-    const tickUpper = asInt24(pickNumber(value2, offset, (offset += TICK_LENGTH)));
+    const tickUpper = asInt24(pickNumber(value2, offset, offset + TICK_LENGTH));
 
     return { tickUpper, tickLower, target: target as Address, expiry, limitTicks, deadline };
 }
@@ -138,7 +138,7 @@ export function decodeBatchPlaceParam(args: string[]): BatchPlaceParam {
     offset = 0;
     const value3 = bytes32ToBigInt(arg3);
     const leverage = asInt128(pickBigInt(value3, offset, (offset += LEVERAGE_LENGTH)));
-    const size = asInt128(pickBigInt(value3, offset, (offset += SIZE_LENGTH)));
+    const size = asInt128(pickBigInt(value3, offset, offset + SIZE_LENGTH));
 
     return { expiry, ticks, ratios, size, leverage, deadline };
 }
@@ -149,7 +149,7 @@ export function decodeFillParam(arg: string): FillParam {
     const expiry = pickNumber(value, offset, (offset += EXPIRY_LENGTH));
     const target = pickAddress(value, offset, (offset += ADDRESS_LENGTH));
     const tick = asInt24(pickNumber(value, offset, (offset += TICK_LENGTH)));
-    const nonce = pickNumber(value, offset, (offset += NONCE_LENGTH));
+    const nonce = pickNumber(value, offset, offset + NONCE_LENGTH);
     return { nonce, tick, target: target as Address, expiry };
 }
 
@@ -168,7 +168,7 @@ export function decodeCancelParam(arg: string): {
         if (tick === maxInt24) continue;
         ticks.push(tick);
     }
-    const deadline = pickNumber(value, offset, (offset += DEADLINE_LENGTH));
+    const deadline = pickNumber(value, offset, offset + DEADLINE_LENGTH);
     return { ticks, expiry, deadline };
 }
 
@@ -221,12 +221,12 @@ function decodeParamForTradeAndPlace(args: string[]): TradeParam {
     const value1 = bytes32ToBigInt(arg1);
     const expiry = pickNumber(value1, offset, (offset += EXPIRY_LENGTH));
     const limitTick = asInt24(pickNumber(value1, offset, (offset += TICK_LENGTH)));
-    const deadline = pickNumber(value1, offset, (offset += DEADLINE_LENGTH));
+    const deadline = pickNumber(value1, offset, offset + DEADLINE_LENGTH);
 
     offset = 0;
     const value2 = bytes32ToBigInt(arg2);
     const amount = asInt128(pickBigInt(value2, offset, (offset += AMOUNT_LENGTH)));
-    const size = asInt128(pickBigInt(value2, offset, (offset += SIZE_LENGTH)));
+    const size = asInt128(pickBigInt(value2, offset, offset + SIZE_LENGTH));
 
     return { expiry, size, amount, limitTick, deadline };
 }
