@@ -1,7 +1,6 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-    // Phase 3: Multiple entry points for subpath exports
     // Each entry generates separate CJS and ESM bundles
     entry: {
         index: 'src/index.ts', // Main export (everything)
@@ -45,7 +44,7 @@ export default defineConfig({
     clean: true,
 
     // Don't bundle external dependencies
-    external: ['viem', /^@synfutures/, 'axios', 'ws', 'date-fns', 'date-fns-tz'],
+    external: ['viem', /^@derivation-tech\//, /^@synfutures/, 'axios', 'ws', 'date-fns', 'date-fns-tz'],
 
     // Output file extensions
     outDir: 'dist',

@@ -51,13 +51,12 @@ jobs:
           # Write .npmrc using printf to safely handle special characters in token
           {
             printf '@synfutures:registry=%s\n' "$REGISTRY_URL"
+            printf '@derivation-tech:registry=%s\n' "$REGISTRY_URL"
             printf '//%s/:_authToken=%s\n' "$REGISTRY_HOST_PATH" "$NPM_TOKEN"
           } > "$HOME/.npmrc"
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
-      - name: Lint
-        run: pnpm run lint
-      - name: Test
-        run: pnpm test
-      - name: Build
-        run: pnpm run nx
+      - name: Verify PerpV3 Package
+        run: pnpm -C packages/perpv3-ts run verify
+      - name: Devnet Tests
+        run: pnpm -C packages/perpv3-ts run test:devnet
