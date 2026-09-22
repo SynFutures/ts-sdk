@@ -11,3 +11,7 @@ export function buildAnvilArgs(params: {
     dumpStatePath?: string;
     timestamp?: number;
 }): string[];
+
+export function resolveAnvilCommand(): { command: string; prefixArgs: string[] };
+
+export function stopAnvil(child: import('node:child_process').ChildProcess | undefined): Promise<void>;
