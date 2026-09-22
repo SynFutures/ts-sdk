@@ -11,7 +11,7 @@ catalogs:
       version: 2.56.8
 
 overrides:
-  '@derivation-tech/viem-kit': file:./vendor/derivation-tech-viem-kit-a29a081.tgz
+  '@derivation-tech/viem-kit': file:./vendor/derivation-tech-viem-kit-85252d4.tgz
 
 importers:
 
@@ -51,8 +51,8 @@ importers:
   packages/perpv3-ts:
     dependencies:
       '@derivation-tech/viem-kit':
-        specifier: file:../../vendor/derivation-tech-viem-kit-a29a081.tgz
-        version: file:vendor/derivation-tech-viem-kit-a29a081.tgz(viem@2.56.8(typescript@5.9.3))
+        specifier: file:../../vendor/derivation-tech-viem-kit-85252d4.tgz
+        version: file:vendor/derivation-tech-viem-kit-85252d4.tgz(viem@2.56.8(typescript@5.9.3))
       '@noble/curves':
         specifier: ^1.9.7
         version: 1.9.7
@@ -450,8 +450,8 @@ packages:
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
 
-  '@derivation-tech/viem-kit@file:vendor/derivation-tech-viem-kit-a29a081.tgz':
-    resolution: {integrity: sha512-EbUOHXbQMrcrP2HFpDC/ywkfHHdbHyjCYG6ztG7XTfsiwVn10csZchDzIBaArpjob6fFpZQMRqOoCHBiv/ttGw==, tarball: file:vendor/derivation-tech-viem-kit-a29a081.tgz}
+  '@derivation-tech/viem-kit@file:vendor/derivation-tech-viem-kit-85252d4.tgz':
+    resolution: {integrity: sha512-FA9JWj1/Q47fNWciXdDT+urE3wiNPn6Dc1BIJpXwOYipMZkKJQYpAaGLS+lZVxy8Z54BQ6wJyn38Nfv6iFCzfQ==, tarball: file:vendor/derivation-tech-viem-kit-85252d4.tgz}
     version: 0.2.2
     engines: {node: '>=22'}
     peerDependencies:
@@ -3867,7 +3867,7 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
-  '@derivation-tech/viem-kit@file:vendor/derivation-tech-viem-kit-a29a081.tgz(viem@2.56.8(typescript@5.9.3))':
+  '@derivation-tech/viem-kit@file:vendor/derivation-tech-viem-kit-85252d4.tgz(viem@2.56.8(typescript@5.9.3))':
     dependencies:
       viem: 2.56.8(typescript@5.9.3)
 
