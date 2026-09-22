@@ -168,7 +168,7 @@
         "typecheck:tools": "tsc --noEmit -p tsconfig.tools.json",
         "test:live": "jest --config jest.live.config.js",
         "format:check": "prettier --check . --ignore-path ../../.prettierignore",
-        "typecheck:build": "tsc --noEmit --module nodenext --target es2022 --strict --skipLibCheck tsdown.config.mts"
+        "typecheck:build": "tsc --ignoreConfig --noEmit --module nodenext --target es2022 --strict --skipLibCheck tsdown.config.mts"
     },
     "keywords": [
         "synfutures",
@@ -209,7 +209,7 @@
         "ts-node": "^10.9.2",
         "tsdown": "0.23.0",
         "tsx": "^4.23.15",
-        "typescript": "^5.9.3"
+        "typescript": "catalog:"
     },
     "engines": {
         "node": ">=22"
