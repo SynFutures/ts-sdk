@@ -7,6 +7,6 @@
         "isolatedModules": true,
         "noEmit": true
     },
-    "include": ["src/**/*.ts", "tsup.config.ts"],
+    "include": ["src/**/*.ts"],
     "exclude": ["node_modules", "dist", "src/tests"]
 }
