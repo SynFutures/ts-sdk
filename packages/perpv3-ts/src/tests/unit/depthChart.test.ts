@@ -1,6 +1,9 @@
-import { formatUnits } from 'viem';
-import { buildDepthChartData } from '../../frontend';
-import { tickToSqrtX96 } from '../../math';
+import { fetchOrderBookFromObserver } from '../../queries/rpc';
+import { mockPublicClient } from '../helpers/viem';
+import fixture from '../fixtures/simulation-context.json';
+import { formatUnits, zeroAddress } from 'viem';
+import { buildDepthChartData, getDepthRangeDataByLiquidityDetails } from '../../frontend';
+import { tickToSqrtX96, alphaWadToTickDelta, ratioToWad } from '../../math';
 import { WAD } from '../../constants';
 import { Range, type MinimalPearl } from '../../types';
 
@@ -245,4 +248,62 @@ describe('Depth chart helpers', () => {
         const lastIndex = bidsNoNet.length - 1;
         expect(bidsWithNet[lastIndex]!.base).toBeLessThan(bidsNoNet[lastIndex]!.base);
     });
+});
+
+test('empty liquidity details produce an empty chart', () => {
+    expect(
+        getDepthRangeDataByLiquidityDetails(
+            {
+                amm: { sqrtPX96: tickToSqrtX96(0), tick: 0, liquidity: 0n },
+                tids: [],
+                pearls: [],
+                tick2Pearl: new Map(),
+                blockInfo: { height: 1, timestamp: 1 },
+                length: 10,
+                size: 5,
+                stepRatio: 10,
+                tickDelta: 20,
+            },
+            5,
+            10
+        )
+    ).toEqual({ left: [], right: [] });
+});
+
+test('RPC order books and frontend charts share levels while RPC retains exact integer quantities', async () => {
+    const amm = { sqrtPX96: tickToSqrtX96(-10), tick: -10, liquidity: 0n };
+    const pearls = [{ left: -(WAD + 1n), liquidityNet: 0n }];
+    const config = {
+        chainId: 1,
+        observerAddress: zeroAddress,
+        publicClient: mockPublicClient({
+            multicall: async () => [fixture.context],
+            readContract: async () => [amm, [-10], pearls, { height: 1, timestamp: 1 }],
+        }),
+    };
+    const book = await fetchOrderBookFromObserver(zeroAddress, 0xffffffff, config, { length: 2 });
+    const ratio = 10;
+    const size = alphaWadToTickDelta(ratioToWad(10000 + ratio));
+    const delta = Math.ceil(alphaWadToTickDelta(ratioToWad(10000 + 11 * ratio)) / 10) * 10;
+    const chart = buildDepthChartData(
+        amm.sqrtPX96,
+        0n,
+        -10,
+        delta,
+        new Map([[-10, pearls[0]]]),
+        size,
+        2,
+        10 % size === 0 ? 0 : size - (10 % size),
+        true
+    );
+    const asks = book!['10'].asks;
+    expect(asks[0].baseQuantity).toBe(WAD + 1n);
+    expect(chart).toEqual(
+        asks.map((level) => ({
+            tick: level.tick,
+            price: Number(formatUnits(level.price, 18)),
+            base: Number(formatUnits(level.baseQuantity, 18)),
+        }))
+    );
+    expect(asks.at(-1)!.baseSum).toBe(asks.reduce((sum, level) => sum + level.baseQuantity, 0n));
 });
