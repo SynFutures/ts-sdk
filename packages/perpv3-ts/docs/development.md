@@ -12,6 +12,7 @@ provenance in the repository's `vendor/README.md` define this branch's dependenc
 | `pnpm run build`                                       | builds workspace packages in dependency order                   |
 | `pnpm install --frozen-lockfile`                       | installs the locked workspace dependencies                      |
 | `pnpm -C packages/perpv3-ts run build:check`           | checks production source types                                  |
+| `pnpm -C packages/perpv3-ts run typecheck:build`       | checks the tsdown build configuration                           |
 | `pnpm -C packages/perpv3-ts run typecheck:tests`       | checks all unit, devnet and live test source types              |
 | `pnpm -C packages/perpv3-ts run typecheck:tools`       | checks devnet regeneration scripts without executing them       |
 | `pnpm -C packages/perpv3-ts run typecheck:public`      | checks public ABI/type fixtures                                 |
@@ -24,7 +25,9 @@ provenance in the repository's `vendor/README.md` define this branch's dependenc
 | `pnpm -C packages/perpv3-ts run test:devnet`           | starts local Anvil and exercises the committed snapshot         |
 | `pnpm -C packages/perpv3-ts run test`                  | runs unit and devnet suites                                     |
 
-Workspace tasks run through pnpm scripts. ESLint 10 uses the root `eslint.config.mjs` flat config
+Workspace tasks run through pnpm scripts. tsdown builds the 11 public entries with
+shared chunks and bundled declarations, preserving `.mjs`/`.cjs` and `.d.ts`/`.d.cts`
+exports. Runtime dependencies remain external; sourcemaps omit embedded source contents. ESLint 10 uses the root `eslint.config.mjs` flat config
 for code checks; TypeScript checks types, and Prettier owns formatting. CI runs workspace lint
 and `format:check` before package verification. The workspace owns one pinned Prettier version;
 `pnpm run format` formats maintained source, configuration and documentation. Generated ABIs,

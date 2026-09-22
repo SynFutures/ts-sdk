@@ -144,11 +144,11 @@
         "docs/**/*.md"
     ],
     "scripts": {
-        "build": "tsup",
+        "build": "tsdown --config tsdown.config.mts",
         "build:check": "tsc --noEmit",
         "typecheck:public": "tsc --noEmit -p tsconfig.typecheck.json",
         "typecheck:examples": "tsc --noEmit -p examples/tsconfig.json",
-        "verify": "pnpm run lint && pnpm run build:check && pnpm run typecheck:tests && pnpm run typecheck:tools && pnpm run typecheck:public && pnpm run typecheck:examples && pnpm run typecheck:docs && pnpm run test:unit --runInBand && pnpm run build && pnpm run verify:consumer",
+        "verify": "pnpm run lint && pnpm run build:check && pnpm run typecheck:build && pnpm run typecheck:tests && pnpm run typecheck:tools && pnpm run typecheck:public && pnpm run typecheck:examples && pnpm run typecheck:docs && pnpm run test:unit --runInBand && pnpm run build && pnpm run verify:consumer",
         "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
         "prepack": "pnpm run build && pnpm run build:check",
         "lint": "eslint",
@@ -167,7 +167,8 @@
         "typecheck:tests": "tsc --noEmit -p tsconfig.tests.json",
         "typecheck:tools": "tsc --noEmit -p tsconfig.tools.json",
         "test:live": "jest --config jest.live.config.js",
-        "format:check": "prettier --check . --ignore-path ../../.prettierignore"
+        "format:check": "prettier --check . --ignore-path ../../.prettierignore",
+        "typecheck:build": "tsc --noEmit --module nodenext --target es2022 --strict --skipLibCheck tsdown.config.mts"
     },
     "keywords": [
         "synfutures",
@@ -206,7 +207,7 @@
         "publint": "0.3.24",
         "ts-jest": "^29.4.12",
         "ts-node": "^10.9.2",
-        "tsup": "^8.5.1",
+        "tsdown": "0.23.0",
         "tsx": "^4.23.15",
         "typescript": "^5.9.3"
     },

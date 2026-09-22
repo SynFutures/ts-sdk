@@ -16,10 +16,10 @@ describe('API export surface', () => {
         const packageJson = JSON.parse(await readFile(resolve(__dirname, '../../../package.json'), 'utf8')) as {
             exports?: Record<string, unknown>;
         };
-        const tsupConfig = await readFile(resolve(__dirname, '../../../tsup.config.ts'), 'utf8');
+        const buildConfig = await readFile(resolve(__dirname, '../../../tsdown.config.mts'), 'utf8');
 
         expect(packageJson.exports).not.toHaveProperty('../apis/compat');
-        expect(tsupConfig).not.toContain('apis/compat');
+        expect(buildConfig).not.toContain('apis/compat');
         await expect(readFile(resolve(__dirname, '../../apis/compat.ts'), 'utf8')).rejects.toThrow();
     });
 
