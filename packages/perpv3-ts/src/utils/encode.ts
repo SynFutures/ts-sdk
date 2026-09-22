@@ -1,4 +1,4 @@
-import { Hex, padHex, toHex } from 'viem';
+import { Hex, isAddress, padHex, toHex } from 'viem';
 import { EMPTY_TICK, MAX_BATCH_ORDER_COUNT, RATIO_BASE, ZERO } from '../constants';
 import { asUint128, asUint16, asUint24, asUint48 } from '../math';
 import {
@@ -44,7 +44,12 @@ export function encodeAdjustParam(adjustParam: AdjustParam): readonly [Hex, Hex]
 }
 
 export function encodeAddParam(addParam: AddParam): readonly [Hex, Hex] {
+    validateTiming(addParam);
+    assertIntegerRange(addParam.amount, 128, false, 'amount');
+    assertIntegerRange(addParam.tickDeltaLower, 24, false, 'tickDeltaLower');
+    assertIntegerRange(addParam.tickDeltaUpper, 24, false, 'tickDeltaUpper');
     const uTick = asUint48(addParam.limitTicks);
+    assertIntegerRange(uTick, 48, false, 'limitTicks');
     const combinedTick = (BigInt(uTick) << 32n) + BigInt(addParam.expiry);
     const combinedDeadline = (BigInt(addParam.deadline) << 80n) + combinedTick;
     const combinedAmount =
@@ -56,7 +61,12 @@ export function encodeAddParam(addParam: AddParam): readonly [Hex, Hex] {
 }
 
 export function encodeRemoveParam(removeParam: RemoveParam): readonly [Hex, Hex] {
+    validateTiming(removeParam);
+    validateAddress(removeParam.target);
+    assertIntegerRange(removeParam.tickLower, 24, true, 'tickLower');
+    assertIntegerRange(removeParam.tickUpper, 24, true, 'tickUpper');
     const uTick = asUint48(removeParam.limitTicks);
+    assertIntegerRange(uTick, 48, false, 'limitTicks');
     const combinedTick = (BigInt(uTick) << 32n) + BigInt(removeParam.expiry);
     const combinedDeadline = (BigInt(removeParam.deadline) << 80n) + combinedTick;
 
@@ -95,6 +105,11 @@ export function encodeBatchPlaceParam({
         throw Errors.encoding('ratios sum must be 10000', ratios);
     }
 
+    validateTiming({ expiry, deadline });
+    assertIntegerRange(size, 128, true, 'size');
+    assertIntegerRange(leverage, 128, true, 'leverage');
+    ticks.forEach((tick) => assertIntegerRange(tick, 24, true, 'tick'));
+    ratios.forEach((ratio) => assertIntegerRange(ratio, 16, false, 'ratio'));
     const usize = BigInt(asUint128(size));
     const uLeverage = BigInt(asUint128(leverage));
     const combinedSize = (usize << 128n) + uLeverage;
@@ -122,6 +137,10 @@ export function encodeBatchPlaceParam({
 }
 
 export function encodeFillParam(param: FillParam): Hex {
+    assertIntegerRange(param.expiry, 32, false, 'expiry');
+    assertIntegerRange(param.nonce, 24, false, 'nonce');
+    assertIntegerRange(param.tick, 24, true, 'tick');
+    validateAddress(param.target);
     const uTick = asUint24(param.tick);
     const combinedTarget = (BigInt(param.target) << 32n) + BigInt(param.expiry);
     const combinedTick = (BigInt(uTick) << 192n) + combinedTarget;
@@ -134,6 +153,8 @@ export function encodeCancelParam(param: BatchCancelParam): Hex {
     if (ticks.length < 1 || ticks.length > MAX_CANCEL_ORDER_COUNT) {
         throw Errors.encoding(`ticks length must be between 1 and ${MAX_CANCEL_ORDER_COUNT}`, { ticks });
     }
+    validateTiming(param);
+    ticks.forEach((tick) => assertIntegerRange(tick, 24, true, 'tick'));
     let encodedTicks = ZERO;
     for (let i = 0; i < MAX_CANCEL_ORDER_COUNT; i++) {
         const tick = i < ticks.length ? ticks[i] : Number(EMPTY_TICK);
@@ -156,6 +177,10 @@ const pad32 = (value: bigint | string): Hex => {
 };
 
 function encodeParamForTradeAndPlace(tradeParam: TradeParam): readonly [Hex, Hex] {
+    validateTiming(tradeParam);
+    assertIntegerRange(tradeParam.size, 128, true, 'size');
+    assertIntegerRange(tradeParam.amount, 128, true, 'amount');
+    assertIntegerRange(tradeParam.limitTick, 24, true, 'limitTick');
     const usize = BigInt(asUint128(tradeParam.size));
     const uAmount = BigInt(asUint128(tradeParam.amount));
     const uTick = asUint24(tradeParam.limitTick);
@@ -171,6 +196,28 @@ function encodeParamForTradeAndPlace(tradeParam: TradeParam): readonly [Hex, Hex
 }
 
 function encodeParamForDepositAndWithdraw(token: string, quantity: bigint): Hex {
+    validateAddress(token);
+    assertIntegerRange(quantity, 96, false, 'quantity');
     const result = (BigInt(quantity) << 160n) + BigInt(token);
     return pad32(result);
+}
+
+function assertIntegerRange(value: number | bigint, bits: number, signed: boolean, field: string): void {
+    if (typeof value === 'number' && !Number.isSafeInteger(value)) {
+        throw Errors.encoding(`${field} must be a safe integer`);
+    }
+    const integer = BigInt(value);
+    const bound = 1n << BigInt(signed ? bits - 1 : bits);
+    if (integer < (signed ? -bound : 0n) || integer >= bound) {
+        throw Errors.encoding(`${field} is outside ${signed ? 'int' : 'uint'}${bits} range`);
+    }
+}
+
+function validateTiming(param: { expiry: number; deadline: number }): void {
+    assertIntegerRange(param.expiry, 32, false, 'expiry');
+    assertIntegerRange(param.deadline, 32, false, 'deadline');
+}
+
+function validateAddress(address: string): void {
+    if (!isAddress(address, { strict: false })) throw Errors.encoding('Invalid packed address');
 }
