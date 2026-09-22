@@ -134,7 +134,8 @@ Changesets 3 and `changesets/action@v2` share the root release commands:
 - `pnpm run release` publishes packages. Versioning and publishing require release authorization.
 
 The workflow uses the v2 inputs `version-script`, `publish-script` and `github-token`.
-A temporary npm config preserves both private registry scopes (`@synfutures` and
+Both workflows use `scripts/configure-registry.cjs` to create a temporary npm
+config preserving both private registry scopes (`@synfutures` and
 `@derivation-tech`). Its token is supplied through `NODE_AUTH_TOKEN` only to the
 install and release steps, because installing the private contract artifacts also
 requires authentication. Verification steps do not receive the registry token.
@@ -146,6 +147,7 @@ local viem-kit override's publication guard until the dependency is released.
 
 Run `pnpm run test:release` to check native changeset creation, version plans,
 changelogs, lockfile refresh, empty-release failure and the local override
-publication guard. The tests use disposable Git fixtures and installed tools,
-with registry dependencies omitted and pnpm in offline mode. They do not apply
+publication guard, plus registry URL validation and deferred token configuration.
+The tests use disposable Git fixtures and installed tools, with registry dependencies
+omitted and pnpm in offline mode. They do not apply
 the checkout's pending changesets or publish packages. Both CI workflows run them.
