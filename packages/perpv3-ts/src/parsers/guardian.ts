@@ -2,6 +2,7 @@ import type { Address, ContractParser } from '@derivation-tech/viem-kit';
 import { formatAddress, formatExpiry, formatRatio, formatTokenAmount } from '../utils/format';
 import { formatFeederType, formatQuoteType } from './enums';
 import type { ParserDeps } from './types';
+import { defaultParseError } from './errors';
 import { CURRENT_GUARDIAN_ABI } from '../abis';
 
 interface CexPriceFeederTuple {
@@ -14,19 +15,25 @@ interface CexPriceFeederTuple {
     heartBeat1: number;
 }
 
+interface QuoteParamTuple {
+    minMarginAmount: bigint;
+    tradingFeeRatio: number;
+    protocolFeeRatio: number;
+    qtype: number;
+    tip: bigint;
+}
+
 function stringify(values: readonly unknown[]): string {
     return values.map((value) => String(value)).join(', ');
 }
 
+type EventArgsBag = {
+    [name: string]: unknown;
+};
+
 async function formatQuoteParamEntries(
     identities: Address[],
-    params: Array<{
-        minMarginAmount: bigint;
-        tradingFeeRatio: number;
-        protocolFeeRatio: number;
-        qtype: number;
-        tip: bigint;
-    }>,
+    params: QuoteParamTuple[],
     deps?: ParserDeps
 ): Promise<string[]> {
     return Promise.all(
@@ -58,7 +65,7 @@ async function formatBoolEntries(
     return `[${entries.join(', ')}]`;
 }
 
-export function createGuardianParser(deps?: ParserDeps): ContractParser {
+export function createGuardianParser(deps?: ParserDeps): ContractParser<typeof CURRENT_GUARDIAN_ABI> {
     return {
         abi: CURRENT_GUARDIAN_ABI,
 
@@ -77,7 +84,7 @@ export function createGuardianParser(deps?: ParserDeps): ContractParser {
                 }
                 case 'setConfigQuoteParam':
                 case 'setInstrumentQuoteParam': {
-                    const [targets, params] = args as readonly [Address[], Array<any>];
+                    const [targets, params] = args as readonly [Address[], QuoteParamTuple[]];
                     const entries = await formatQuoteParamEntries(targets, params, deps);
                     return `${functionName}(entries: [${entries.join(', ')}])`;
                 }
@@ -227,7 +234,8 @@ export function createGuardianParser(deps?: ParserDeps): ContractParser {
         },
 
         async parseEvent(event) {
-            const { eventName, args } = event as { eventName: string; args: Record<string, any> };
+            const eventName: string = event.eventName;
+            const args = event.args as EventArgsBag;
             switch (eventName) {
                 case 'FreezeInstrumentFailed': {
                     const { instrument } = args as { instrument: Address; lowLevelData: string };
@@ -243,12 +251,7 @@ export function createGuardianParser(deps?: ParserDeps): ContractParser {
         },
 
         async parseError(error) {
-            if (typeof error === 'string') {
-                return error;
-            }
-            if (error.name) return error.name;
-            if (error.signature) return error.signature;
-            return 'Guardian error';
+            return defaultParseError(error, 'Guardian error');
         },
     };
 }

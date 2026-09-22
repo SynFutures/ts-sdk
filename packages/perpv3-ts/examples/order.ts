@@ -1,3 +1,4 @@
+import { assertTransactionSuccess } from '@derivation-tech/viem-kit';
 import { parseUnits } from 'viem';
 import { abs, wmul } from '@synfutures/perpv3-ts/math';
 import { WAD_DECIMALS } from '@synfutures/perpv3-ts/constants';
@@ -85,33 +86,36 @@ export async function demoPlaceAndCancel(context: DemoContext): Promise<void> {
 
     // Execute place order transaction
     console.log(`📝 Placing SHORT limit order at ${formatTick(targetTick)}...`);
-    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
-    await sendTxWithLog(publicClient, walletClient, kit, {
-        address: perpClient.instrumentAddress,
-        abi: CURRENT_INSTRUMENT_ABI,
-        functionName: 'place',
-        args: [encodePlaceParam(validPlaceParam)],
-        gas: BigInt(500000),
-    });
+    assertTransactionSuccess(
+        await kit.sendTx(walletClient, {
+            address: perpClient.instrumentAddress,
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'place',
+            args: [encodePlaceParam(validPlaceParam)],
+            gas: BigInt(500000),
+        })
+    );
 
     // Wait before canceling
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     // Cancel the order
     console.log(`🗑️ Canceling order at ${formatTick(targetTick)}...`);
-    await sendTxWithLog(publicClient, walletClient, kit, {
-        address: perpClient.instrumentAddress,
-        abi: CURRENT_INSTRUMENT_ABI,
-        functionName: 'cancel',
-        args: [
-            encodeCancelParam({
-                expiry: perpClient.expiry,
-                ticks: [targetTick],
-                deadline: perpClient.userSetting.getDeadline(),
-            }),
-        ],
-        gas: BigInt(500000),
-    });
+    assertTransactionSuccess(
+        await kit.sendTx(walletClient, {
+            address: perpClient.instrumentAddress,
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'cancel',
+            args: [
+                encodeCancelParam({
+                    expiry: perpClient.expiry,
+                    ticks: [targetTick],
+                    deadline: perpClient.userSetting.getDeadline(),
+                }),
+            ],
+            gas: BigInt(500000),
+        })
+    );
 }
 
 /**
@@ -194,12 +198,16 @@ export async function demoCrossLimitOrder(context: DemoContext, side: Side = Sid
     const totalMarginRequired = crossResult.tradeParam.amount + crossResult.placeParam.amount;
     // Convert WAD to token decimals: multiply by 10^decimals
     const marginNeededInDecimals = wmul(totalMarginRequired, 10n ** BigInt(instrumentSetting.quoteDecimals));
-    const totalMarginFormatted = await formatTokenAmount(totalMarginRequired, instrumentSetting.quoteAddress, undefined, 6);
+    const totalMarginFormatted = await formatTokenAmount(
+        totalMarginRequired,
+        instrumentSetting.quoteAddress,
+        undefined,
+        6
+    );
     console.log(`ℹ️ Total margin required: ${totalMarginFormatted}`);
 
     await ensureMarginAndAllowance(snapshot, publicClient, walletClient, kit, marginNeededInDecimals);
 
-    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
     if (crossResult.tradeParam.size !== 0n) {
         const tradeSize = crossResult.tradeParam.size; // Already correctly signed (positive for LONG, negative for SHORT)
         console.log(
@@ -216,13 +224,15 @@ export async function demoCrossLimitOrder(context: DemoContext, side: Side = Sid
             deadline: perpClient.userSetting.getDeadline(),
         };
 
-        await sendTxWithLog(publicClient, walletClient, kit, {
-            address: perpClient.instrumentAddress,
-            abi: CURRENT_INSTRUMENT_ABI,
-            functionName: 'trade',
-            args: [encodeTradeParam(tradeParam)],
-            gas: BigInt(500000),
-        });
+        assertTransactionSuccess(
+            await kit.sendTx(walletClient, {
+                address: perpClient.instrumentAddress,
+                abi: CURRENT_INSTRUMENT_ABI,
+                functionName: 'trade',
+                args: [encodeTradeParam(tradeParam)],
+                gas: BigInt(500000),
+            })
+        );
     }
 
     if (crossResult.placeParam.size !== 0n) {
@@ -284,13 +294,15 @@ export async function demoCrossLimitOrder(context: DemoContext, side: Side = Sid
         }
 
         console.log(`📝 Executing limit leg order at ${formatTick(finalTick)}...`);
-        await sendTxWithLog(publicClient, walletClient, kit, {
-            address: perpClient.instrumentAddress,
-            abi: CURRENT_INSTRUMENT_ABI,
-            functionName: 'place',
-            args: [encodePlaceParam(validLimitPlaceParam)], // Use place param which has validated tick
-            gas: BigInt(500000),
-        });
+        assertTransactionSuccess(
+            await kit.sendTx(walletClient, {
+                address: perpClient.instrumentAddress,
+                abi: CURRENT_INSTRUMENT_ABI,
+                functionName: 'place',
+                args: [encodePlaceParam(validLimitPlaceParam)], // Use place param which has validated tick
+                gas: BigInt(500000),
+            })
+        );
 
         console.log(`✅ Cross market order executed successfully!`);
 
@@ -376,10 +388,7 @@ export async function demoScaledLimitOrder(context: DemoContext): Promise<void> 
     }
 
     // Derive aggregated values from orders
-    const totalMargin = scaledResult.orders.reduce(
-        (sum, order) => sum + (order ? order.param.amount : 0n),
-        0n
-    );
+    const totalMargin = scaledResult.orders.reduce((sum, order) => sum + (order ? order.param.amount : 0n), 0n);
     // Convert WAD to token decimals: multiply by 10^decimals
     const marginNeededInDecimals = wmul(totalMargin, 10n ** BigInt(instrumentSetting.quoteDecimals));
     const totalMarginFormatted = await formatTokenAmount(totalMargin, instrumentSetting.quoteAddress, undefined, 6);
@@ -433,23 +442,24 @@ export async function demoScaledLimitOrder(context: DemoContext): Promise<void> 
     console.log(
         `📝 Executing batch place for ${validTicks.length} orders (total quantity: ${formatWad(adjustedTotalQuantity)}, side: ${side})...`
     );
-    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
-    await sendTxWithLog(publicClient, walletClient, kit, {
-        address: perpClient.instrumentAddress,
-        abi: CURRENT_INSTRUMENT_ABI,
-        functionName: 'batchPlace',
-        args: [
-            encodeBatchPlaceParam({
-                expiry: perpClient.expiry,
-                ticks: validTicks,
-                ratios: validRatios,
-                size: signedSize,
-                leverage,
-                deadline: perpClient.userSetting.getDeadline(),
-            }),
-        ],
-        gas: BigInt(1000000),
-    });
+    assertTransactionSuccess(
+        await kit.sendTx(walletClient, {
+            address: perpClient.instrumentAddress,
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'batchPlace',
+            args: [
+                encodeBatchPlaceParam({
+                    expiry: perpClient.expiry,
+                    ticks: validTicks,
+                    ratios: validRatios,
+                    size: signedSize,
+                    leverage,
+                    deadline: perpClient.userSetting.getDeadline(),
+                }),
+            ],
+            gas: BigInt(1000000),
+        })
+    );
 
     console.log(`✅ Scaled limit order executed successfully!`);
 

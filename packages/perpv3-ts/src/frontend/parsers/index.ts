@@ -1,1 +1,1 @@
-export { createFrontendInstrumentParser } from './instrument';
+export { createFrontendInstrumentEventParsers, createFrontendInstrumentParser } from './instrument';

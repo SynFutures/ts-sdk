@@ -29,7 +29,7 @@
         "lint-staged": "^16.2.3",
         "nx": "20.0.6",
         "prettier": "^3.3.3",
-        "typescript": "^5.5.3",
+        "typescript": "5.9.3",
         "typescript-eslint": "^8.3.0"
     },
     "engines": {
@@ -41,6 +41,9 @@
             "allowedVersions": {
                 "eslint": "^9.2.0"
             }
+        },
+        "overrides": {
+            "@derivation-tech/viem-kit": "file:./vendor/derivation-tech-viem-kit-d67d06d.tgz"
         }
     }
 }

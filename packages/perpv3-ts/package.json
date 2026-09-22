@@ -90,6 +90,9 @@
     "scripts": {
         "build": "tsup",
         "build:check": "tsc --noEmit",
+        "typecheck:public": "tsc --noEmit -p tsconfig.typecheck.json",
+        "typecheck:examples": "tsc --noEmit -p examples/tsconfig.json",
+        "verify": "pnpm run lint && pnpm run build:check && pnpm run typecheck:public && pnpm run typecheck:examples && pnpm exec jest --runInBand && pnpm run build",
         "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
         "prepack": "npm run build && npm run build:check",
         "lint": "eslint",

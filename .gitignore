@@ -144,5 +144,11 @@ dist
 # Local git worktrees (avoid Nx/knip scanning duplicates)
 .worktrees/
 
+# Local Superpowers planning artifacts
+docs/superpowers/
+
 # Devnet test runtime files
 packages/perpv3-ts/devnet/.runtime/
+
+# Pinned unpublished SDK dependency
+!/vendor/derivation-tech-viem-kit-*.tgz

@@ -1,4 +1,4 @@
-import type { Address, ContractParser, Hex } from '@derivation-tech/viem-kit';
+import type { Address, ContractParser, ErrorParserMap, Hex } from '@derivation-tech/viem-kit';
 import { decodeAbiParameters } from 'viem';
 import { decodeAddParam, decodeParamForDepositAndWithdraw } from '../utils/decode';
 import {
@@ -11,6 +11,7 @@ import {
     formatUnitsSafe,
 } from '../utils/format';
 import type { ParserDeps } from './types';
+import { parseCustomError } from './errors';
 import { CURRENT_GATE_ABI } from '../abis';
 
 function stringify(values: readonly unknown[]): string {
@@ -65,7 +66,11 @@ function formatAddArgs(args: readonly [Hex, Hex]): string {
     return `{ ${sections.join(', ')} }`;
 }
 
-const gateErrorFormatters: Record<string, (args?: readonly unknown[]) => string> = {
+type EventArgsBag = {
+    [name: string]: unknown;
+};
+
+const gateErrorParsers: ErrorParserMap = {
     MarketTypeNotSupported() {
         return 'MarketTypeNotSupported';
     },
@@ -115,7 +120,7 @@ const gateErrorFormatters: Record<string, (args?: readonly unknown[]) => string>
     },
 };
 
-export function createGateParser(deps?: ParserDeps): ContractParser {
+export function createGateParser(deps?: ParserDeps): ContractParser<typeof CURRENT_GATE_ABI> {
     return {
         abi: CURRENT_GATE_ABI,
         async parseTransaction({ functionName, args }) {
@@ -180,7 +185,8 @@ export function createGateParser(deps?: ParserDeps): ContractParser {
         },
 
         async parseEvent(event) {
-            const { eventName, args } = event as { eventName: string; args: Record<string, unknown> };
+            const eventName: string = event.eventName;
+            const args = event.args as EventArgsBag;
             switch (eventName) {
                 case 'Deposit': {
                     const { quote, trader, quantity } = args as {
@@ -293,22 +299,7 @@ export function createGateParser(deps?: ParserDeps): ContractParser {
         },
 
         async parseError(error) {
-            if (typeof error === 'string') {
-                return error;
-            }
-            if (error.name) {
-                const formatter = gateErrorFormatters[error.name];
-                if (formatter) {
-                    try {
-                        return formatter(error.args as readonly unknown[] | undefined);
-                    } catch {
-                        return formatter();
-                    }
-                }
-            }
-            if (error.name) return error.name;
-            if (error.signature) return error.signature;
-            return 'Gate error';
+            return parseCustomError(error, gateErrorParsers, 'Gate error');
         },
     };
 }
