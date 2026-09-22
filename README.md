@@ -36,15 +36,21 @@ No sibling source checkout is required to install this branch.
 
 ## Changes and releases
 
-Add package changes with `make changeset SUMMARY='Describe the change' BUMP=major`
-(or the appropriate bump). `make changeset-dry-run` previews the result.
-The workspace has no fixed-version package group; inspect `.changeset/config.json`
-and the generated changeset before committing it.
+Add a changeset with the native Changesets CLI, selecting the package and appropriate
+bump explicitly:
 
-`make version` changes package versions and the lockfile. `make publish` publishes
-packages. `make release` performs both operations. The `release:dry` script reports pending changeset status without applying versions.
-Changesets 3 and `changesets/action@v2` use `pnpm run release:version` to apply versions
-and refresh only the lockfile, with lifecycle scripts disabled.
+```sh
+pnpm changeset add --patch @synfutures/perpv3-ts --message 'Describe the change'
+```
+
+Use `--minor` or `--major` for larger changes. Inspect the generated changeset before
+committing it; `pnpm run release:dry` reports the pending release plan without
+applying versions. The workspace has no fixed-version package group.
+
+`pnpm run release:version` applies changesets and refreshes only the lockfile, with
+lifecycle scripts disabled. `pnpm run release` publishes packages. Versioning and
+publishing are separate operations and require release authorization.
+Changesets 3 and `changesets/action@v2` share these commands.
 
 Replace the local viem-kit override with the released dependency before publishing.
 The PerpV3 `prepublishOnly` check rejects a remaining override. Release execution
