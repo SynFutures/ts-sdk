@@ -1,56 +1,5 @@
-import { PublicWebsocketClient, type TradesStreamData } from '../apis/websocket';
-
-type EventHandler = (...args: unknown[]) => void;
-
-class FakeWebSocket {
-    readyState = 0;
-    readonly sent: string[] = [];
-
-    private readonly listeners = new Map<string, EventHandler[]>();
-
-    addEventListener(event: string, handler: EventHandler): void {
-        const existing = this.listeners.get(event) ?? [];
-        existing.push(handler);
-        this.listeners.set(event, existing);
-    }
-
-    send(data: string): void {
-        this.sent.push(data);
-    }
-
-    close(): void {
-        this.readyState = 3;
-        this.emit('close', {});
-    }
-
-    open(): void {
-        this.readyState = 1;
-        this.emit('open');
-    }
-
-    message(data: string): void {
-        this.emit('message', { data });
-    }
-
-    private emit(event: string, payload?: unknown): void {
-        for (const handler of this.listeners.get(event) ?? []) {
-            handler(payload);
-        }
-    }
-}
-
-function parseWsRequest(payload: string): { method: string; params: Record<string, unknown> } {
-    const parsed: unknown = JSON.parse(payload);
-    if (!parsed || typeof parsed !== 'object') throw new Error('Invalid WS request payload');
-
-    const method = (parsed as { method?: unknown }).method;
-    const params = (parsed as { params?: unknown }).params;
-    if (typeof method !== 'string' || !params || typeof params !== 'object') {
-        throw new Error('Invalid WS request payload shape');
-    }
-
-    return { method, params: params as Record<string, unknown> };
-}
+import { PublicWebsocketClient, type PublicWsRequestResultEvent, type TradesStreamData } from '../apis/websocket';
+import { createFakeWebSocketFactory, FakeWebSocket, parseWsRequest } from './helpers/fakeWebSocket';
 
 describe('PublicWebsocketClient trades subscription', () => {
     it('rejects trades subscriptions with empty pairs', () => {
@@ -70,18 +19,14 @@ describe('PublicWebsocketClient trades subscription', () => {
 
     it('reports SUBSCRIBE/UNSUBSCRIBE ACKs via onRequestResult', () => {
         const sockets: FakeWebSocket[] = [];
-        const requestResults: Array<Record<string, unknown>> = [];
+        const requestResults: PublicWsRequestResultEvent[] = [];
 
         const client = new PublicWebsocketClient({
             url: 'ws://localhost',
             pingIntervalMs: 0,
             autoReconnect: false,
-            onRequestResult: (event) => requestResults.push(event as unknown as Record<string, unknown>),
-            wsFactory: () => {
-                const socket = new FakeWebSocket();
-                sockets.push(socket);
-                return socket;
-            },
+            onRequestResult: (event) => requestResults.push(event),
+            wsFactory: createFakeWebSocketFactory(sockets),
         });
 
         const subscription = client.subscribeTrades(
@@ -126,11 +71,7 @@ describe('PublicWebsocketClient trades subscription', () => {
             url: 'ws://localhost',
             pingIntervalMs: 0,
             autoReconnect: false,
-            wsFactory: () => {
-                const socket = new FakeWebSocket();
-                sockets.push(socket);
-                return socket;
-            },
+            wsFactory: createFakeWebSocketFactory(sockets),
         });
 
         const subscription = client.subscribeTrades(
@@ -168,17 +109,14 @@ describe('PublicWebsocketClient trades subscription', () => {
             decimals: 18,
             image: '',
             price: 1,
+            untrustedTokenField: true,
         };
 
         const client = new PublicWebsocketClient({
             url: 'ws://localhost',
             pingIntervalMs: 0,
             autoReconnect: false,
-            wsFactory: () => {
-                const socket = new FakeWebSocket();
-                sockets.push(socket);
-                return socket;
-            },
+            wsFactory: createFakeWebSocketFactory(sockets),
         });
 
         client.subscribeTrades({ chainId: 1, pairs: ['0xabc_123'], type: 'trades' }, (data) => handler(data));
@@ -214,6 +152,7 @@ describe('PublicWebsocketClient trades subscription', () => {
                         event: 'trade',
                         markPrice: '1',
                         fairPrice: '1',
+                        untrustedTradeField: true,
                     },
                 ],
             })
@@ -223,6 +162,8 @@ describe('PublicWebsocketClient trades subscription', () => {
         expect(handler.mock.calls[0][0].expiry).toBe(123);
         expect(handler.mock.calls[0][0].chainId).toBe(1);
         expect(handler.mock.calls[0][0].data).toHaveLength(1);
+        expect(handler.mock.calls[0][0].data[0]).not.toHaveProperty('untrustedTradeField');
+        expect(handler.mock.calls[0][0].data[0].baseToken).not.toHaveProperty('untrustedTokenField');
 
         socket.message(
             JSON.stringify({
@@ -314,11 +255,7 @@ describe('PublicWebsocketClient trades subscription', () => {
             url: 'ws://localhost',
             pingIntervalMs: 0,
             autoReconnect: false,
-            wsFactory: () => {
-                const socket = new FakeWebSocket();
-                sockets.push(socket);
-                return socket;
-            },
+            wsFactory: createFakeWebSocketFactory(sockets),
         });
 
         client.subscribeTrades({ chainId: 1, pairs: ['0xabc_123'], type: 'trades' }, (data) => handlerAbc(data));
@@ -403,11 +340,7 @@ describe('PublicWebsocketClient trades subscription', () => {
             url: 'ws://localhost',
             pingIntervalMs: 0,
             autoReconnect: false,
-            wsFactory: () => {
-                const socket = new FakeWebSocket();
-                sockets.push(socket);
-                return socket;
-            },
+            wsFactory: createFakeWebSocketFactory(sockets),
         });
 
         client.subscribeTrades({ chainId: 1, pairs: ['0xabc_123'], type: 'trades' }, (data) => handler(data));
@@ -468,11 +401,7 @@ describe('PublicWebsocketClient trades subscription', () => {
             pingIntervalMs: 0,
             autoReconnect: false,
             onInvalidStreamData: (event) => invalidHandler({ stream: event.stream }),
-            wsFactory: () => {
-                const socket = new FakeWebSocket();
-                sockets.push(socket);
-                return socket;
-            },
+            wsFactory: createFakeWebSocketFactory(sockets),
         });
 
         client.subscribeTrades({ chainId: 1, pairs: ['0xabc_123'], type: 'trades' }, (data) => tradesHandler(data));
@@ -485,12 +414,14 @@ describe('PublicWebsocketClient trades subscription', () => {
                 instrument: '0xABC',
                 expiry: 123,
                 stream: 'trades',
-                data: [{
-                    id: 't-invalid',
-                    instrumentAddress: '0xABC',
-                    expiry: 123,
-                    chainId: 1,
-                }],
+                data: [
+                    {
+                        id: 't-invalid',
+                        instrumentAddress: '0xABC',
+                        expiry: 123,
+                        chainId: 1,
+                    },
+                ],
             })
         );
 
@@ -511,11 +442,7 @@ describe('PublicWebsocketClient trades subscription', () => {
             pingIntervalMs: 0,
             autoReconnect: false,
             onInvalidStreamData: (event) => invalidHandler({ stream: event.stream }),
-            wsFactory: () => {
-                const socket = new FakeWebSocket();
-                sockets.push(socket);
-                return socket;
-            },
+            wsFactory: createFakeWebSocketFactory(sockets),
         });
 
         client.subscribeTrades({ chainId: 1, pairs: ['0xabc_123'], type: 'trades' }, (data) => tradesHandler(data));

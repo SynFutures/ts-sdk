@@ -1,44 +1,6 @@
 import type { Address } from 'viem';
 import { PublicWebsocketClient, type PortfolioStreamData } from '../apis/websocket';
-
-type EventHandler = (...args: unknown[]) => void;
-
-class FakeWebSocket {
-    readyState = 0;
-    readonly sent: string[] = [];
-
-    private readonly listeners = new Map<string, EventHandler[]>();
-
-    addEventListener(event: string, handler: EventHandler): void {
-        const existing = this.listeners.get(event) ?? [];
-        existing.push(handler);
-        this.listeners.set(event, existing);
-    }
-
-    send(data: string): void {
-        this.sent.push(data);
-    }
-
-    close(): void {
-        this.readyState = 3;
-        this.emit('close', {});
-    }
-
-    open(): void {
-        this.readyState = 1;
-        this.emit('open');
-    }
-
-    message(data: string): void {
-        this.emit('message', { data });
-    }
-
-    private emit(event: string, payload?: unknown): void {
-        for (const handler of this.listeners.get(event) ?? []) {
-            handler(payload);
-        }
-    }
-}
+import { createFakeWebSocketFactory, type FakeWebSocket } from './helpers/fakeWebSocket';
 
 describe('PublicWebsocketClient portfolio orderInfo passthrough', () => {
     it('passes through portfolio orderInfo.oid (string) as-is', () => {
@@ -51,11 +13,7 @@ describe('PublicWebsocketClient portfolio orderInfo passthrough', () => {
             url: 'ws://localhost',
             pingIntervalMs: 0,
             autoReconnect: false,
-            wsFactory: () => {
-                const socket = new FakeWebSocket();
-                sockets.push(socket);
-                return socket;
-            },
+            wsFactory: createFakeWebSocketFactory(sockets),
         });
 
         client.subscribePortfolio({ chainId: 143, userAddress: mixedCaseUserAddress, type: 'portfolio' }, (payload) =>
