@@ -1,46 +1,55 @@
 import type { Address } from 'viem';
 import { DEFAULT_PUBLIC_WS_URL } from './constants';
+import {
+    attachWebSocketListener,
+    buildWebSocketHeaders,
+    createWebSocket,
+    extractWebSocketMessageText,
+    normalizeWebSocketCloseEvent,
+    WS_READY_STATE,
+    type WebSocketFactory,
+    type WebSocketLike,
+} from './websocket/transport';
+import {
+    buildPublicWsRequest,
+    buildWsRequestResultEvent,
+    isPublicWsAckMessage,
+    isPublicWsStreamMessage,
+    type PendingPublicWsRequest,
+    type PublicWsAckMessage,
+    type PublicWsRequestMethod,
+    type PublicWsRequestResultEvent,
+    type PublicWsStreamMetadata,
+    type PublicWsWireMessage,
+    type PublicWsWireStreamMessage,
+} from './websocket/protocol';
+import {
+    mergeStreamMetadata,
+    normalizeCommonStreamData,
+    normalizeInstrumentBasicInfoStreamData,
+    normalizeInstrumentStreamData,
+    normalizeKlineStreamData,
+    normalizeOptionalNumber,
+    normalizeOrderBookStream,
+    normalizePortfolioStreamData,
+    normalizeTradesStreamData,
+} from './websocket/normalizers';
+import {
+    PublicWsSubscriptionRegistry,
+    type RawSubscriptionRecord,
+    type StreamHandler,
+    type TradesSubscriptionRecord,
+} from './websocket/subscriptions';
 import type { BlockInfo } from '../types';
 
-type WebSocketFactory = (url: string, options?: { headers?: Record<string, string> }) => WebSocketLike;
-type WebSocketCtor = new (
-    url: string,
-    protocols?: string | string[] | Record<string, unknown>,
-    options?: Record<string, unknown>
-) => WebSocketLike;
-
-interface WebSocketLike {
-    readyState: number;
-    send(data: string): void;
-    close(code?: number, reason?: string): void;
-    addEventListener?: (event: string, handler: (...args: any[]) => void) => void;
-    removeEventListener?: (event: string, handler: (...args: any[]) => void) => void;
-    on?: (event: string, handler: (...args: any[]) => void) => void;
-}
-
-type StreamHandler<TPayload, TParams> = (payload: TPayload, context: { params: TParams }) => void;
-
-interface SubscriptionRecord<TParams, TPayload> {
-    id: number;
-    params: TParams;
-    handler: StreamHandler<TPayload, TParams>;
-}
-
-interface RawSubscriptionRecord extends SubscriptionRecord<RawSubscribeParams, GenericStreamData> {
-    streams: string[];
-}
-
-interface TradesSubscriptionRecord extends SubscriptionRecord<MmTradesSubscribeParams, TradesStreamData> {
-    pairSet: Set<string>;
-}
-
-const DEFAULT_USER_AGENT =
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-
-const WS_READY_STATE = {
-    CONNECTING: 0,
-    OPEN: 1,
-};
+export type {
+    PublicWsAckMessage,
+    PublicWsRequestMethod,
+    PublicWsRequestResultEvent,
+    PublicWsStreamMetadata,
+    PublicWsWireMessage,
+    PublicWsWireStreamMessage,
+} from './websocket/protocol';
 
 // ---------------------------------------------------------------------------
 // Stream payloads
@@ -199,12 +208,6 @@ export type TradeItem = {
 // Stream messages
 // ---------------------------------------------------------------------------
 
-export type PublicWsStreamMetadata = {
-    chainId?: number;
-    instrument?: Address;
-    expiry?: number | string;
-};
-
 type BaseStreamMetadata = PublicWsStreamMetadata;
 
 type OrderBookStreamMessage = BaseStreamMetadata & {
@@ -269,35 +272,6 @@ type KnownStreamMessage =
     | TradesStreamMessage;
 
 export type PublicStreamMessage = KnownStreamMessage | RawStreamMessage;
-
-// ---------------------------------------------------------------------------
-// Wire messages (stream + ACK)
-// ---------------------------------------------------------------------------
-
-export type PublicWsRequestMethod = 'SUBSCRIBE' | 'UNSUBSCRIBE';
-
-export type PublicWsAckMessage = {
-    id: number;
-    result: string;
-};
-
-export type PublicWsWireStreamMessage = BaseStreamMetadata & {
-    stream: string;
-    data?: unknown;
-};
-
-export type PublicWsWireMessage = PublicWsWireStreamMessage | PublicWsAckMessage;
-
-export type PublicWsRequestResultEvent = {
-    id: number;
-    result: string;
-    ok: boolean;
-    method?: PublicWsRequestMethod;
-    params?: Record<string, unknown>;
-    sentAtMs?: number;
-    receivedAtMs: number;
-    latencyMs?: number;
-};
 
 // ---------------------------------------------------------------------------
 // Subscribe params
@@ -463,46 +437,19 @@ export class PublicWebsocketClient {
     private readonly onDisconnect?: (event?: { code?: number; reason?: string }) => void;
     private readonly maxReconnectAttempts: number;
 
-    private readonly pendingRequests = new Map<
-        number,
-        { method: PublicWsRequestMethod; params: Record<string, unknown>; sentAtMs: number }
-    >();
+    private readonly pendingRequests = new Map<number, PendingPublicWsRequest>();
 
     private socket: WebSocketLike | null = null;
     private pingTimer?: ReturnType<typeof setInterval>;
     private reconnectTimer?: ReturnType<typeof setTimeout>;
     private nextRequestId = 1;
-    private nextSubscriptionId = 1;
     private manuallyClosed = false;
     private reconnectAttempts = 0;
-
-    private readonly orderBookSubscriptions = new Map<
-        number,
-        SubscriptionRecord<OrderBookSubscribeParams | MmOrderBookSubscribeParams, OrderBookStreamData>
-    >();
-    private readonly portfolioSubscriptions = new Map<
-        number,
-        SubscriptionRecord<PortfolioSubscribeParams, PortfolioStreamData>
-    >();
-    private readonly tradesSubscriptions = new Map<number, TradesSubscriptionRecord>();
-    private readonly klineSubscriptions = new Map<number, SubscriptionRecord<KlineSubscribeParams, KlineStreamData>>();
-    private readonly instrumentSubscriptions = new Map<
-        number,
-        SubscriptionRecord<InstrumentSubscribeParams, InstrumentStreamData | MarketPairInfoChangedData>
-    >();
-    private readonly instrumentBasicInfoSubscriptions = new Map<
-        number,
-        SubscriptionRecord<InstrumentBasicInfoSubscribeParams, InstrumentBasicInfoStreamData>
-    >();
-    private readonly commonSubscriptions = new Map<
-        number,
-        SubscriptionRecord<CommonSubscribeParams, MarketListChangedData | BlockNumChangedData>
-    >();
-    private readonly rawSubscriptions = new Map<number, RawSubscriptionRecord>();
+    private readonly subscriptions = new PublicWsSubscriptionRegistry();
 
     constructor(options?: PublicWebsocketClientOptions) {
         this.url = options?.url ?? DEFAULT_PUBLIC_WS_URL;
-        this.headers = this.buildHeaders(options?.headers);
+        this.headers = buildWebSocketHeaders(this.url, options?.headers);
         this.wsFactory = options?.wsFactory;
         this.autoReconnect = options?.autoReconnect ?? true;
         this.reconnectDelayMs = options?.reconnectDelayMs ?? 1_000;
@@ -534,15 +481,17 @@ export class PublicWebsocketClient {
         }
 
         this.manuallyClosed = false;
-        const socket = this.createSocket();
+        const socket = createWebSocket(this.url, this.headers, this.wsFactory);
         this.socket = socket;
 
-        this.attachListener(socket, 'open', () => this.handleOpen());
-        this.attachListener(socket, 'message', (event: unknown) => this.handleIncomingMessage(event));
-        this.attachListener(socket, 'error', (event: unknown) => {
+        attachWebSocketListener(socket, 'open', () => this.handleOpen());
+        attachWebSocketListener(socket, 'message', (event: unknown) => this.handleIncomingMessage(event));
+        attachWebSocketListener(socket, 'error', (event: unknown) => {
             this.onError?.(event);
         });
-        this.attachListener(socket, 'close', (event?: { code?: number; reason?: string }) => this.handleClose(event));
+        attachWebSocketListener(socket, 'close', (event: unknown) =>
+            this.handleClose(normalizeWebSocketCloseEvent(event))
+        );
     }
 
     public close(): void {
@@ -564,72 +513,66 @@ export class PublicWebsocketClient {
         params: OrderBookSubscribeParams | MmOrderBookSubscribeParams,
         handler: StreamHandler<OrderBookStreamData, OrderBookSubscribeParams | MmOrderBookSubscribeParams>
     ): PublicWebsocketSubscription {
-        const id = this.nextSubscriptionId++;
-        this.orderBookSubscriptions.set(id, { id, params, handler });
+        const record = this.subscriptions.addOrderBook(params, handler);
         this.connect();
         this.sendSubscribeIfOpen(params);
 
-        return { unsubscribe: () => this.unsubscribeOrderBook(id) };
+        return { unsubscribe: () => this.unsubscribeOrderBook(record.id) };
     }
 
     public subscribePortfolio(
         params: PortfolioSubscribeParams,
         handler: StreamHandler<PortfolioStreamData, PortfolioSubscribeParams>
     ): PublicWebsocketSubscription {
-        const id = this.nextSubscriptionId++;
-        this.portfolioSubscriptions.set(id, { id, params, handler });
+        const record = this.subscriptions.addPortfolio(params, handler);
         this.connect();
         this.sendSubscribeIfOpen(params);
 
-        return { unsubscribe: () => this.unsubscribePortfolio(id) };
+        return { unsubscribe: () => this.unsubscribePortfolio(record.id) };
     }
 
     public subscribeKline(
         params: KlineSubscribeParams,
         handler: StreamHandler<KlineStreamData, KlineSubscribeParams>
     ): PublicWebsocketSubscription {
-        const id = this.nextSubscriptionId++;
-        this.klineSubscriptions.set(id, { id, params, handler });
+        const record = this.subscriptions.addKline(params, handler);
         this.connect();
         this.sendSubscribeIfOpen(params);
 
-        return { unsubscribe: () => this.unsubscribeKline(id) };
+        return { unsubscribe: () => this.unsubscribeKline(record.id) };
     }
 
     public subscribeInstrument(
         params: InstrumentSubscribeParams,
         handler: StreamHandler<InstrumentStreamData | MarketPairInfoChangedData, InstrumentSubscribeParams>
     ): PublicWebsocketSubscription {
-        const id = this.nextSubscriptionId++;
-        this.instrumentSubscriptions.set(id, { id, params, handler });
+        const record = this.subscriptions.addInstrument(params, handler);
         this.connect();
         this.sendSubscribeIfOpen(params);
 
-        return { unsubscribe: () => this.unsubscribeInstrument(id) };
+        return { unsubscribe: () => this.unsubscribeInstrument(record.id) };
     }
 
     public subscribeInstrumentBasicInfo(
         params: InstrumentBasicInfoSubscribeParams,
         handler: StreamHandler<InstrumentBasicInfoStreamData, InstrumentBasicInfoSubscribeParams>
     ): PublicWebsocketSubscription {
-        const id = this.nextSubscriptionId++;
-        this.instrumentBasicInfoSubscriptions.set(id, { id, params, handler });
+        const record = this.subscriptions.addInstrumentBasicInfo(params, handler);
         this.connect();
         this.sendSubscribeIfOpen(params);
 
-        return { unsubscribe: () => this.unsubscribeInstrumentBasicInfo(id) };
+        return { unsubscribe: () => this.unsubscribeInstrumentBasicInfo(record.id) };
     }
 
     public subscribeCommon(
         params: CommonSubscribeParams,
         handler: StreamHandler<MarketListChangedData | BlockNumChangedData, CommonSubscribeParams>
     ): PublicWebsocketSubscription {
-        const id = this.nextSubscriptionId++;
-        this.commonSubscriptions.set(id, { id, params, handler });
+        const record = this.subscriptions.addCommon(params, handler);
         this.connect();
         this.sendSubscribeIfOpen(params);
 
-        return { unsubscribe: () => this.unsubscribeCommon(id) };
+        return { unsubscribe: () => this.unsubscribeCommon(record.id) };
     }
 
     public subscribeRaw(
@@ -637,13 +580,11 @@ export class PublicWebsocketClient {
         handler: StreamHandler<GenericStreamData, RawSubscribeParams>,
         streams?: string | string[]
     ): PublicWebsocketSubscription {
-        const id = this.nextSubscriptionId++;
-        const streamList = Array.isArray(streams) ? streams : streams ? [streams] : [params.type];
-        this.rawSubscriptions.set(id, { id, params, handler, streams: streamList });
+        const record = this.subscriptions.addRaw(params, handler, streams);
         this.connect();
         this.sendSubscribeIfOpen(params);
 
-        return { unsubscribe: () => this.unsubscribeRaw(id) };
+        return { unsubscribe: () => this.unsubscribeRaw(record.id) };
     }
 
     public subscribeTrades(
@@ -653,13 +594,11 @@ export class PublicWebsocketClient {
         if (!params.pairs?.length) {
             throw new Error('Trades subscription requires a non-empty `pairs` array.');
         }
-        const id = this.nextSubscriptionId++;
-        const pairSet = new Set(params.pairs.map((p) => p.toLowerCase()));
-        this.tradesSubscriptions.set(id, { id, params, handler, pairSet });
+        const record = this.subscriptions.addTrades(params, handler);
         this.connect();
         this.sendSubscribeIfOpen(params);
 
-        return { unsubscribe: () => this.unsubscribeTrades(id) };
+        return { unsubscribe: () => this.unsubscribeTrades(record.id) };
     }
 
     // -----------------------------------------------------------------------
@@ -667,58 +606,50 @@ export class PublicWebsocketClient {
     // -----------------------------------------------------------------------
 
     private unsubscribeOrderBook(id: number): void {
-        const record = this.orderBookSubscriptions.get(id);
+        const record = this.subscriptions.removeOrderBook(id);
         if (!record) return;
-        this.orderBookSubscriptions.delete(id);
         this.sendUnsubscribeIfOpen(record.params);
     }
 
     private unsubscribePortfolio(id: number): void {
-        const record = this.portfolioSubscriptions.get(id);
+        const record = this.subscriptions.removePortfolio(id);
         if (!record) return;
-        this.portfolioSubscriptions.delete(id);
         this.sendUnsubscribeIfOpen(record.params);
     }
 
     private unsubscribeTrades(id: number): void {
-        const record = this.tradesSubscriptions.get(id);
+        const record = this.subscriptions.removeTrades(id);
         if (!record) return;
-        this.tradesSubscriptions.delete(id);
         this.sendUnsubscribeIfOpen(record.params);
     }
 
     private unsubscribeKline(id: number): void {
-        const record = this.klineSubscriptions.get(id);
+        const record = this.subscriptions.removeKline(id);
         if (!record) return;
-        this.klineSubscriptions.delete(id);
         this.sendUnsubscribeIfOpen(record.params);
     }
 
     private unsubscribeInstrument(id: number): void {
-        const record = this.instrumentSubscriptions.get(id);
+        const record = this.subscriptions.removeInstrument(id);
         if (!record) return;
-        this.instrumentSubscriptions.delete(id);
         this.sendUnsubscribeIfOpen(record.params);
     }
 
     private unsubscribeInstrumentBasicInfo(id: number): void {
-        const record = this.instrumentBasicInfoSubscriptions.get(id);
+        const record = this.subscriptions.removeInstrumentBasicInfo(id);
         if (!record) return;
-        this.instrumentBasicInfoSubscriptions.delete(id);
         this.sendUnsubscribeIfOpen(record.params);
     }
 
     private unsubscribeCommon(id: number): void {
-        const record = this.commonSubscriptions.get(id);
+        const record = this.subscriptions.removeCommon(id);
         if (!record) return;
-        this.commonSubscriptions.delete(id);
         this.sendUnsubscribeIfOpen(record.params);
     }
 
     private unsubscribeRaw(id: number): void {
-        const record = this.rawSubscriptions.get(id);
+        const record = this.subscriptions.removeRaw(id);
         if (!record) return;
-        this.rawSubscriptions.delete(id);
         this.sendUnsubscribeIfOpen(record.params);
     }
 
@@ -767,14 +698,14 @@ export class PublicWebsocketClient {
     }
 
     private resubscribeAll(): void {
-        for (const { params } of this.orderBookSubscriptions.values()) this.sendSubscribeIfOpen(params);
-        for (const { params } of this.portfolioSubscriptions.values()) this.sendSubscribeIfOpen(params);
-        for (const { params } of this.tradesSubscriptions.values()) this.sendSubscribeIfOpen(params);
-        for (const { params } of this.klineSubscriptions.values()) this.sendSubscribeIfOpen(params);
-        for (const { params } of this.instrumentSubscriptions.values()) this.sendSubscribeIfOpen(params);
-        for (const { params } of this.instrumentBasicInfoSubscriptions.values()) this.sendSubscribeIfOpen(params);
-        for (const { params } of this.commonSubscriptions.values()) this.sendSubscribeIfOpen(params);
-        for (const { params } of this.rawSubscriptions.values()) this.sendSubscribeIfOpen(params);
+        for (const { params } of this.subscriptions.orderBooks()) this.sendSubscribeIfOpen(params);
+        for (const { params } of this.subscriptions.portfolios()) this.sendSubscribeIfOpen(params);
+        for (const { params } of this.subscriptions.trades()) this.sendSubscribeIfOpen(params);
+        for (const { params } of this.subscriptions.klines()) this.sendSubscribeIfOpen(params);
+        for (const { params } of this.subscriptions.instruments()) this.sendSubscribeIfOpen(params);
+        for (const { params } of this.subscriptions.instrumentBasicInfos()) this.sendSubscribeIfOpen(params);
+        for (const { params } of this.subscriptions.commons()) this.sendSubscribeIfOpen(params);
+        for (const { params } of this.subscriptions.raws()) this.sendSubscribeIfOpen(params);
     }
 
     private sendSubscribeIfOpen(params: PublicWsSubscribeParams): void {
@@ -788,10 +719,10 @@ export class PublicWebsocketClient {
     }
 
     private sendRequest(method: PublicWsRequestMethod, params: PublicWsSubscribeParams): void {
-        const requestParams = this.buildRequestParams(params);
         const id = this.nextRequestId++;
-        this.pendingRequests.set(id, { method, params: requestParams, sentAtMs: Date.now() });
-        this.sendRaw(JSON.stringify({ id, method, params: requestParams }));
+        const request = buildPublicWsRequest(id, method, params);
+        this.pendingRequests.set(id, { method, params: request.params, sentAtMs: Date.now() });
+        this.sendRaw(JSON.stringify(request));
     }
 
     private sendRaw(payload: string): void {
@@ -805,7 +736,7 @@ export class PublicWebsocketClient {
     // -----------------------------------------------------------------------
 
     private handleIncomingMessage(event: unknown): void {
-        const text = this.extractMessageText(event);
+        const text = extractWebSocketMessageText(event);
         if (!text || text === 'pong') return;
 
         let parsed: unknown;
@@ -815,64 +746,98 @@ export class PublicWebsocketClient {
             return;
         }
 
-        if (this.isWsAckMessage(parsed)) {
+        if (isPublicWsAckMessage(parsed)) {
             this.onMessage?.(parsed);
             this.handleWsAckMessage(parsed);
             return;
         }
 
-        if (!this.isWsStreamMessage(parsed)) return;
+        if (!isPublicWsStreamMessage(parsed)) return;
         this.onMessage?.(parsed);
 
         const message = parsed;
 
-        const merged = this.mergeStreamMetadata(message);
+        const merged = mergeStreamMetadata(message);
 
         switch (message.stream) {
             case 'orderBook': {
                 this.notifyRawSubscribers(message.stream, merged);
-                const normalized = this.normalizeOrderBookStream(merged);
+                const normalized = normalizeOrderBookStream(merged);
                 if (normalized) {
                     this.notifyOrderBookSubscribers(normalized);
+                } else {
+                    this.reportInvalidStreamData(message, merged);
                 }
                 break;
             }
-            case 'portfolio':
-                if (this.isPortfolioStreamData(merged)) {
-                    this.notifyPortfolioSubscribers(merged);
+            case 'portfolio': {
+                const normalized = normalizePortfolioStreamData(merged);
+                if (normalized) {
+                    this.notifyPortfolioSubscribers(normalized);
+                } else {
+                    this.reportInvalidStreamData(message, merged);
                 }
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
-            case 'kline':
-                this.notifyKlineSubscribers(merged as KlineStreamData);
+            }
+            case 'kline': {
+                const normalized = normalizeKlineStreamData(merged);
+                if (normalized) {
+                    this.notifyKlineSubscribers(normalized);
+                } else {
+                    this.reportInvalidStreamData(message, merged);
+                }
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
-            case 'instrument':
-                this.notifyInstrumentSubscribers(merged as InstrumentStreamData);
+            }
+            case 'instrument': {
+                const normalized = normalizeInstrumentStreamData(merged);
+                if (normalized) {
+                    this.notifyInstrumentSubscribers(normalized);
+                } else {
+                    this.reportInvalidStreamData(message, merged);
+                }
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
-            case 'instrumentBasicInfo':
-                this.notifyInstrumentBasicInfoSubscribers(merged as InstrumentBasicInfoStreamData);
+            }
+            case 'instrumentBasicInfo': {
+                const normalized = normalizeInstrumentBasicInfoStreamData(merged);
+                if (normalized) {
+                    this.notifyInstrumentBasicInfoSubscribers(normalized);
+                } else {
+                    this.reportInvalidStreamData(message, merged);
+                }
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
-            case 'marketPairInfoChanged':
-                this.notifyInstrumentSubscribers(merged as MarketPairInfoChangedData);
+            }
+            case 'marketPairInfoChanged': {
+                const normalized = normalizeInstrumentStreamData(merged);
+                if (normalized) {
+                    this.notifyInstrumentSubscribers(normalized);
+                } else {
+                    this.reportInvalidStreamData(message, merged);
+                }
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
+            }
             case 'marketListChanged':
-                this.notifyCommonSubscribers(merged, message.stream);
+                if (!this.notifyCommonSubscribers(merged, message.stream)) {
+                    this.reportInvalidStreamData(message, merged);
+                }
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
             case 'blockNumChanged':
-                this.notifyCommonSubscribers(merged, message.stream);
+                if (!this.notifyCommonSubscribers(merged, message.stream)) {
+                    this.reportInvalidStreamData(message, merged);
+                }
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
             case 'trades': {
-                const normalized = this.normalizeTradesStreamData(merged);
+                const normalized = normalizeTradesStreamData(merged);
                 if (normalized) {
                     this.notifyTradesSubscribers(normalized);
                 } else {
-                    this.onInvalidStreamData?.({ stream: message.stream, message, merged });
+                    this.reportInvalidStreamData(message, merged);
                 }
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
@@ -883,8 +848,12 @@ export class PublicWebsocketClient {
         }
     }
 
+    private reportInvalidStreamData(message: PublicWsWireStreamMessage, merged: GenericStreamData): void {
+        this.onInvalidStreamData?.({ stream: message.stream, message, merged });
+    }
+
     private notifyOrderBookSubscribers(data: OrderBookStreamData): void {
-        for (const record of this.orderBookSubscriptions.values()) {
+        for (const record of this.subscriptions.orderBooks()) {
             if (this.orderBookMatches(record.params, data)) {
                 record.handler(data, { params: record.params });
             }
@@ -892,7 +861,7 @@ export class PublicWebsocketClient {
     }
 
     private notifyPortfolioSubscribers(data: PortfolioStreamData): void {
-        for (const record of this.portfolioSubscriptions.values()) {
+        for (const record of this.subscriptions.portfolios()) {
             if (this.portfolioMatches(record.params, data)) {
                 record.handler(data, { params: record.params });
             }
@@ -900,7 +869,7 @@ export class PublicWebsocketClient {
     }
 
     private notifyKlineSubscribers(data: KlineStreamData): void {
-        for (const record of this.klineSubscriptions.values()) {
+        for (const record of this.subscriptions.klines()) {
             if (this.klineMatches(record.params, data)) {
                 record.handler(data, { params: record.params });
             }
@@ -908,7 +877,7 @@ export class PublicWebsocketClient {
     }
 
     private notifyInstrumentSubscribers(data: InstrumentStreamData | MarketPairInfoChangedData): void {
-        for (const record of this.instrumentSubscriptions.values()) {
+        for (const record of this.subscriptions.instruments()) {
             if (this.instrumentMatches(record.params, data)) {
                 record.handler(data, { params: record.params });
             }
@@ -916,35 +885,33 @@ export class PublicWebsocketClient {
     }
 
     private notifyInstrumentBasicInfoSubscribers(data: InstrumentBasicInfoStreamData): void {
-        for (const record of this.instrumentBasicInfoSubscriptions.values()) {
+        for (const record of this.subscriptions.instrumentBasicInfos()) {
             if (this.instrumentBasicInfoMatches(record.params, data)) {
                 record.handler(data, { params: record.params });
             }
         }
     }
 
-    private notifyCommonSubscribers(data: GenericStreamData, stream: string): void {
-        for (const record of this.commonSubscriptions.values()) {
+    private notifyCommonSubscribers(data: GenericStreamData, stream: string): boolean {
+        let matchedSubscription = false;
+        let delivered = false;
+
+        for (const record of this.subscriptions.commons()) {
             if (this.commonMatches(record.params, data, stream)) {
-                if (stream === 'marketListChanged') {
-                    const items = (data as { data?: unknown }).data;
-                    if (Array.isArray(items)) {
-                        record.handler(
-                            { chainId: record.params.chainId, data: items as MarketListItem[] },
-                            { params: record.params }
-                        );
-                        continue;
-                    }
+                matchedSubscription = true;
+                const normalized = normalizeCommonStreamData(data, stream, record.params);
+                if (normalized) {
+                    record.handler(normalized, { params: record.params });
+                    delivered = true;
                 }
-                record.handler(data as unknown as MarketListChangedData | BlockNumChangedData, {
-                    params: record.params,
-                });
             }
         }
+
+        return !matchedSubscription || delivered;
     }
 
     private notifyRawSubscribers(stream: string, data: GenericStreamData): void {
-        for (const record of this.rawSubscriptions.values()) {
+        for (const record of this.subscriptions.raws()) {
             if (this.rawMatches(stream, record, data)) {
                 record.handler(data, { params: record.params });
             }
@@ -952,49 +919,17 @@ export class PublicWebsocketClient {
     }
 
     private notifyTradesSubscribers(data: TradesStreamData): void {
-        for (const record of this.tradesSubscriptions.values()) {
+        for (const record of this.subscriptions.trades()) {
             if (this.tradesMatches(record, data)) {
                 record.handler(data, { params: record.params });
             }
         }
     }
 
-    private isWsAckMessage(value: unknown): value is PublicWsAckMessage {
-        if (!value || typeof value !== 'object') return false;
-        const record = value as Record<string, unknown>;
-        return typeof record.id === 'number' && typeof record.result === 'string';
-    }
-
-    private isWsStreamMessage(value: unknown): value is PublicWsWireStreamMessage {
-        if (!value || typeof value !== 'object') return false;
-        return typeof (value as { stream?: unknown }).stream === 'string';
-    }
-
     private handleWsAckMessage(message: PublicWsAckMessage): void {
-        const receivedAtMs = Date.now();
-        const normalizedResult = message.result.trim().toLowerCase();
-        const ok = normalizedResult === 'success' || normalizedResult.startsWith('success');
-
         const request = this.pendingRequests.get(message.id);
         this.pendingRequests.delete(message.id);
-
-        const event: PublicWsRequestResultEvent = request
-            ? {
-                  id: message.id,
-                  method: request.method,
-                  params: request.params,
-                  result: message.result,
-                  ok,
-                  sentAtMs: request.sentAtMs,
-                  receivedAtMs,
-                  latencyMs: receivedAtMs - request.sentAtMs,
-              }
-            : {
-                  id: message.id,
-                  result: message.result,
-                  ok,
-                  receivedAtMs,
-              };
+        const event = buildWsRequestResultEvent(message, request);
 
         this.onRequestResult?.(event);
     }
@@ -1007,33 +942,33 @@ export class PublicWebsocketClient {
         params: OrderBookSubscribeParams | MmOrderBookSubscribeParams,
         data: OrderBookStreamData
     ): boolean {
-        const chainId = this.normalizeOptionalNumber(data.chainId);
+        const chainId = normalizeOptionalNumber(data.chainId);
         if (chainId !== undefined && chainId !== params.chainId) return false;
 
         const dataInstrument = data.instrument?.toLowerCase();
         if (dataInstrument && dataInstrument !== params.instrument.toLowerCase()) return false;
 
-        const expiry = this.normalizeOptionalNumber(data.expiry);
+        const expiry = normalizeOptionalNumber(data.expiry);
         if (expiry !== undefined && expiry !== params.expiry) return false;
 
         return true;
     }
 
     private portfolioMatches(params: PortfolioSubscribeParams, data: PortfolioStreamData): boolean {
-        const chainId = this.normalizeOptionalNumber(data.chainId);
+        const chainId = normalizeOptionalNumber(data.chainId);
         if (chainId !== undefined && chainId !== params.chainId) return false;
         if (data.userAddress?.toLowerCase() !== params.userAddress.toLowerCase()) return false;
         return true;
     }
 
     private klineMatches(params: KlineSubscribeParams, data: KlineStreamData): boolean {
-        const chainId = this.normalizeOptionalNumber(data.chainId);
+        const chainId = normalizeOptionalNumber(data.chainId);
         if (chainId !== undefined && chainId !== params.chainId) return false;
 
         const dataInstrument = typeof data.instrument === 'string' ? data.instrument.toLowerCase() : undefined;
         if (dataInstrument && dataInstrument !== params.instrument.toLowerCase()) return false;
 
-        const expiry = this.normalizeOptionalNumber(data.expiry);
+        const expiry = normalizeOptionalNumber(data.expiry);
         if (expiry !== undefined && expiry !== params.expiry) return false;
 
         const interval = (data as { interval?: string }).interval;
@@ -1046,14 +981,14 @@ export class PublicWebsocketClient {
         params: InstrumentSubscribeParams,
         data: InstrumentStreamData | MarketPairInfoChangedData
     ): boolean {
-        const chainId = this.normalizeOptionalNumber((data as { chainId?: number }).chainId);
+        const chainId = normalizeOptionalNumber((data as { chainId?: number }).chainId);
         if (chainId !== undefined && chainId !== params.chainId) return false;
 
         const dataInstrument = data.instrument?.toLowerCase();
         if (dataInstrument && dataInstrument !== params.instrument.toLowerCase()) return false;
 
-        const expiry = this.normalizeOptionalNumber((data as { expiry?: number | string }).expiry);
-        const expectedExpiry = this.normalizeOptionalNumber(params.expiry);
+        const expiry = normalizeOptionalNumber((data as { expiry?: number | string }).expiry);
+        const expectedExpiry = normalizeOptionalNumber(params.expiry);
         if (expectedExpiry !== undefined && expiry !== undefined && expectedExpiry !== expiry) return false;
 
         return true;
@@ -1063,20 +998,20 @@ export class PublicWebsocketClient {
         params: InstrumentBasicInfoSubscribeParams,
         data: InstrumentBasicInfoStreamData
     ): boolean {
-        const chainId = this.normalizeOptionalNumber(data.chainId);
+        const chainId = normalizeOptionalNumber(data.chainId);
         if (chainId !== undefined && chainId !== params.chainId) return false;
 
         const dataInstrument = data.instrument?.toLowerCase();
         if (dataInstrument && dataInstrument !== params.instrument.toLowerCase()) return false;
 
-        const expiry = this.normalizeOptionalNumber(data.expiry);
+        const expiry = normalizeOptionalNumber(data.expiry);
         if (expiry !== undefined && expiry !== params.expiry) return false;
 
         return true;
     }
 
     private commonMatches(params: CommonSubscribeParams, data: GenericStreamData, stream: string): boolean {
-        const chainId = this.normalizeOptionalNumber((data as { chainId?: number }).chainId);
+        const chainId = normalizeOptionalNumber((data as { chainId?: number }).chainId);
         if (chainId !== undefined && chainId !== params.chainId) return false;
         // For now accept both blockNumChanged and marketListChanged under common.
         return stream === 'blockNumChanged' || stream === 'marketListChanged';
@@ -1085,8 +1020,8 @@ export class PublicWebsocketClient {
     private rawMatches(stream: string, record: RawSubscriptionRecord, data: GenericStreamData): boolean {
         if (!record.streams.includes(stream)) return false;
 
-        const expectedChainId = this.normalizeOptionalNumber(record.params.chainId);
-        const dataChainId = this.normalizeOptionalNumber((data as { chainId?: number }).chainId);
+        const expectedChainId = normalizeOptionalNumber(record.params.chainId);
+        const dataChainId = normalizeOptionalNumber((data as { chainId?: number }).chainId);
         if (expectedChainId !== undefined && dataChainId !== undefined && expectedChainId !== dataChainId) return false;
 
         const expectedInstrument = record.params.instrument;
@@ -1100,183 +1035,11 @@ export class PublicWebsocketClient {
             return false;
         }
 
-        const expectedExpiry = this.normalizeOptionalNumber(record.params.expiry);
-        const dataExpiry = this.normalizeOptionalNumber((data as { expiry?: number | string }).expiry);
+        const expectedExpiry = normalizeOptionalNumber(record.params.expiry);
+        const dataExpiry = normalizeOptionalNumber((data as { expiry?: number | string }).expiry);
         if (expectedExpiry !== undefined && dataExpiry !== undefined && expectedExpiry !== dataExpiry) return false;
 
         return true;
-    }
-
-    private isPortfolioStreamData(data: GenericStreamData): data is PortfolioStreamData {
-        const userAddress = (data as { userAddress?: unknown }).userAddress;
-        const type = (data as { type?: unknown }).type;
-        return typeof userAddress === 'string' && typeof type === 'string';
-    }
-
-    private normalizeTradesStreamData(data: GenericStreamData): TradesStreamData | null {
-        if (!data || typeof data !== 'object') return null;
-        const record = data as Record<string, unknown>;
-
-        const chainId = this.normalizeOptionalNumber(record.chainId);
-        const expiry = this.normalizeOptionalNumber(record.expiry);
-        const instrument =
-            typeof record.instrument === 'string'
-                ? record.instrument
-                : typeof record.instrumentAddress === 'string'
-                  ? record.instrumentAddress
-                  : undefined;
-
-        if (chainId === undefined || expiry === undefined || typeof instrument !== 'string') return null;
-
-        const rawItems = record.data;
-        if (!Array.isArray(rawItems)) return null;
-
-        const defaults: { chainId?: number; expiry?: number; instrument?: string } = {
-            chainId,
-            expiry,
-            instrument,
-        };
-
-        const normalized: TradeItem[] = [];
-        for (const rawItem of rawItems) {
-            const item = this.normalizeTradeItem(rawItem, defaults);
-            if (item) normalized.push(item);
-        }
-
-        if (normalized.length === 0) return null;
-
-        return {
-            chainId,
-            instrument: instrument.toLowerCase() as Address,
-            expiry,
-            data: normalized,
-        };
-    }
-
-    private normalizeTradeItem(
-        data: unknown,
-        defaults: { chainId?: number; expiry?: number; instrument?: string }
-    ): TradeItem | null {
-        if (!data || typeof data !== 'object') return null;
-        const record = data as Record<string, unknown>;
-
-        const id = record.id;
-        const chainId = this.normalizeOptionalNumber(record.chainId) ?? defaults.chainId;
-        const expiry = this.normalizeOptionalNumber(record.expiry) ?? defaults.expiry;
-        if (chainId === undefined || expiry === undefined) return null;
-
-        const instrument =
-            typeof record.instrument === 'string'
-                ? record.instrument
-                : typeof record.instrumentAddress === 'string'
-                  ? record.instrumentAddress
-                  : defaults.instrument;
-
-        const instrumentAddress =
-            typeof record.instrumentAddress === 'string'
-                ? record.instrumentAddress
-                : typeof record.instrument === 'string'
-                  ? record.instrument
-                  : defaults.instrument;
-        if (!instrument || !instrumentAddress) return null;
-
-        const normalizedInstrument = instrument.toLowerCase();
-        const normalizedInstrumentAddress = instrumentAddress.toLowerCase();
-
-        const size = record.size;
-        const balance = record.balance;
-        const price = record.price;
-        const tradeFee = record.tradeFee;
-        const protocolFee = record.protocolFee;
-        const timestamp = this.normalizeOptionalNumber(record.timestamp);
-        const txHash = record.txHash;
-        const type = record.type;
-        const symbol = record.symbol;
-        const typeString = record.typeString;
-        const side = record.side;
-        const event = record.event;
-        const markPrice = record.markPrice;
-        const fairPrice = record.fairPrice;
-
-        const normalizeTokenInfo = (value: unknown): TradesTokenInfo | null => {
-            if (!value || typeof value !== 'object') return null;
-
-            const token = value as Record<string, unknown>;
-            const address = token.address;
-            const symbol = token.symbol;
-            const decimals = this.normalizeOptionalNumber(token.decimals);
-            const image = token.image;
-            const price = this.normalizeOptionalNumber(token.price);
-
-            if (
-                typeof address !== 'string' ||
-                typeof symbol !== 'string' ||
-                decimals === undefined ||
-                typeof image !== 'string' ||
-                price === undefined
-            ) {
-                return null;
-            }
-
-            return {
-                ...token,
-                address,
-                symbol,
-                decimals,
-                image,
-                price,
-            } as TradesTokenInfo;
-        };
-
-        const baseToken = normalizeTokenInfo(record.baseToken);
-        const quoteToken = normalizeTokenInfo(record.quoteToken);
-
-        if (
-            typeof id !== 'string' ||
-            typeof size !== 'string' ||
-            typeof balance !== 'string' ||
-            typeof price !== 'string' ||
-            typeof tradeFee !== 'string' ||
-            typeof protocolFee !== 'string' ||
-            timestamp === undefined ||
-            typeof txHash !== 'string' ||
-            typeof type !== 'string' ||
-            typeof symbol !== 'string' ||
-            !baseToken ||
-            !quoteToken ||
-            typeof typeString !== 'string' ||
-            typeof side !== 'string' ||
-            typeof event !== 'string' ||
-            typeof markPrice !== 'string' ||
-            typeof fairPrice !== 'string'
-        ) {
-            return null;
-        }
-
-        return {
-            ...record,
-            id,
-            chainId,
-            instrument: normalizedInstrument as Address,
-            instrumentAddress: normalizedInstrumentAddress as Address,
-            expiry,
-            size,
-            balance,
-            price,
-            tradeFee,
-            protocolFee,
-            timestamp,
-            txHash,
-            type,
-            symbol,
-            baseToken,
-            quoteToken,
-            typeString,
-            side,
-            event,
-            markPrice,
-            fairPrice,
-        };
     }
 
     private tradesMatches(record: TradesSubscriptionRecord, data: TradesStreamData): boolean {
@@ -1285,165 +1048,5 @@ export class PublicWebsocketClient {
         const instrument = data.instrument.toLowerCase();
         const pair = `${instrument}_${data.expiry}`;
         return record.pairSet.has(pair);
-    }
-
-    // -----------------------------------------------------------------------
-    // Utilities
-    // -----------------------------------------------------------------------
-
-    private mergeStreamMetadata(message: { data?: unknown } & BaseStreamMetadata): GenericStreamData {
-        const data = message.data;
-        const base: GenericStreamData = Array.isArray(data)
-            ? { data }
-            : data && typeof data === 'object'
-              ? { ...(data as Record<string, unknown>) }
-              : {};
-
-        const mergeField = <T>(key: string, value: T | undefined): void => {
-            if (value !== undefined) {
-                base[key] = value as unknown;
-            }
-        };
-
-        mergeField('chainId', message.chainId);
-        mergeField('instrument', message.instrument);
-        mergeField('expiry', message.expiry);
-
-        return base;
-    }
-
-    private normalizeOrderBookStream(data: GenericStreamData): OrderBookStreamData | null {
-        const raw = data as Record<string, any>;
-        if (!raw || typeof raw !== 'object') {
-            return null;
-        }
-
-        if (raw.depths && typeof raw.depths === 'object') {
-            return raw as OrderBookStreamData;
-        }
-
-        const ratioKeys = Object.keys(raw).filter((k) => !Number.isNaN(Number(k)));
-        if (ratioKeys.length > 0) {
-            const depths: Record<string, OrderBookDepth> = {};
-            const primaryDepth = raw[ratioKeys[0]];
-
-            for (const key of ratioKeys) {
-                const depth = raw[key];
-                if (depth && typeof depth === 'object') {
-                    depths[key] = {
-                        blockInfo: depth.blockInfo,
-                        bids: Array.isArray(depth.bids) ? depth.bids : [],
-                        asks: Array.isArray(depth.asks) ? depth.asks : [],
-                    };
-                }
-            }
-
-            return {
-                depths,
-                chainId: (raw.chainId ?? primaryDepth?.chainId ?? 0) as number,
-                instrument: (raw.instrument ?? primaryDepth?.instrument ?? '') as Address,
-                expiry: (raw.expiry ?? primaryDepth?.expiry ?? 0) as number | string,
-            };
-        }
-
-        return null;
-    }
-
-    private createSocket(): WebSocketLike {
-        if (this.wsFactory) {
-            return this.wsFactory(this.url, { headers: this.headers });
-        }
-
-        const globalWebSocketCtor = (globalThis as { WebSocket?: WebSocketCtor }).WebSocket;
-        if (globalWebSocketCtor) {
-            return new globalWebSocketCtor(this.url);
-        }
-
-        throw new Error(
-            'No WebSocket implementation found. Provide `wsFactory` or ensure `globalThis.WebSocket` is available (e.g. browsers or Node.js 20+).'
-        );
-    }
-
-    private attachListener(socket: WebSocketLike, event: string, handler: (...args: any[]) => void): void {
-        if (typeof socket.addEventListener === 'function') {
-            socket.addEventListener(event, handler);
-            return;
-        }
-
-        if (typeof socket.on === 'function') {
-            socket.on(event, handler);
-            return;
-        }
-
-        (socket as any)[`on${event}`] = handler;
-    }
-
-    private extractMessageText(event: unknown): string | null {
-        if (typeof event === 'string') return event;
-
-        const candidate = (event as { data?: unknown })?.data ?? event;
-        if (typeof candidate === 'string') return candidate;
-
-        if (candidate && typeof (candidate as { toString: () => string }).toString === 'function') {
-            return (candidate as { toString: () => string }).toString();
-        }
-
-        return null;
-    }
-
-    private normalizeOptionalNumber(value: unknown): number | undefined {
-        if (value === undefined || value === null) return undefined;
-        const num = typeof value === 'string' ? Number(value) : (value as number);
-        return Number.isFinite(num) ? num : undefined;
-    }
-
-    private buildRequestParams(params: PublicWsSubscribeParams): Record<string, unknown> {
-        const requestParams =
-            'params' in params
-                ? (() => {
-                      const { params: extra, ...rest } = params as RawSubscribeParams;
-                      return { ...(rest as unknown as Record<string, unknown>), ...(extra ?? {}) };
-                  })()
-                : { ...(params as unknown as Record<string, unknown>) };
-
-        return this.normalizeRequestParams(requestParams);
-    }
-
-    private normalizeRequestParams(params: Record<string, unknown>): Record<string, unknown> {
-        const normalized: Record<string, unknown> = { ...params };
-
-        const instrument = normalized.instrument;
-        if (typeof instrument === 'string') {
-            normalized.instrument = instrument.toLowerCase();
-        }
-
-        const userAddress = normalized.userAddress;
-        if (typeof userAddress === 'string') {
-            normalized.userAddress = userAddress.toLowerCase();
-        }
-
-        const pairs = normalized.pairs;
-        if (Array.isArray(pairs)) {
-            normalized.pairs = pairs
-                .filter((pair): pair is string => typeof pair === 'string')
-                .map((pair) => pair.toLowerCase());
-        }
-
-        return normalized;
-    }
-
-    private buildHeaders(overrides?: Record<string, string>): Record<string, string> {
-        const urlObj = new URL(this.url);
-        const origin =
-            urlObj.protocol === 'wss:'
-                ? `https://${urlObj.host}`
-                : urlObj.protocol === 'ws:'
-                  ? `http://${urlObj.host}`
-                  : `${urlObj.protocol}//${urlObj.host}`;
-        return {
-            'User-Agent': DEFAULT_USER_AGENT,
-            Origin: origin,
-            ...overrides,
-        };
     }
 }

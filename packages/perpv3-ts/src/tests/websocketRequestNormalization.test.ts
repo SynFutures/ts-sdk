@@ -1,72 +1,19 @@
 import { PublicWebsocketClient } from '../apis/websocket';
 import type { Address } from 'viem';
-
-type EventHandler = (...args: unknown[]) => void;
-
-class FakeWebSocket {
-    readyState = 0;
-    readonly sent: string[] = [];
-
-    private readonly listeners = new Map<string, EventHandler[]>();
-
-    addEventListener(event: string, handler: EventHandler): void {
-        const existing = this.listeners.get(event) ?? [];
-        existing.push(handler);
-        this.listeners.set(event, existing);
-    }
-
-    send(data: string): void {
-        this.sent.push(data);
-    }
-
-    close(): void {
-        this.readyState = 3;
-        this.emit('close', {});
-    }
-
-    open(): void {
-        this.readyState = 1;
-        this.emit('open');
-    }
-
-    private emit(event: string, payload?: unknown): void {
-        for (const handler of this.listeners.get(event) ?? []) {
-            handler(payload);
-        }
-    }
-}
-
-function parseWsRequest(payload: string): { method: string; params: Record<string, unknown> } {
-    const parsed: unknown = JSON.parse(payload);
-    if (!parsed || typeof parsed !== 'object') throw new Error('Invalid WS request payload');
-
-    const method = (parsed as { method?: unknown }).method;
-    const params = (parsed as { params?: unknown }).params;
-    if (typeof method !== 'string' || !params || typeof params !== 'object') {
-        throw new Error('Invalid WS request payload shape');
-    }
-
-    return { method, params: params as Record<string, unknown> };
-}
+import { createFakeWebSocketFactory, parseWsRequest, type FakeWebSocket } from './helpers/fakeWebSocket';
 
 describe('PublicWebsocketClient request normalization', () => {
     it('lowercases instrument/userAddress/pairs in outgoing requests', () => {
         const sockets: FakeWebSocket[] = [];
 
-        const mixedCaseInstrument =
-            '0xAbCdEf000000000000000000000000000000000000' as Address;
-        const mixedCaseUserAddress =
-            '0xB0B81c2c7686c63acAE28F9778ca8Fa80f0C004b' as Address;
+        const mixedCaseInstrument = '0xAbCdEf000000000000000000000000000000000000' as Address;
+        const mixedCaseUserAddress = '0xB0B81c2c7686c63acAE28F9778ca8Fa80f0C004b' as Address;
 
         const client = new PublicWebsocketClient({
             url: 'ws://localhost',
             pingIntervalMs: 0,
             autoReconnect: false,
-            wsFactory: () => {
-                const socket = new FakeWebSocket();
-                sockets.push(socket);
-                return socket;
-            },
+            wsFactory: createFakeWebSocketFactory(sockets),
         });
 
         const orderBookSub = client.subscribeOrderBook(
@@ -122,4 +69,3 @@ describe('PublicWebsocketClient request normalization', () => {
         client.close();
     });
 });
-
