@@ -29,23 +29,7 @@ jobs:
             - name: Configure private registry
               env:
                   NPM_REGISTRY_URL: ${{ secrets.NPM_REGISTRY_URL }}
-              run: |
-                  node <<'NODE'
-                  const { writeFileSync } = require('node:fs');
-                  const { join } = require('node:path');
-                  let registry;
-                  try {
-                      registry = new URL(process.env.NPM_REGISTRY_URL);
-                  } catch {
-                      throw new Error('NPM_REGISTRY_URL must be a valid registry URL');
-                  }
-                  if (!['http:', 'https:'].includes(registry.protocol) || registry.username || registry.password || registry.search || registry.hash) {
-                      throw new Error('Expected a registry URL without credentials, query or fragment');
-                  }
-                  registry.pathname = registry.pathname.replace(/\/?$/, '/');
-                  const content = `@synfutures:registry=${registry.href}\n@derivation-tech:registry=${registry.href}\n//${registry.host}${registry.pathname}:_authToken=\${NODE_AUTH_TOKEN}\n`;
-                  writeFileSync(join(process.env.RUNNER_TEMP, 'perpv3-registry.npmrc'), content, { mode: 0o600 });
-                  NODE
+              run: node scripts/configure-registry.cjs
             - name: Install Dependencies
               env:
                   NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/perpv3-registry.npmrc
