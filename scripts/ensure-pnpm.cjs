@@ -7,4 +7,3 @@ if (!isPnpm) {
     console.error('This repository uses pnpm. Please run: pnpm install');
     process.exit(1);
 }
-
