@@ -84,7 +84,12 @@ export async function fetchOnchainContext(
 
     // Extract Setting, AMM, and markPrice from instrument response
     const perpInfo = getPerpInfo(chainId);
-    const { setting, amm, markPrice } = extractSettingAmmAndMarkPriceInternal(instrumentFromApi, expiry, perpInfo.gate);
+    const { setting, amm, markPrice } = extractSettingAmmAndMarkPriceInternal(
+        instrumentFromApi,
+        expiry,
+        perpInfo.gate,
+        perpInfo.config
+    );
 
     const priceData = onChainContextResponse.priceData
         ? buildPriceDataFromApi(onChainContextResponse.priceData)
@@ -186,7 +191,8 @@ export async function inquireByTick(
 function extractSettingAmmAndMarkPriceInternal(
     instrumentFromApi: InstrumentFromApi,
     expiry: number,
-    gateAddress: Address
+    gateAddress: Address,
+    configAddress: Address
 ): { setting: Setting; amm: Amm; markPrice: bigint } {
     // Find the AMM for the requested expiry
     const responseAmm: AmmFromApi | undefined = instrumentFromApi.amms.find((amm) => amm.expiry === expiry);
@@ -225,7 +231,7 @@ function extractSettingAmmAndMarkPriceInternal(
     // Build Setting from the data
     const setting: Setting = {
         symbol: instrumentFromApi.symbol,
-        config: instrumentFromApi.market.info.addr,
+        config: configAddress,
         gate: gateAddress,
         market: instrumentFromApi.market.info.addr,
         quote: instrumentFromApi.quote.address as Address,

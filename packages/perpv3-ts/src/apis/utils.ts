@@ -1,343 +1,293 @@
-import { zeroAddress } from 'viem';
-import { DEFAULT_FUNDING_HOUR } from '../constants';
 import {
-	Condition,
-	PairSnapshot,
-	type Setting,
-	type QuoteParam,
-	type Amm,
-	type PriceData,
-	type Portfolio,
-	type QuoteState,
-	type SpacingConfig,
-	type BlockInfo,
-	type Quotation,
-	Order,
-	Position,
-	Range,
+    Condition,
+    PairSnapshot,
+    type Setting,
+    type QuoteParam,
+    type Amm,
+    type PriceData,
+    type Portfolio,
+    type QuoteState,
+    type SpacingConfig,
+    type BlockInfo,
+    type Quotation,
+    Order,
+    Position,
+    Range,
 } from '../types';
-import type {
-	OnChainContextQueryResponseFromApi,
-	OnChainQuerySettingFromApi,
-	OnChainQueryAmmFromApi,
-	OnChainQueryPriceDataFromApi,
-	OnChainQueryPortfolioFromApi,
-	OnChainQueryPositionFromApi,
-	OnChainQueryOrderFromApi,
-	OnChainQueryRangeFromApi,
-	OnChainQueryQuotationFromApi,
-	OnChainQueryQuoteStateFromApi,
-	OnChainQuerySpacingFromApi,
-	OnChainQueryBlockInfoFromApi,
-	Bigintish,
-} from './interfaces';
+import {
+    requireRecord,
+    requireArray,
+    requireString,
+    requireAddress,
+    requireNumberValue,
+    requireBoolean,
+} from './codecs';
 
 export type MinimalPearlTuple = readonly [bigint, bigint];
 
 export function normalizeMinimalPearlTuple(value: unknown): MinimalPearlTuple | null {
-	if (Array.isArray(value)) {
-		if (value.length < 2) {
-			return null;
-		}
-		const [liquidityNet, left] = value;
-		return [toBigIntOrZero(liquidityNet), toBigIntOrZero(left)] as const;
-	}
+    if (Array.isArray(value)) {
+        if (value.length < 2) {
+            return null;
+        }
+        const [liquidityNet, left] = value;
+        return [toBigIntValue(liquidityNet), toBigIntValue(left)] as const;
+    }
 
-	if (value && typeof value === 'object') {
-		const record = value as Record<string, unknown>;
-		if ('liquidityNet' in record && 'left' in record) {
-			return [toBigIntOrZero(record.liquidityNet), toBigIntOrZero(record.left)] as const;
-		}
-		if ('0' in record && '1' in record) {
-			return [toBigIntOrZero(record[0]), toBigIntOrZero(record[1])] as const;
-		}
-	}
+    if (value && typeof value === 'object') {
+        const record = value as Record<string, unknown>;
+        if ('liquidityNet' in record && 'left' in record) {
+            return [toBigIntValue(record.liquidityNet), toBigIntValue(record.left)] as const;
+        }
+        if ('0' in record && '1' in record) {
+            return [toBigIntValue(record[0]), toBigIntValue(record[1])] as const;
+        }
+    }
 
-	return null;
+    return null;
 }
 
-function toBigIntOrZero(value: unknown): bigint {
-	if (typeof value === 'bigint') {
-		return value;
-	}
-	if (typeof value === 'number') {
-		if (!Number.isFinite(value)) {
-			return 0n;
-		}
-		return BigInt(Math.trunc(value));
-	}
-	if (typeof value === 'string') {
-		const normalized = value.trim();
-		if (!normalized) {
-			return 0n;
-		}
-		try {
-			return BigInt(normalized);
-		} catch {
-			return 0n;
-		}
-	}
-	return 0n;
+export function toBigIntValue(value: unknown): bigint {
+    if (typeof value === 'bigint') return value;
+    if (typeof value === 'number') {
+        if (Number.isSafeInteger(value)) return BigInt(value);
+        throw new Error('Invalid bigint: expected safe integer');
+    }
+    if (typeof value !== 'string' || !value.trim() || value.length > 1000) {
+        throw new Error('Invalid bigint: expected integer string');
+    }
+    const text = value.trim();
+    const match = /^([+-]?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(text);
+    if (!match) throw new Error('Invalid bigint: expected integer string');
+    const [, sign, whole, fraction = '', power = '0'] = match;
+    const shift = Number(power) - fraction.length;
+    if (!Number.isSafeInteger(shift) || Math.abs(shift) > 1000) throw new Error('Invalid bigint exponent');
+    let digits = whole + fraction;
+    if (shift < 0) {
+        const retained = digits.length + shift;
+        if (/[1-9]/.test(digits.slice(Math.max(0, retained)))) throw new Error('Invalid bigint: fractional value');
+        digits = retained > 0 ? digits.slice(0, retained) : '0';
+    } else {
+        digits += '0'.repeat(shift);
+    }
+    return BigInt(`${sign}${digits}`);
 }
 
-const SCI_NOTATION_REGEX = /^(-?)(\d+)(?:\.(\d+))?[eE]([+-]?\d+)$/;
-
-export function toBigIntValue(value: Bigintish | null | undefined): bigint {
-	if (value === null || value === undefined) {
-		return 0n;
-	}
-	if (typeof value === 'bigint') {
-		return value;
-	}
-
-	const normalized = `${value}`.trim();
-	if (!normalized) {
-		return 0n;
-	}
-
-	const scientific = normalizeScientificToBigInt(normalized);
-	if (scientific !== null) {
-		return scientific;
-	}
-
-	const integerString = normalized.includes('.') ? normalized.split('.')[0] || '0' : normalized;
-	if (!integerString || integerString === '-' || integerString === '+') {
-		return 0n;
-	}
-
-	try {
-		return BigInt(integerString);
-	} catch {
-		return 0n;
-	}
+function integer(value: unknown, label: string): number {
+    const result = requireNumberValue(value, label);
+    if (!Number.isSafeInteger(result)) throw new Error(`Invalid ${label}: expected safe integer`);
+    return result;
 }
 
-function normalizeScientificToBigInt(value: string): bigint | null {
-	const match = value.match(SCI_NOTATION_REGEX);
-	if (!match) {
-		return null;
-	}
-
-	const [, sign, integerPart, fractional = '', exponentStr] = match;
-	const digits = (integerPart + fractional).replace(/^0+/, '') || '0';
-	const exponent = Number(exponentStr) - fractional.length;
-	let normalizedDigits = digits;
-
-	if (exponent >= 0) {
-		normalizedDigits = normalizedDigits + '0'.repeat(exponent);
-	} else {
-		const cutIndex = normalizedDigits.length + exponent;
-		if (cutIndex <= 0) {
-			normalizedDigits = '0';
-		} else {
-			normalizedDigits = normalizedDigits.slice(0, cutIndex);
-		}
-	}
-
-	if (normalizedDigits === '0') {
-		return 0n;
-	}
-
-	return BigInt(`${sign === '-' ? '-' : ''}${normalizedDigits}`);
+function optionalArray(value: unknown, label: string): unknown[] {
+    return value == null ? [] : requireArray(value, label);
 }
 
-export function buildOnChainContextFromQuery(data: OnChainContextQueryResponseFromApi): PairSnapshot {
-	const setting = normalizeSettingFromQuery(data.Setting);
-	return new PairSnapshot({
-		setting,
-		condition: Number(data.Condition ?? 0) as Condition,
-		amm: normalizeAmmFromQuery(data.Amm),
-		priceData: normalizePriceDataFromQuery(data.PriceData),
-		spacing: normalizeSpacingFromQuery(data.Spacing),
-		blockInfo: normalizeBlockInfoFromQuery(data.BlockInfo),
-		portfolio: data.Portfolio ? normalizePortfolioFromQuery(data.Portfolio) : PairSnapshot.emptyPortfolio(),
-		quotation: data.Quotation ? normalizeQuotationFromQuery(data.Quotation) : undefined,
-		quoteState: data.QuoteState
-			? normalizeQuoteStateFromQuery(data.QuoteState)
-			: PairSnapshot.emptyQuoteState(setting.quote, setting.decimals, ''),
-	});
+export function buildOnChainContextFromQuery(value: unknown): PairSnapshot {
+    const data = requireRecord(value, 'on-chain context');
+    const setting = normalizeSettingFromQuery(data.Setting);
+    return new PairSnapshot({
+        setting,
+        condition: integer(data.Condition, 'Condition') as Condition,
+        amm: normalizeAmmFromQuery(data.Amm),
+        priceData: normalizePriceDataFromQuery(data.PriceData),
+        spacing: normalizeSpacingFromQuery(data.Spacing),
+        blockInfo: normalizeBlockInfoFromQuery(data.BlockInfo),
+        portfolio: data.Portfolio != null ? normalizePortfolioFromQuery(data.Portfolio) : PairSnapshot.emptyPortfolio(),
+        quotation: data.Quotation != null ? normalizeQuotationFromQuery(data.Quotation) : undefined,
+        quoteState:
+            data.QuoteState != null
+                ? normalizeQuoteStateFromQuery(data.QuoteState)
+                : PairSnapshot.emptyQuoteState(setting.quote, setting.decimals, ''),
+    });
 }
 
-function normalizeSettingFromQuery(raw: OnChainQuerySettingFromApi): Setting {
-	const param = raw.Param;
-	const fundingHour = Number(raw.FundingHour ?? 0);
-	return {
-		symbol: raw.Symbol,
-		config: raw.Config,
-		gate: raw.Gate,
-		market: raw.Market,
-		quote: raw.Quote,
-		decimals: Number(raw.Decimals ?? 0),
-		initialMarginRatio: Number(raw.InitialMarginRatio ?? 0),
-		maintenanceMarginRatio: Number(raw.MaintenanceMarginRatio ?? 0),
-		placePaused: Boolean(raw.PlacePaused),
-		fundingHour: fundingHour > 0 ? fundingHour : DEFAULT_FUNDING_HOUR,
-		disableOrderRebate: Boolean(raw.DisableOrderRebate),
-		param: {
-			minMarginAmount: toBigIntValue(param?.MinMarginAmount),
-			tradingFeeRatio: Number(param?.TradingFeeRatio ?? 0),
-			protocolFeeRatio: Number(param?.ProtocolFeeRatio ?? 0),
-			qtype: Number(param?.Qtype ?? 0) as QuoteParam['qtype'],
-			tip: toBigIntValue(param?.Tip),
-		},
-	};
+function normalizeSettingFromQuery(value: unknown): Setting {
+    const raw = requireRecord(value, 'Setting');
+    const param = requireRecord(raw.Param, 'Setting.Param');
+    const fundingHour = integer(raw.FundingHour, 'FundingHour');
+    return {
+        symbol: requireString(raw, 'Symbol'),
+        config: requireAddress(raw, 'Config'),
+        gate: requireAddress(raw, 'Gate'),
+        market: requireAddress(raw, 'Market'),
+        quote: requireAddress(raw, 'Quote'),
+        decimals: integer(raw.Decimals, 'Decimals'),
+        initialMarginRatio: integer(raw.InitialMarginRatio, 'InitialMarginRatio'),
+        maintenanceMarginRatio: integer(raw.MaintenanceMarginRatio, 'MaintenanceMarginRatio'),
+        placePaused: requireBoolean(raw, 'PlacePaused'),
+        fundingHour,
+        disableOrderRebate: requireBoolean(raw, 'DisableOrderRebate'),
+        param: {
+            minMarginAmount: toBigIntValue(param.MinMarginAmount),
+            tradingFeeRatio: integer(param.TradingFeeRatio, 'TradingFeeRatio'),
+            protocolFeeRatio: integer(param.ProtocolFeeRatio, 'ProtocolFeeRatio'),
+            qtype: integer(param.Qtype, 'Qtype') as QuoteParam['qtype'],
+            tip: toBigIntValue(param.Tip),
+        },
+    };
 }
 
-function normalizeAmmFromQuery(raw: OnChainQueryAmmFromApi): Amm {
-	return {
-		expiry: Number(raw.Expiry ?? 0),
-		timestamp: Number(raw.Timestamp ?? 0),
-		status: Number(raw.Status ?? 0),
-		tick: Number(raw.Tick ?? 0),
-		sqrtPX96: toBigIntValue(raw.SqrtPX96),
-		liquidity: toBigIntValue(raw.Liquidity),
-		totalLiquidity: toBigIntValue(raw.TotalLiquidity),
-		totalShort: toBigIntValue(raw.TotalShort),
-		openInterests: toBigIntValue(raw.OpenInterests),
-		totalLong: toBigIntValue(raw.TotalLong),
-		involvedFund: toBigIntValue(raw.InvolvedFund),
-		feeIndex: toBigIntValue(raw.FeeIndex),
-		protocolFee: toBigIntValue(raw.ProtocolFee),
-		longSocialLossIndex: toBigIntValue(raw.LongSocialLossIndex),
-		shortSocialLossIndex: toBigIntValue(raw.ShortSocialLossIndex),
-		longFundingIndex: toBigIntValue(raw.LongFundingIndex),
-		shortFundingIndex: toBigIntValue(raw.ShortFundingIndex),
-		insuranceFund: toBigIntValue(raw.InsuranceFund),
-		settlementPrice: toBigIntValue(raw.SettlementPrice),
-	};
+function normalizeAmmFromQuery(value: unknown): Amm {
+    const raw = requireRecord(value, 'Amm');
+    return {
+        expiry: integer(raw.Expiry, 'Expiry'),
+        timestamp: integer(raw.Timestamp, 'Timestamp'),
+        status: integer(raw.Status, 'Status'),
+        tick: integer(raw.Tick, 'Tick'),
+        sqrtPX96: toBigIntValue(raw.SqrtPX96),
+        liquidity: toBigIntValue(raw.Liquidity),
+        totalLiquidity: toBigIntValue(raw.TotalLiquidity),
+        totalShort: toBigIntValue(raw.TotalShort),
+        openInterests: toBigIntValue(raw.OpenInterests),
+        totalLong: toBigIntValue(raw.TotalLong),
+        involvedFund: toBigIntValue(raw.InvolvedFund),
+        feeIndex: toBigIntValue(raw.FeeIndex),
+        protocolFee: toBigIntValue(raw.ProtocolFee),
+        longSocialLossIndex: toBigIntValue(raw.LongSocialLossIndex),
+        shortSocialLossIndex: toBigIntValue(raw.ShortSocialLossIndex),
+        longFundingIndex: toBigIntValue(raw.LongFundingIndex),
+        shortFundingIndex: toBigIntValue(raw.ShortFundingIndex),
+        insuranceFund: toBigIntValue(raw.InsuranceFund),
+        settlementPrice: toBigIntValue(raw.SettlementPrice),
+    };
 }
 
-function normalizePriceDataFromQuery(raw: OnChainQueryPriceDataFromApi): PriceData {
-	return {
-		instrument: raw.Instrument ?? zeroAddress,
-		expiry: Number(raw.Expiry ?? 0),
-		markPrice: toBigIntValue(raw.MarkPrice),
-		spotPrice: toBigIntValue(raw.SpotPrice),
-		benchmarkPrice: toBigIntValue(raw.BenchmarkPrice),
-		feeder0: raw.Feeder0 ?? zeroAddress,
-		feeder1: raw.Feeder1 ?? zeroAddress,
-		feeder0UpdatedAt: toBigIntValue(raw.Feeder0UpdatedAt),
-		feeder1UpdatedAt: toBigIntValue(raw.Feeder1UpdatedAt),
-	};
+function normalizePriceDataFromQuery(value: unknown): PriceData {
+    const raw = requireRecord(value, 'PriceData');
+    return {
+        instrument: requireAddress(raw, 'Instrument'),
+        expiry: integer(raw.Expiry, 'Expiry'),
+        markPrice: toBigIntValue(raw.MarkPrice),
+        spotPrice: toBigIntValue(raw.SpotPrice),
+        benchmarkPrice: toBigIntValue(raw.BenchmarkPrice),
+        feeder0: requireAddress(raw, 'Feeder0'),
+        feeder1: requireAddress(raw, 'Feeder1'),
+        feeder0UpdatedAt: toBigIntValue(raw.Feeder0UpdatedAt),
+        feeder1UpdatedAt: toBigIntValue(raw.Feeder1UpdatedAt),
+    };
 }
 
-function normalizePortfolioFromQuery(raw?: OnChainQueryPortfolioFromApi | null): Portfolio {
-	if (!raw) {
-		return PairSnapshot.emptyPortfolio();
-	}
+function normalizePortfolioFromQuery(value: unknown): Portfolio {
+    if (value == null) return PairSnapshot.emptyPortfolio();
+    const raw = requireRecord(value, 'Portfolio');
 
-	const position = normalizePositionFromQuery(raw.Position);
-	const oids = Array.isArray(raw.Oids) ? raw.Oids.map((oid) => Number(oid ?? 0)) : [];
-	const orders = Array.isArray(raw.Orders)
-		? raw.Orders.map((order, index) => {
-			const oid = oids[index];
-			if (oid === undefined) {
-				throw new Error('Order oid is missing');
-			}
-			const { tick, nonce } = Order.unpackKey(oid);
-			return normalizeOrderFromQuery(order, tick, nonce);
-		})
-		: [];
-	const rids = Array.isArray(raw.Rids) ? raw.Rids.map((rid) => Number(rid ?? 0)) : [];
-	const ranges = Array.isArray(raw.Ranges)
-		? raw.Ranges.map((range, index) => {
-			const rid = rids[index];
-			if (rid === undefined) {
-				throw new Error('Range rid is missing');
-			}
-			const { tickLower, tickUpper } = Range.unpackKey(rid);
-			return normalizeRangeFromQuery(range, tickLower, tickUpper);
-		})
-		: [];
-	const ordersTaken = Array.isArray(raw.OrdersTaken) ? raw.OrdersTaken.map((value) => toBigIntValue(value)) : [];
+    const position = normalizePositionFromQuery(raw.Position);
+    const oids = optionalArray(raw.Oids, 'Oids').map((oid) => integer(oid, 'oid'));
+    const orders = optionalArray(raw.Orders, 'Orders').map((order, index) => {
+        const oid = oids[index];
+        if (oid === undefined) {
+            throw new Error('Order oid is missing');
+        }
+        const { tick, nonce } = Order.unpackKey(oid);
+        return normalizeOrderFromQuery(order, tick, nonce);
+    });
+    const rids = optionalArray(raw.Rids, 'Rids').map((rid) => integer(rid, 'rid'));
+    const ranges = optionalArray(raw.Ranges, 'Ranges').map((range, index) => {
+        const rid = rids[index];
+        if (rid === undefined) {
+            throw new Error('Range rid is missing');
+        }
+        const { tickLower, tickUpper } = Range.unpackKey(rid);
+        return normalizeRangeFromQuery(range, tickLower, tickUpper);
+    });
+    const ordersTaken = optionalArray(raw.OrdersTaken, 'OrdersTaken').map(toBigIntValue);
+    if (oids.length !== orders.length || rids.length !== ranges.length || ordersTaken.length !== orders.length)
+        throw new Error('Portfolio array lengths do not match');
 
-	return {
-		oids,
-		rids,
-		position,
-		orders,
-		ranges,
-		ordersTaken,
-	};
+    return {
+        oids,
+        rids,
+        position,
+        orders,
+        ranges,
+        ordersTaken,
+    };
 }
 
-function normalizePositionFromQuery(raw?: OnChainQueryPositionFromApi | null): Position {
-	if (!raw) {
-		return Position.empty();
-	}
+function normalizePositionFromQuery(value: unknown): Position {
+    if (value == null) return Position.empty();
+    const raw = requireRecord(value, 'Position');
 
-	return new Position(
-		toBigIntValue(raw.Balance),
-		toBigIntValue(raw.Size),
-		toBigIntValue(raw.EntryNotional),
-		toBigIntValue(raw.EntrySocialLossIndex),
-		toBigIntValue(raw.EntryFundingIndex)
-	);
+    return new Position(
+        toBigIntValue(raw.Balance),
+        toBigIntValue(raw.Size),
+        toBigIntValue(raw.EntryNotional),
+        toBigIntValue(raw.EntrySocialLossIndex),
+        toBigIntValue(raw.EntryFundingIndex)
+    );
 }
 
-function normalizeOrderFromQuery(raw: OnChainQueryOrderFromApi, tick: number, nonce: number): Order {
-	return new Order(toBigIntValue(raw.Balance), toBigIntValue(raw.Size), tick, nonce);
+function normalizeOrderFromQuery(value: unknown, tick: number, nonce: number): Order {
+    const raw = requireRecord(value, 'Order');
+    return new Order(toBigIntValue(raw.Balance), toBigIntValue(raw.Size), tick, nonce);
 }
 
-function normalizeRangeFromQuery(raw: OnChainQueryRangeFromApi, tickLower: number, tickUpper: number): Range {
-	return new Range(
-		toBigIntValue(raw.Liquidity),
-		toBigIntValue(raw.EntryFeeIndex),
-		toBigIntValue(raw.Balance),
-		toBigIntValue(raw.SqrtEntryPX96),
-		tickLower,
-		tickUpper
-	);
+function normalizeRangeFromQuery(value: unknown, tickLower: number, tickUpper: number): Range {
+    const raw = requireRecord(value, 'Range');
+    return new Range(
+        toBigIntValue(raw.Liquidity),
+        toBigIntValue(raw.EntryFeeIndex),
+        toBigIntValue(raw.Balance),
+        toBigIntValue(raw.SqrtEntryPX96),
+        tickLower,
+        tickUpper
+    );
 }
 
-function normalizeQuotationFromQuery(raw: OnChainQueryQuotationFromApi): Quotation {
-	return {
-		benchmark: toBigIntValue(raw.Benchmark),
-		sqrtFairPX96: toBigIntValue(raw.SqrtFairPX96),
-		tick: Number(raw.Tick ?? 0),
-		mark: toBigIntValue(raw.Mark),
-		entryNotional: toBigIntValue(raw.EntryNotional),
-		fee: toBigIntValue(raw.Fee),
-		minAmount: toBigIntValue(raw.MinAmount),
-		sqrtPostFairPX96: toBigIntValue(raw.SqrtPostFairPX96),
-		postTick: Number(raw.PostTick ?? 0),
-	};
+function normalizeQuotationFromQuery(value: unknown): Quotation {
+    const raw = requireRecord(value, 'Quotation');
+    return {
+        benchmark: toBigIntValue(raw.Benchmark),
+        sqrtFairPX96: toBigIntValue(raw.SqrtFairPX96),
+        tick: integer(raw.Tick, 'Tick'),
+        mark: toBigIntValue(raw.Mark),
+        entryNotional: toBigIntValue(raw.EntryNotional),
+        fee: toBigIntValue(raw.Fee),
+        minAmount: toBigIntValue(raw.MinAmount),
+        sqrtPostFairPX96: toBigIntValue(raw.SqrtPostFairPX96),
+        postTick: integer(raw.PostTick, 'PostTick'),
+    };
 }
 
-function normalizeQuoteStateFromQuery(raw: OnChainQueryQuoteStateFromApi): QuoteState {
-	return {
-		quote: raw.Quote ?? zeroAddress,
-		decimals: Number(raw.Decimals ?? 0),
-		symbol: raw.Symbol ?? '',
-		threshold: toBigIntValue(raw.Threshold),
-		reserve: toBigIntValue(raw.Reserve),
-		balance: toBigIntValue(raw.Balance),
-		allowance: toBigIntValue(raw.Allowance),
-		fundFlow: {
-			totalIn: toBigIntValue(raw.FundFlow?.TotalIn),
-			totalOut: toBigIntValue(raw.FundFlow?.TotalOut),
-		},
-		pending: {
-			timestamp: Number(raw.Pending?.Timestamp ?? 0),
-			native: Boolean(raw.Pending?.Native),
-			amount: toBigIntValue(raw.Pending?.Amount),
-			exemption: toBigIntValue(raw.Pending?.Exemption),
-		},
-	};
+function normalizeQuoteStateFromQuery(value: unknown): QuoteState {
+    const raw = requireRecord(value, 'QuoteState');
+    const flow = raw.FundFlow == null ? undefined : requireRecord(raw.FundFlow, 'FundFlow');
+    const pending = raw.Pending == null ? undefined : requireRecord(raw.Pending, 'Pending');
+    return {
+        quote: requireAddress(raw, 'Quote'),
+        decimals: integer(raw.Decimals, 'Decimals'),
+        symbol: requireString(raw, 'Symbol'),
+        threshold: toBigIntValue(raw.Threshold),
+        reserve: toBigIntValue(raw.Reserve),
+        balance: toBigIntValue(raw.Balance),
+        allowance: toBigIntValue(raw.Allowance),
+        fundFlow: {
+            totalIn: flow ? toBigIntValue(flow.TotalIn) : 0n,
+            totalOut: flow ? toBigIntValue(flow.TotalOut) : 0n,
+        },
+        pending: {
+            timestamp: pending ? integer(pending.Timestamp, 'Timestamp') : 0,
+            native: pending ? requireBoolean(pending, 'Native') : false,
+            amount: pending ? toBigIntValue(pending.Amount) : 0n,
+            exemption: pending ? toBigIntValue(pending.Exemption) : 0n,
+        },
+    };
 }
 
-function normalizeSpacingFromQuery(raw: OnChainQuerySpacingFromApi): SpacingConfig {
-	return {
-		pearl: Number(raw.Pearl ?? 0),
-		order: Number(raw.Order ?? 0),
-		range: Number(raw.Range ?? 0),
-	};
+function normalizeSpacingFromQuery(value: unknown): SpacingConfig {
+    const raw = requireRecord(value, 'Spacing');
+    return {
+        pearl: integer(raw.Pearl, 'Pearl'),
+        order: integer(raw.Order, 'Order'),
+        range: integer(raw.Range, 'Range'),
+    };
 }
 
-function normalizeBlockInfoFromQuery(raw: OnChainQueryBlockInfoFromApi): BlockInfo {
-	return {
-		timestamp: Number(raw.Timestamp ?? 0),
-		height: Number(raw.Height ?? 0),
-	};
+function normalizeBlockInfoFromQuery(value: unknown): BlockInfo {
+    const raw = requireRecord(value, 'BlockInfo');
+    return {
+        timestamp: integer(raw.Timestamp, 'Timestamp'),
+        height: integer(raw.Height, 'Height'),
+    };
 }
-
