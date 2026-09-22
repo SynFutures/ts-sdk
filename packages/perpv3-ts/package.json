@@ -141,7 +141,6 @@
         "dist/**/*.map",
         "!dist/**/*.test.*",
         "README.md",
-        "MIGRATION.md",
         "docs/**/*.md"
     ],
     "scripts": {

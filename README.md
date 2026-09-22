@@ -29,7 +29,6 @@ No sibling source checkout is required to install this branch.
 - [Queries, HTTP and WebSocket data](packages/perpv3-ts/docs/data.md)
 - [Simulation inputs and units](packages/perpv3-ts/docs/simulation.md)
 - [Transactions and parsers](packages/perpv3-ts/docs/transactions.md)
-- [Migration guide](packages/perpv3-ts/MIGRATION.md)
 
 ## Changes and releases
 
