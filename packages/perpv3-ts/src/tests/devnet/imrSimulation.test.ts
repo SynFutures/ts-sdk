@@ -210,7 +210,11 @@ describe('devnet IMR simulation (ported from v3-contracts hardhat imrSimulation.
             await depositQuote(attackerWallet, tradeParam.amount / QUOTE_SCALER + 1n);
         }
 
+        // Crossing a timestamp adds accounting work beyond the same-block gas estimate.
+        // Exercise that transition with a bounded gas budget; this test checks IMR, not gas estimation.
+        await testClient.increaseTime({ seconds: 1 });
         const tradeHash = await attackerWallet.writeContract({
+            gas: 1_000_000n,
             address: INSTRUMENT_ADDRESS,
             abi: CURRENT_INSTRUMENT_ABI,
             functionName: 'trade',
@@ -342,7 +346,11 @@ describe('devnet IMR simulation (ported from v3-contracts hardhat imrSimulation.
             await depositQuote(attackerWallet, tradeParam.amount / QUOTE_SCALER + 1n);
         }
 
+        // Crossing a timestamp adds accounting work beyond the same-block gas estimate.
+        // Exercise that transition with a bounded gas budget; this test checks IMR, not gas estimation.
+        await testClient.increaseTime({ seconds: 1 });
         const tradeHash = await attackerWallet.writeContract({
+            gas: 1_000_000n,
             address: INSTRUMENT_ADDRESS,
             abi: CURRENT_INSTRUMENT_ABI,
             functionName: 'trade',
