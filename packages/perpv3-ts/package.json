@@ -149,7 +149,7 @@
         "build:check": "tsc --noEmit",
         "typecheck:public": "tsc --noEmit -p tsconfig.typecheck.json",
         "typecheck:examples": "tsc --noEmit -p examples/tsconfig.json",
-        "verify": "pnpm run lint && pnpm run build:check && pnpm run typecheck:public && pnpm run typecheck:examples && pnpm exec jest --runInBand && pnpm run build && pnpm run verify:consumer",
+        "verify": "pnpm run lint && pnpm run build:check && pnpm run typecheck:public && pnpm run typecheck:examples && pnpm run typecheck:docs && pnpm exec jest --runInBand && pnpm run build && pnpm run verify:consumer",
         "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
         "prepack": "npm run build && npm run build:check",
         "lint": "eslint",
@@ -163,7 +163,8 @@
         "devnet:check": "node scripts/devnet/check.js",
         "devnet:regen": "tsx scripts/devnet/regen.ts",
         "verify:consumer": "node scripts/verify-consumer.mjs",
-        "prepublishOnly": "node scripts/check-release-dependency.mjs"
+        "prepublishOnly": "node scripts/check-release-dependency.mjs",
+        "typecheck:docs": "node scripts/typecheck-docs.mjs"
     },
     "keywords": [
         "synfutures",
