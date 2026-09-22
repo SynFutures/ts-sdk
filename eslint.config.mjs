@@ -1,8 +1,8 @@
-const eslint = require('@eslint/js');
-const prettier = require('eslint-config-prettier');
-const typescript = require('typescript-eslint');
+import eslint from '@eslint/js';
+import prettier from 'eslint-config-prettier/flat';
+import typescript from 'typescript-eslint';
 
-module.exports = [
+export default [
     {
         ignores: [
             '**/dist/**',
@@ -10,7 +10,6 @@ module.exports = [
             '**/devnet/.runtime/**',
             '.worktrees/**',
             'jest.config.js',
-            'eslint.config.js',
             'templates',
             '**/*.d.ts',
         ],

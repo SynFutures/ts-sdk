@@ -55,6 +55,8 @@ jobs:
                   } > "$HOME/.npmrc"
             - name: Install Dependencies
               run: pnpm install --frozen-lockfile
+            - name: Lint Workspace
+              run: pnpm run lint
             - name: Verify PerpV3 Package
               run: pnpm -C packages/perpv3-ts run verify
             - name: Devnet Tests

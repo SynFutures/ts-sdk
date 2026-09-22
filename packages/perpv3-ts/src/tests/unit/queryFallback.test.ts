@@ -156,6 +156,49 @@ function buildMockRpcConfig(instrument: Address, expiry: number): RpcConfig {
 describe('PerpClient fallback (API -> rpcFallback)', () => {
     const userSetting = new UserSetting(10, 10, 1n * WAD, 1);
 
+    test.each([
+        ['getSnapshot', (client: PerpClient) => client.getSnapshot()],
+        ['getQuotation', (client: PerpClient) => client.getQuotation(0)],
+        ['inquire', (client: PerpClient) => client.inquire(1n)],
+        ['getOrderBook', (client: PerpClient) => client.getOrderBook(0)],
+    ] as const)('%s retains both original errors when API and RPC fail', async (method, query) => {
+        const apiError = new Error('API signer unavailable');
+        const rpcError = new Error('RPC unavailable');
+        const failRpc = jest.fn(async () => {
+            throw rpcError;
+        });
+        const rpcFallback: RpcConfig = {
+            chainId: CHAIN_ID,
+            observerAddress: OBSERVER_ADDRESS,
+            publicClient: mockPublicClient({ multicall: failRpc, readContract: failRpc }),
+        };
+        const client = new PerpClient(
+            {
+                chainId: CHAIN_ID,
+                signer: {
+                    sign: () => {
+                        throw apiError;
+                    },
+                },
+            },
+            userSetting,
+            ZERO_ADDRESS,
+            0xffffffff,
+            { rpcFallback }
+        );
+
+        expect.assertions(4);
+        try {
+            await query(client);
+        } catch (error) {
+            expect(error).toBeInstanceOf(AggregateError);
+            if (!(error instanceof AggregateError)) throw error;
+            expect(error.message).toContain(`PerpClient.${method} failed`);
+            expect(error.errors[0]).toBe(apiError);
+            expect(error.errors[1]).toBe(rpcError);
+        }
+    });
+
     test('constructor throws on chainId mismatch between ApiConfig and rpcFallback', () => {
         const instrument = '0x0000000000000000000000000000000000000001' as Address;
         const expiry = 0xffffffff;

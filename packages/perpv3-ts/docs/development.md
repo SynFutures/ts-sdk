@@ -23,6 +23,10 @@ provenance in the repository's `vendor/README.md` define this branch's dependenc
 | `pnpm -C packages/perpv3-ts run test:devnet`           | starts local Anvil and exercises the committed snapshot         |
 | `pnpm -C packages/perpv3-ts run test`                  | runs unit and devnet suites                                     |
 
+Workspace tasks run through pnpm scripts. ESLint 10 uses the root `eslint.config.mjs` flat config
+for code checks; TypeScript checks types, and Prettier owns formatting. CI runs workspace lint
+before package verification.
+
 Tests have three explicit scopes under `src/tests`:
 
 - `unit/`: offline behavior and numerical fixtures; HTTP fixtures use loopback servers.
