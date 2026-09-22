@@ -5,7 +5,8 @@
         "moduleResolution": "Bundler",
         "lib": ["ES2022"],
         "isolatedModules": true,
-        "noEmit": true
+        "noEmit": true,
+        "rootDir": "./src"
     },
     "include": ["src/**/*.ts"],
     "exclude": ["node_modules", "dist", "src/tests"]

@@ -1,14 +1,14 @@
 {
     "extends": "../tsconfig.json",
     "compilerOptions": {
-        "baseUrl": ".",
         "paths": {
             "@synfutures/perpv3-ts": ["../src/index.ts"],
             "@synfutures/perpv3-ts/*": ["../src/*"]
         },
         "isolatedModules": false,
         "noUnusedLocals": false,
-        "noUnusedParameters": false
+        "noUnusedParameters": false,
+        "rootDir": ".."
     },
     "include": ["**/*.ts"]
 }

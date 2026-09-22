@@ -8,19 +8,22 @@
         "format": "prettier --write \"{src,test}/**/*.ts\" \"*.{json,md}\"",
         "lint": "eslint src test",
         "lint:fix": "eslint src test --fix",
-        "test": "jest",
-        "test:coverage": "jest --coverage=true --coverage-reporters=text",
-        "test:ci": "jest --coverage=true --coverage-reporters=json --verbose",
+        "test": "pnpm run typecheck:tests && jest",
+        "test:coverage": "pnpm run test --coverage=true --coverage-reporters=text",
+        "test:ci": "pnpm run test --coverage=true --coverage-reporters=json --verbose",
         "test:watch": "pnpm run test --watch",
         "build": "tsc -p tsconfig.build.json",
         "build:check": "tsc --noEmit -p tsconfig.build.json",
-        "format:check": "prettier --check \"{src,test}/**/*.ts\" \"*.{json,md}\""
+        "format:check": "prettier --check \"{src,test}/**/*.ts\" \"*.{json,md}\"",
+        "typecheck:tests": "tsc --noEmit -p tsconfig.test.json"
     },
     "dependencies": {},
     "devDependencies": {
         "@types/jest": "^30.0.0",
         "jest": "^30.5.2",
-        "ts-jest": "^29.4.12"
+        "ts-jest": "^29.4.12",
+        "@types/node": "22.20.4",
+        "typescript": "catalog:"
     },
     "jest": {
         "verbose": true,
@@ -44,5 +47,6 @@
             ]
         },
         "testTimeout": 30000
-    }
+    },
+    "type": "commonjs"
 }

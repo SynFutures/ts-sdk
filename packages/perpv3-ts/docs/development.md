@@ -36,6 +36,13 @@ and `format:check` before package verification. The workspace owns one pinned Pr
 `pnpm run format` formats maintained source, configuration and documentation. Generated ABIs,
 fixed fixtures and devnet snapshots are excluded.
 
+TypeScript 6.0.3 is pinned once in the workspace catalog. Source, examples, tools,
+tests and documentation snippets use explicit source roots and ambient types.
+Path mappings resolve relative to their config (or use absolute paths for generated
+documentation checks); no compiler `baseUrl` or deprecation suppression is needed.
+The bundled SDK uses `Bundler` resolution; directly emitted package scaffolds use
+`NodeNext`. Build-config checks use `--ignoreConfig` when passing a file to `tsc`.
+
 Tests have three explicit scopes under `src/tests`:
 
 - `unit/`: offline behavior and numerical fixtures; HTTP fixtures use loopback servers.

@@ -33,8 +33,11 @@ try {
         JSON.stringify({
             extends: join(root, 'tsconfig.json'),
             compilerOptions: {
-                baseUrl: root,
-                paths: { '@synfutures/perpv3-ts': ['src/index.ts'], '@synfutures/perpv3-ts/*': ['src/*'] },
+                rootDir: root,
+                paths: {
+                    '@synfutures/perpv3-ts': [join(root, 'src/index.ts')],
+                    '@synfutures/perpv3-ts/*': [join(root, 'src/*')],
+                },
             },
             include: ['./*.ts'],
             exclude: [],
