@@ -12,6 +12,9 @@ import {
 } from './websocket/transport';
 import {
     buildPublicWsRequest,
+    buildWsRequestParams,
+    wsTopicKey,
+    wsTopics,
     buildWsRequestResultEvent,
     isPublicWsAckMessage,
     isPublicWsStreamMessage,
@@ -447,6 +450,8 @@ export class PublicWebsocketClient {
     private reconnectAttempts = 0;
     private readonly subscriptions = new PublicWsSubscriptionRegistry();
 
+    private readonly activeTopics = new Set<string>();
+
     constructor(options?: PublicWebsocketClientOptions) {
         this.url = options?.url ?? DEFAULT_PUBLIC_WS_URL;
         this.headers = buildWebSocketHeaders(this.url, options?.headers);
@@ -484,25 +489,30 @@ export class PublicWebsocketClient {
         const socket = createWebSocket(this.url, this.headers, this.wsFactory);
         this.socket = socket;
 
-        attachWebSocketListener(socket, 'open', () => this.handleOpen());
-        attachWebSocketListener(socket, 'message', (event: unknown) => this.handleIncomingMessage(event));
-        attachWebSocketListener(socket, 'error', (event: unknown) => {
-            this.onError?.(event);
+        attachWebSocketListener(socket, 'open', () => {
+            if (this.socket === socket) this.handleOpen();
         });
-        attachWebSocketListener(socket, 'close', (event: unknown) =>
-            this.handleClose(normalizeWebSocketCloseEvent(event))
-        );
+        attachWebSocketListener(socket, 'message', (event: unknown) => {
+            if (this.socket === socket) this.handleIncomingMessage(event);
+        });
+        attachWebSocketListener(socket, 'error', (event: unknown) => {
+            if (this.socket === socket) this.onError?.(event);
+        });
+        attachWebSocketListener(socket, 'close', (event: unknown) => {
+            if (this.socket === socket) this.handleClose(normalizeWebSocketCloseEvent(event));
+        });
     }
 
     public close(): void {
         this.manuallyClosed = true;
         this.clearTimers();
         this.pendingRequests.clear();
-        if (this.socket) {
-            this.socket.close();
-            this.socket = null;
-        }
+        const socket = this.socket;
+        this.socket = null;
+        this.activeTopics.clear();
+        socket?.close();
         this.reconnectAttempts = 0;
+        if (socket) this.onDisconnect?.();
     }
 
     // -----------------------------------------------------------------------
@@ -666,6 +676,7 @@ export class PublicWebsocketClient {
     private handleClose(event?: { code?: number; reason?: string }): void {
         this.clearTimers();
         this.socket = null;
+        this.activeTopics.clear();
         this.pendingRequests.clear();
 
         this.onDisconnect?.(event);
@@ -698,27 +709,34 @@ export class PublicWebsocketClient {
     }
 
     private resubscribeAll(): void {
-        for (const { params } of this.subscriptions.orderBooks()) this.sendSubscribeIfOpen(params);
-        for (const { params } of this.subscriptions.portfolios()) this.sendSubscribeIfOpen(params);
-        for (const { params } of this.subscriptions.trades()) this.sendSubscribeIfOpen(params);
-        for (const { params } of this.subscriptions.klines()) this.sendSubscribeIfOpen(params);
-        for (const { params } of this.subscriptions.instruments()) this.sendSubscribeIfOpen(params);
-        for (const { params } of this.subscriptions.instrumentBasicInfos()) this.sendSubscribeIfOpen(params);
-        for (const { params } of this.subscriptions.commons()) this.sendSubscribeIfOpen(params);
-        for (const { params } of this.subscriptions.raws()) this.sendSubscribeIfOpen(params);
+        for (const params of this.subscriptions.params()) this.sendSubscribeIfOpen(params);
     }
 
-    private sendSubscribeIfOpen(params: PublicWsSubscribeParams): void {
+    private sendSubscribeIfOpen(params: object): void {
+        this.updateWireTopics('SUBSCRIBE', params, (key) => !this.activeTopics.has(key));
+    }
+
+    private sendUnsubscribeIfOpen(params: object): void {
+        const retained = new Set([...this.subscriptions.params()].flatMap(wsTopics).map(wsTopicKey));
+        this.updateWireTopics('UNSUBSCRIBE', params, (key) => this.activeTopics.has(key) && !retained.has(key));
+    }
+
+    private updateWireTopics(method: PublicWsRequestMethod, params: object, include: (key: string) => boolean): void {
         if (this.socket?.readyState !== WS_READY_STATE.OPEN) return;
-        this.sendRequest('SUBSCRIBE', params);
+        const topics = wsTopics(params).filter((topic) => {
+            const key = wsTopicKey(topic);
+            if (!include(key)) return false;
+            if (method === 'SUBSCRIBE') this.activeTopics.add(key);
+            else this.activeTopics.delete(key);
+            return true;
+        });
+        if (!topics.length) return;
+        const wire = buildWsRequestParams(params);
+        if (Array.isArray(wire.pairs)) wire.pairs = topics.flatMap((topic) => topic.pairs as string[]);
+        this.sendRequest(method, wire);
     }
 
-    private sendUnsubscribeIfOpen(params: PublicWsSubscribeParams): void {
-        if (this.socket?.readyState !== WS_READY_STATE.OPEN) return;
-        this.sendRequest('UNSUBSCRIBE', params);
-    }
-
-    private sendRequest(method: PublicWsRequestMethod, params: PublicWsSubscribeParams): void {
+    private sendRequest(method: PublicWsRequestMethod, params: object): void {
         const id = this.nextRequestId++;
         const request = buildPublicWsRequest(id, method, params);
         this.pendingRequests.set(id, { method, params: request.params, sentAtMs: Date.now() });

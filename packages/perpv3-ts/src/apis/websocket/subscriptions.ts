@@ -222,6 +222,20 @@ export class PublicWsSubscriptionRegistry {
         return this.rawSubscriptions.values();
     }
 
+    *params(): IterableIterator<object> {
+        const groups = [
+            this.orderBooks(),
+            this.portfolios(),
+            this.trades(),
+            this.klines(),
+            this.instruments(),
+            this.instrumentBasicInfos(),
+            this.commons(),
+            this.raws(),
+        ];
+        for (const group of groups) for (const record of group) yield record.params;
+    }
+
     private nextId(): number {
         return this.nextSubscriptionId++;
     }

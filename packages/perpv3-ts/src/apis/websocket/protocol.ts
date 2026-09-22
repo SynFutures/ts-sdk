@@ -138,3 +138,15 @@ function normalizeWsRequestParams(params: Record<string, unknown>): Record<strin
 
     return normalized;
 }
+
+// Topic identity follows the normalized wire request, independent of object key order.
+export function wsTopicKey(params: Record<string, unknown>): string {
+    return JSON.stringify(params, (_key, value: unknown) =>
+        isRecord(value) ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) : value
+    );
+}
+
+export function wsTopics(params: object): Record<string, unknown>[] {
+    const wire = buildWsRequestParams(params);
+    return Array.isArray(wire.pairs) ? wire.pairs.map((pair) => ({ ...wire, pairs: [pair] })) : [wire];
+}

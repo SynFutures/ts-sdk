@@ -32,7 +32,7 @@ export class FakeWebSocket {
         this.emit('message', { data });
     }
 
-    private emit(event: string, payload?: unknown): void {
+    emit(event: string, payload?: unknown): void {
         for (const handler of this.listeners.get(event) ?? []) {
             handler(payload);
         }
