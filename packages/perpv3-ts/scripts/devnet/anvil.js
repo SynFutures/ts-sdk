@@ -1,3 +1,6 @@
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import net from 'node:net';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,16 +12,29 @@ async function sleep(ms) {
     await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function waitForRpc({ rpcUrl, timeoutMs }) {
+export async function waitForRpc({ rpcUrl, timeoutMs, child, chainId }) {
     const startedAt = Date.now();
     for (;;) {
+        if (child && (child.exitCode !== null || child.signalCode !== null))
+            throw new Error('Anvil exited before RPC became ready');
         try {
             const response = await fetch(rpcUrl, {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_chainId', params: [] }),
+                signal: globalThis.AbortSignal.timeout(1000),
             });
-            if (response.ok) return;
+            const body = await response.json();
+            if (
+                response.ok &&
+                typeof body.result === 'string' &&
+                !body.error &&
+                (chainId === undefined || BigInt(body.result) === BigInt(chainId))
+            ) {
+                if (child && (child.exitCode !== null || child.signalCode !== null))
+                    throw new Error('Anvil exited during startup');
+                return;
+            }
         } catch {
             // ignore
         }
@@ -101,5 +117,58 @@ export async function stopAnvil(child) {
     if (child.exitCode === null && child.signalCode === null) {
         signal('SIGKILL');
         await exited;
+    }
+}
+
+async function pickFreePort(host) {
+    return await new Promise((resolve, reject) => {
+        const server = net.createServer();
+        server.unref();
+        server.once('error', reject);
+        server.listen(0, host, () => {
+            const address = server.address();
+            if (!address || typeof address === 'string') {
+                server.close(() => reject(new Error('Failed to pick a free port (unexpected server address).')));
+                return;
+            }
+            server.close((error) => {
+                if (error) reject(error);
+                else resolve(address.port);
+            });
+        });
+    });
+}
+
+export async function jsonRpc(rpcUrl, method, params) {
+    const response = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        signal: globalThis.AbortSignal.timeout(5000),
+    });
+    if (!response.ok) {
+        throw new Error(`JSON-RPC ${method} failed with HTTP ${response.status}`);
+    }
+    const body = await response.json();
+    if (body.error) {
+        throw new Error(`JSON-RPC ${method} error: ${JSON.stringify(body.error)}`);
+    }
+    return body.result;
+}
+
+export async function startAnvil({ host, chainId, mnemonic, loadStatePath, dumpStatePath, timestamp }) {
+    if (!['127.0.0.1', 'localhost'].includes(host)) throw new Error('Devnet requires a local host');
+    const port = await pickFreePort(host);
+    const rpcUrl = `http://${host}:${port}`;
+    const args = buildAnvilArgs({ host, port, chainId, mnemonic, loadStatePath, dumpStatePath, timestamp });
+    const { command, prefixArgs } = resolveAnvilCommand();
+    const child = spawn(command, [...prefixArgs, ...args], { stdio: 'ignore', detached: true });
+    try {
+        await once(child, 'spawn');
+        await waitForRpc({ rpcUrl, timeoutMs: 15000, child, chainId });
+        return { child, rpcUrl };
+    } catch (error) {
+        await stopAnvil(child);
+        throw error;
     }
 }

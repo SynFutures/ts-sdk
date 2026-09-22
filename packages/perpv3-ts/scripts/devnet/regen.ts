@@ -1,7 +1,9 @@
-import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { gunzipSync } from 'node:zlib';
 
+import { assertTransactionSuccess } from '@derivation-tech/viem-kit';
+import { publishSnapshot } from './snapshot.js';
 import { deployArtifact } from '@derivation-tech/viem-kit/node';
 import type { Abi, Address, Hex } from 'viem';
 import {
@@ -20,7 +22,7 @@ import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { computeExpectedStateMeta, getDevnetPaths } from './devnet-meta.js';
-import { buildAnvilArgs, resolveAnvilCommand, waitForRpc } from './anvil.js';
+import { startAnvil, stopAnvil, jsonRpc } from './anvil.js';
 
 type JsonObject = Record<string, unknown>;
 
@@ -365,36 +367,33 @@ function encodeAddArgs(seed: InitLiquiditySeed): readonly [Hex, Hex] {
 }
 
 async function main(): Promise<void> {
-    const { devnetRoot, presetPath, contractsArtifactsDir, statePath, manifestPath, metaPath } = getDevnetPaths();
+    const { devnetRoot, presetPath, contractsArtifactsDir } = getDevnetPaths();
     mkdirSync(devnetRoot, { recursive: true });
 
     const preset = parseDevnetPreset(readJsonFile(presetPath));
     const expectedMeta = computeExpectedStateMeta();
 
-    const rpcUrl = `http://${preset.anvil.host}:${preset.anvil.port}`;
-
-    rmSync(statePath, { force: true });
-    rmSync(manifestPath, { force: true });
-    rmSync(metaPath, { force: true });
-
-    const anvilArgs = buildAnvilArgs({
-        host: preset.anvil.host,
-        port: preset.anvil.port,
-        chainId: preset.anvil.chainId,
-        mnemonic: preset.anvil.mnemonic,
-        dumpStatePath: devnetRoot,
-    });
-
-    const { command: anvilCommand, prefixArgs } = resolveAnvilCommand();
-    const anvil = spawn(anvilCommand, [...prefixArgs, ...anvilArgs], { stdio: 'inherit' });
+    const outputArg = process.argv.indexOf('--output-dir');
+    if (outputArg >= 0 && !process.argv[outputArg + 1]) throw new Error('--output-dir requires a directory');
+    const outputDir = outputArg >= 0 ? path.resolve(process.argv[outputArg + 1]) : devnetRoot;
+    mkdirSync(outputDir, { recursive: true });
+    const staging = mkdtempSync(path.join(outputDir, '.regen-'));
+    let anvil: Awaited<ReturnType<typeof startAnvil>>['child'] | undefined;
     try {
-        await waitForRpc({ rpcUrl, timeoutMs: 15_000 });
-
+        const started = await startAnvil({
+            host: preset.anvil.host,
+            chainId: preset.anvil.chainId,
+            mnemonic: preset.anvil.mnemonic,
+        });
+        anvil = started.child;
+        const { rpcUrl } = started;
         const chain = preset.anvil.chainId === foundry.id ? foundry : { ...foundry, id: preset.anvil.chainId };
         const adminAccount = mnemonicToAccount(preset.anvil.mnemonic, { accountIndex: 0 });
         const proxyAdminAccount = mnemonicToAccount(preset.anvil.mnemonic, { accountIndex: 1 });
 
         const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+        const waitForTransaction = async (params: Parameters<typeof publicClient.waitForTransactionReceipt>[0]) =>
+            assertTransactionSuccess(await publicClient.waitForTransactionReceipt(params));
         const walletClient = createWalletClient({ chain, transport: http(rpcUrl), account: adminAccount });
 
         const artifactPaths = {
@@ -640,7 +639,7 @@ async function main(): Promise<void> {
             });
         }
 
-        await publicClient.waitForTransactionReceipt({
+        await waitForTransaction({
             hash: await walletClient.writeContract({
                 address: config,
                 abi: artifacts.Config.abi,
@@ -701,7 +700,7 @@ async function main(): Promise<void> {
         }
 
         for (const [marketType, market] of markets) {
-            await publicClient.waitForTransactionReceipt({
+            await waitForTransaction({
                 hash: await walletClient.writeContract({
                     address: config,
                     abi: artifacts.Config.abi,
@@ -739,7 +738,7 @@ async function main(): Promise<void> {
 
             const mintQuantity = requiredQuantity * 100n;
 
-            await publicClient.waitForTransactionReceipt({
+            await waitForTransaction({
                 hash: await walletClient.writeContract({
                     address: quote.address,
                     abi: artifacts.TestToken.abi,
@@ -748,7 +747,7 @@ async function main(): Promise<void> {
                 }),
             });
 
-            await publicClient.waitForTransactionReceipt({
+            await waitForTransaction({
                 hash: await walletClient.writeContract({
                     address: quote.address,
                     abi: artifacts.TestToken.abi,
@@ -818,7 +817,7 @@ async function main(): Promise<void> {
                         heartBeat1: 16_777_215,
                     } as const;
 
-                    await publicClient.waitForTransactionReceipt({
+                    await waitForTransaction({
                         hash: await walletClient.writeContract({
                             address: market.address,
                             abi: market.abi,
@@ -836,7 +835,7 @@ async function main(): Promise<void> {
                 const addArgs = encodeAddArgs(initLiquidity);
 
                 if (!launchedInstruments.has(instrument)) {
-                    await publicClient.waitForTransactionReceipt({
+                    await waitForTransaction({
                         hash: await walletClient.writeContract({
                             address: gate,
                             abi: artifacts.Gate.abi,
@@ -846,7 +845,7 @@ async function main(): Promise<void> {
                     });
                     launchedInstruments.add(instrument);
                 } else {
-                    await publicClient.waitForTransactionReceipt({
+                    await waitForTransaction({
                         hash: await walletClient.writeContract({
                             address: instrument,
                             abi: artifacts.Instrument.abi,
@@ -930,24 +929,20 @@ async function main(): Promise<void> {
             generatedAt: new Date().toISOString(),
         } as const;
 
-        anvil.kill('SIGINT');
-        await new Promise<void>((resolve, reject) => {
-            anvil.once('exit', (code) => {
-                if (code === 0 || code === null) resolve();
-                else reject(new Error(`Anvil exited with code ${code}`));
-            });
-        });
-
-        if (!existsSync(statePath)) {
-            throw new Error(`Anvil exited but did not write state file at ${statePath}`);
-        }
-
-        writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 4)}\n`);
-        writeFileSync(metaPath, `${JSON.stringify(meta, null, 4)}\n`);
-
-        process.stdout.write(`Devnet regenerated:\n- ${statePath}\n- ${manifestPath}\n- ${metaPath}\n`);
+        const dumpedState = await jsonRpc(rpcUrl, 'anvil_dumpState', []);
+        if (typeof dumpedState !== 'string' || !/^0x[0-9a-f]+$/i.test(dumpedState))
+            throw new Error('Invalid Anvil state dump');
+        const stateJson = gunzipSync(Buffer.from(dumpedState.slice(2), 'hex')).toString('utf8');
+        JSON.parse(stateJson);
+        writeFileSync(path.join(staging, 'state.json'), stateJson);
+        await stopAnvil(anvil);
+        writeFileSync(path.join(staging, 'manifest.json'), `${JSON.stringify(manifest, null, 4)}\n`);
+        writeFileSync(path.join(staging, 'state.meta.json'), `${JSON.stringify(meta, null, 4)}\n`);
+        publishSnapshot(staging, outputDir);
+        process.stdout.write(`Devnet regenerated at ${outputDir}\n`);
     } finally {
-        if (!anvil.killed) anvil.kill('SIGKILL');
+        await stopAnvil(anvil);
+        rmSync(staging, { recursive: true, force: true });
     }
 }
 
