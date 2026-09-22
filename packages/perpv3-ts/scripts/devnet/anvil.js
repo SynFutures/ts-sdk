@@ -76,3 +76,32 @@ export function buildAnvilArgs({ host, port, chainId, mnemonic, loadStatePath, d
 
     return args;
 }
+
+// Only callers holding the ChildProcess returned by spawn may stop this process group.
+export async function stopAnvil(child) {
+    if (!child || child.exitCode !== null || child.signalCode !== null) return;
+    const exited = new Promise((resolve) => child.once('exit', resolve));
+    const signal = (name) => {
+        try {
+            process.kill(-child.pid, name);
+        } catch {
+            child.kill(name);
+        }
+    };
+    signal('SIGTERM');
+    let timeout;
+    try {
+        await Promise.race([
+            exited,
+            new Promise((resolve) => {
+                timeout = setTimeout(resolve, 2_000);
+            }),
+        ]);
+    } finally {
+        clearTimeout(timeout);
+    }
+    if (child.exitCode === null && child.signalCode === null) {
+        signal('SIGKILL');
+        await exited;
+    }
+}

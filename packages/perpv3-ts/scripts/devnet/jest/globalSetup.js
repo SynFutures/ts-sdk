@@ -1,23 +1,11 @@
 /* eslint-env node */
 
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import net from 'node:net';
-import path from 'node:path';
 
-import { assertStateFresh, getDevnetPaths } from '../devnet-meta.js';
-import { buildAnvilArgs, getDevnetInitialTimestamp, resolveAnvilCommand, waitForRpc } from '../anvil.js';
-
-async function isTcpPortAvailable(host, port) {
-    return await new Promise((resolve) => {
-        const server = net.createServer();
-        server.unref();
-        server.once('error', () => resolve(false));
-        server.listen(port, host, () => {
-            server.close(() => resolve(true));
-        });
-    });
-}
+import { assertStateFresh } from '../devnet-meta.js';
+import { buildAnvilArgs, getDevnetInitialTimestamp, resolveAnvilCommand, waitForRpc, stopAnvil } from '../anvil.js';
 
 async function pickFreePort(host) {
     return await new Promise((resolve, reject) => {
@@ -36,52 +24,6 @@ async function pickFreePort(host) {
             });
         });
     });
-}
-
-function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitForProcessExit(pid, timeoutMs) {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-        try {
-            process.kill(pid, 0);
-        } catch {
-            return true; // Process exited
-        }
-        await sleep(100);
-    }
-    return false; // Timeout
-}
-
-async function killProcessWithEscalation(pid) {
-    // Try SIGTERM on process group first, then individual process
-    try {
-        process.kill(-pid, 'SIGTERM');
-    } catch {
-        try {
-            process.kill(pid, 'SIGTERM');
-        } catch {
-            return; // Process already gone
-        }
-    }
-
-    // Wait for graceful exit
-    if (await waitForProcessExit(pid, 2000)) return;
-
-    // Escalate to SIGKILL
-    try {
-        process.kill(-pid, 'SIGKILL');
-    } catch {
-        try {
-            process.kill(pid, 'SIGKILL');
-        } catch {
-            // ignore
-        }
-    }
-
-    await waitForProcessExit(pid, 2000);
 }
 
 async function jsonRpc(rpcUrl, method, params) {
@@ -111,28 +53,18 @@ export default async function globalSetup() {
 
     const preset = JSON.parse(readFileSync(paths.presetPath, 'utf8'));
     const host = preset?.anvil?.host;
-    const port = preset?.anvil?.port;
     const chainId = preset?.anvil?.chainId;
     const mnemonic = preset?.anvil?.mnemonic;
 
-    if (
-        typeof host !== 'string' ||
-        typeof port !== 'number' ||
-        typeof chainId !== 'number' ||
-        typeof mnemonic !== 'string'
-    ) {
+    if (!['127.0.0.1', 'localhost'].includes(host) || typeof chainId !== 'number' || typeof mnemonic !== 'string') {
         throw new Error(`Invalid devnet preset at ${paths.presetPath}`);
     }
 
-    // Prefer the preset port, but fall back to an OS-assigned free port without killing any existing process.
-    // This keeps `devnet/preset.json` stable while avoiding occasional local port collisions.
-    const resolvedPort = (await isTcpPortAvailable(host, port)) ? port : await pickFreePort(host);
+    // Each run owns its port and child process; no shared runtime file or preset-port fallback.
+    const resolvedPort = await pickFreePort(host);
     const rpcUrl = `http://${host}:${resolvedPort}`;
-
-    const runtimeDir = path.join(paths.devnetRoot, '.runtime');
-    mkdirSync(runtimeDir, { recursive: true });
-    const runtimePath = path.join(runtimeDir, 'anvil.json');
     const manifest = JSON.parse(readFileSync(paths.manifestPath, 'utf8'));
+    if (manifest.chainId !== chainId) throw new Error('Devnet manifest and preset chain IDs differ.');
 
     const args = buildAnvilArgs({
         host,
@@ -146,6 +78,7 @@ export default async function globalSetup() {
     const { command, prefixArgs } = resolveAnvilCommand();
     const child = spawn(command, [...prefixArgs, ...args], { stdio: 'ignore', detached: true });
     if (!child.pid) throw new Error('Failed to start Anvil (missing pid).');
+    globalThis.__perpv3Devnet = child;
 
     try {
         await waitForRpc({ rpcUrl, timeoutMs: 15_000 });
@@ -174,11 +107,13 @@ export default async function globalSetup() {
             );
         }
 
-        writeFileSync(runtimePath, JSON.stringify({ pid: child.pid, rpcUrl, chainId }, null, 2));
+        process.env.PERPV3_DEVNET_RPC_URL = rpcUrl;
 
         child.unref();
     } catch (error) {
-        await killProcessWithEscalation(child.pid);
+        await stopAnvil(child);
+        delete globalThis.__perpv3Devnet;
+        delete process.env.PERPV3_DEVNET_RPC_URL;
         throw error;
     }
 }

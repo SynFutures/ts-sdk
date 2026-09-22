@@ -6,10 +6,6 @@ import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 import type { RpcConfig } from '../../index';
 
-type DevnetRuntime = {
-    rpcUrl?: string;
-};
-
 export type DevnetManifest = {
     chainId: number;
     rpcUrl: string;
@@ -57,29 +53,20 @@ function loadJsonFile<T>(filePath: string): T {
     return JSON.parse(readFileSync(filePath, 'utf8')) as T;
 }
 
-function loadDevnetRuntime(): DevnetRuntime | null {
-    const runtimePath = path.join(process.cwd(), 'devnet', '.runtime', 'anvil.json');
-    try {
-        const runtime = loadJsonFile<DevnetRuntime>(runtimePath);
-        return runtime && typeof runtime === 'object' ? runtime : null;
-    } catch {
-        return null;
-    }
-}
-
 export function loadDevnetManifest(): DevnetManifest {
-    const manifestPath = path.join(process.cwd(), 'devnet', 'manifest.json');
+    const manifestPath = path.resolve(__dirname, '../../../devnet/manifest.json');
     const manifest = loadJsonFile<DevnetManifest>(manifestPath);
-    const runtime = loadDevnetRuntime();
-    const runtimeRpcUrl = runtime?.rpcUrl;
-    if (typeof runtimeRpcUrl === 'string' && runtimeRpcUrl.length > 0) {
-        return { ...manifest, rpcUrl: runtimeRpcUrl };
+    const rpcUrl = process.env.PERPV3_DEVNET_RPC_URL;
+    if (!rpcUrl) throw new Error('Devnet runtime missing. Run tests with jest.devnet.config.js.');
+    const url = new URL(rpcUrl);
+    if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(url.hostname)) {
+        throw new Error('Devnet tests require the local RPC started by globalSetup.');
     }
-    return manifest;
+    return { ...manifest, rpcUrl };
 }
 
 export function loadDevnetPreset(): DevnetPreset {
-    const presetPath = path.join(process.cwd(), 'devnet', 'preset.json');
+    const presetPath = path.resolve(__dirname, '../../../devnet/preset.json');
     return loadJsonFile<DevnetPreset>(presetPath);
 }
 
