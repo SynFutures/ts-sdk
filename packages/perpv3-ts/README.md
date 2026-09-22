@@ -14,7 +14,7 @@ pnpm add @synfutures/perpv3-ts viem
 This refactor branch uses an unpublished viem-kit tarball. To validate this branch,
 install the repository with `pnpm install --frozen-lockfile`; installing the last
 published PerpV3 version does not install these changes. See the
-[migration guide](MIGRATION.md) and [development guide](docs/development.md).
+[development guide](docs/development.md).
 
 ## Simulate a trade
 
@@ -68,5 +68,4 @@ Browser imports do not load viem-kit Node signer or Ledger tooling.
 - [Queries and data boundaries](docs/data.md): configuration, fallback, decoding and subscriptions.
 - [Simulation and units](docs/simulation.md): action families, validations and calldata.
 - [Transactions and parsers](docs/transactions.md): typed execution, revert handling and diagnostics.
-- [Migration](MIGRATION.md): changed exports, data types and retired network defaults.
 - [Development](docs/development.md): checks, local Anvil tests and demo execution.

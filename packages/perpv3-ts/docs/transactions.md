@@ -12,6 +12,10 @@ The request builder preserves the gate ABI argument tuple. `payload` is the
 packed deposit parameter returned by the relevant PerpV3 encoder. The context
 supplies a configured wallet, public client and effective chain.
 
+Request builders return the ABI call fields they construct. Add fee, value or
+nonce options with object spread when submitting the request; these options and
+the wait policy belong to the caller.
+
 ```typescript
 import type { Address, Hex } from 'viem';
 import { assertTransactionSuccess, sendContractTransaction, type TxContext } from '@derivation-tech/viem-kit';

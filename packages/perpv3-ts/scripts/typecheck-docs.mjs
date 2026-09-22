@@ -13,7 +13,6 @@ mkdirSync(cache, { recursive: true });
 const temporary = mkdtempSync(join(cache, 'docs-'));
 const documents = [
     'README.md',
-    'MIGRATION.md',
     ...readdirSync(join(root, 'docs'))
         .filter((name) => name.endsWith('.md'))
         .map((name) => `docs/${name}`),
