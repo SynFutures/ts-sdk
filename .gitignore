@@ -138,12 +138,11 @@ dist
 .pnp.*
 
 .idea
-.nx
 
 .vscode/
 .DS_Store
 
-# Local git worktrees (avoid Nx/knip scanning duplicates)
+# Local git worktrees
 .worktrees/
 
 # Local Superpowers planning artifacts

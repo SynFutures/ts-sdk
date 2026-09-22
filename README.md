@@ -13,6 +13,7 @@ registry is required for the contract artifact development dependency.
 nvm install
 nvm use
 pnpm install --frozen-lockfile
+pnpm run build
 pnpm -C packages/perpv3-ts run verify
 pnpm -C packages/perpv3-ts run test:devnet
 ```

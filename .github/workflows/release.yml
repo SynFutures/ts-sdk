@@ -60,7 +60,7 @@ jobs:
             - name: Verify PerpV3 Package
               run: pnpm -C packages/perpv3-ts run verify
             - name: Build
-              run: pnpm run nx
+              run: pnpm run build
             - name: Create Release Pull Request or Publish to npm
               id: changesets
               uses: changesets/action@v1
