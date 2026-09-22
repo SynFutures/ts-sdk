@@ -1,44 +1,7 @@
-import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import net from 'node:net';
 
 import { assertStateFresh } from '../devnet-meta.js';
-import { buildAnvilArgs, getDevnetInitialTimestamp, resolveAnvilCommand, waitForRpc, stopAnvil } from '../anvil.js';
-
-async function pickFreePort(host) {
-    return await new Promise((resolve, reject) => {
-        const server = net.createServer();
-        server.unref();
-        server.once('error', reject);
-        server.listen(0, host, () => {
-            const address = server.address();
-            if (!address || typeof address === 'string') {
-                server.close(() => reject(new Error('Failed to pick a free port (unexpected server address).')));
-                return;
-            }
-            server.close((error) => {
-                if (error) reject(error);
-                else resolve(address.port);
-            });
-        });
-    });
-}
-
-async function jsonRpc(rpcUrl, method, params) {
-    const response = await fetch(rpcUrl, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-    });
-    if (!response.ok) {
-        throw new Error(`JSON-RPC ${method} failed with HTTP ${response.status}`);
-    }
-    const body = await response.json();
-    if (body.error) {
-        throw new Error(`JSON-RPC ${method} error: ${JSON.stringify(body.error)}`);
-    }
-    return body.result;
-}
+import { getDevnetInitialTimestamp, startAnvil, jsonRpc, stopAnvil } from '../anvil.js';
 
 export default async function globalSetup() {
     const { paths } = assertStateFresh();
@@ -59,40 +22,18 @@ export default async function globalSetup() {
     }
 
     // Each run owns its port and child process; no shared runtime file or preset-port fallback.
-    const resolvedPort = await pickFreePort(host);
-    const rpcUrl = `http://${host}:${resolvedPort}`;
     const manifest = JSON.parse(readFileSync(paths.manifestPath, 'utf8'));
     if (manifest.chainId !== chainId) throw new Error('Devnet manifest and preset chain IDs differ.');
 
-    const args = buildAnvilArgs({
+    const { child, rpcUrl } = await startAnvil({
         host,
-        port: resolvedPort,
         chainId,
         mnemonic,
         loadStatePath: paths.statePath,
         timestamp: getDevnetInitialTimestamp(manifest),
     });
-
-    const { command, prefixArgs } = resolveAnvilCommand();
-    const child = spawn(command, [...prefixArgs, ...args], { stdio: 'ignore', detached: true });
-    if (!child.pid) throw new Error('Failed to start Anvil (missing pid).');
     globalThis.__perpv3Devnet = child;
-
     try {
-        await waitForRpc({ rpcUrl, timeoutMs: 15_000 });
-
-        if (child.exitCode !== null) {
-            throw new Error(
-                `Anvil exited immediately (exitCode=${child.exitCode}). Is port ${resolvedPort} already in use?`
-            );
-        }
-
-        const chainIdHex = await jsonRpc(rpcUrl, 'eth_chainId', []);
-        const expectedChainIdHex = `0x${chainId.toString(16)}`;
-        if (typeof chainIdHex !== 'string' || chainIdHex.toLowerCase() !== expectedChainIdHex.toLowerCase()) {
-            throw new Error(`Unexpected chainId from RPC: got ${chainIdHex}, expected ${expectedChainIdHex}`);
-        }
-
         const observerAddress = manifest?.contracts?.observer;
         if (typeof observerAddress !== 'string' || !observerAddress.startsWith('0x') || observerAddress.length !== 42) {
             throw new Error(`Invalid observer address in manifest: ${paths.manifestPath}`);

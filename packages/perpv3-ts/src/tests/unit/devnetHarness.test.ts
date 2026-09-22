@@ -106,3 +106,28 @@ describe('devnet connection requirements', () => {
         }
     });
 });
+
+test('snapshot publication preserves the previous generation when staging is incomplete', () => {
+    const moduleUrl = pathToFileURL(path.resolve(__dirname, '../../../scripts/devnet/snapshot.js')).href;
+    const script = `
+        import assert from 'node:assert/strict';
+        import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+        import { tmpdir } from 'node:os';
+        import path from 'node:path';
+        import { publishSnapshot } from ${JSON.stringify(moduleUrl)};
+        const dir = mkdtempSync(path.join(tmpdir(), 'snapshot-test-'));
+        const staging = path.join(dir, 'staging');
+        mkdirSync(staging);
+        const names = ['state.json', 'manifest.json', 'state.meta.json'];
+        try {
+            for (const name of names) writeFileSync(path.join(dir, name), '{"generation":1}');
+            writeFileSync(path.join(staging, 'state.json'), '{"generation":2}');
+            assert.throws(() => publishSnapshot(staging, dir));
+            for (const name of names) assert.equal(JSON.parse(readFileSync(path.join(dir, name))).generation, 1);
+            for (const name of names) writeFileSync(path.join(staging, name), '{"generation":2}');
+            publishSnapshot(staging, dir);
+            for (const name of names) assert.equal(JSON.parse(readFileSync(path.join(dir, name))).generation, 2);
+        } finally { rmSync(dir, { recursive: true, force: true }); }
+    `;
+    expect(() => execFileSync(process.execPath, ['--input-type=module', '--eval', script])).not.toThrow();
+});
