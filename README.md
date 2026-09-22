@@ -5,11 +5,13 @@ a TypeScript SDK for SynFutures V3 queries, simulations, calldata and contract p
 
 ## Development
 
-Use Node.js 22 or later and the pnpm version pinned in `package.json`.
+Use Node.js 24 LTS (pinned in `.nvmrc`) and the pnpm version pinned in `package.json`.
 Published SDK runtime support starts at Node.js 18. Access to the configured `@synfutures`
 registry is required for the contract artifact development dependency.
 
 ```sh
+nvm install
+nvm use
 pnpm install --frozen-lockfile
 pnpm -C packages/perpv3-ts run verify
 pnpm -C packages/perpv3-ts run test:devnet

@@ -1,7 +1,9 @@
 # Development and validation
 
 Run workspace commands from the repository root. The dependency lockfile and
-`package.json` scripts define the toolchain (Node.js 22+ for development, pinned pnpm 10); the local viem-kit override and its
+`package.json` scripts define the toolchain (Node.js 24 LTS from `.nvmrc`, pinned pnpm 10).
+Run `nvm install && nvm use` before workspace commands; CI and release read the same Node version file.
+Published SDK runtime support remains Node.js 18 or later. The local viem-kit override and its
 provenance in the repository's `vendor/README.md` define this branch's dependency bytes.
 
 | Command                                                | Scope and effects                                               |
