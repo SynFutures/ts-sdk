@@ -119,15 +119,19 @@ to run on the development Node version.
 
 ## Release tooling
 
+Create a changeset with
+`pnpm changeset add --patch @synfutures/perpv3-ts --message 'Describe the change'`
+from the workspace root. Choose `--minor` or `--major` when appropriate and review
+the generated file before committing it.
+
 Changesets 3 and `changesets/action@v2` share the root release commands:
 
 - `pnpm run release:dry` reports the pending version plan without applying it.
-- `pnpm run release:version` (also `make version`) applies changesets and refreshes
+- `pnpm run release:version` applies changesets and refreshes
   only the lockfile with lifecycle scripts disabled. It changes package versions,
   changelogs and the lockfile. With no pending changesets, Changesets exits with code 1
   and the command stops before refreshing the lockfile.
-- `pnpm run release` (also `make publish`) publishes packages; `make release` versions
-  and then publishes. These require release authorization.
+- `pnpm run release` publishes packages. Versioning and publishing require release authorization.
 
 The workflow uses the v2 inputs `version-script`, `publish-script` and `github-token`.
 A temporary npm config preserves both private registry scopes (`@synfutures` and
