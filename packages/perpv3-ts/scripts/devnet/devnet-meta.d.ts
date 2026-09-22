@@ -28,7 +28,7 @@ export function computePresetHash(presetPath: string): string;
 export function readAnvilPackageVersion(packageRoot: string): string;
 export function readInstalledPackageVersion(packageDir: string, packageNameForError: string): string;
 export function computeExpectedStateMeta(): ExpectedStateMeta;
-export function readStateMeta(metaPath: string): { cacheKey: string } & Record<string, unknown> | null;
+export function readStateMeta(metaPath: string): ({ cacheKey: string } & Record<string, unknown>) | null;
 export function assertStateFresh(): {
     expected: ExpectedStateMeta;
     existing: { cacheKey: string } & Record<string, unknown>;

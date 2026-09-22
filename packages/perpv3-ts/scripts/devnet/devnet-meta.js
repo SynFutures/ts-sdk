@@ -183,18 +183,14 @@ export function assertStateFresh() {
     const paths = getDevnetPaths();
 
     if (!existsSync(paths.statePath)) {
-        throw new Error(
-            `Missing devnet state at ${paths.statePath}. Run: pnpm -C packages/perpv3-ts run devnet:regen`
-        );
+        throw new Error(`Missing devnet state at ${paths.statePath}. Run: pnpm -C packages/perpv3-ts run devnet:regen`);
     }
 
     const expected = computeExpectedStateMeta();
     const existing = readStateMeta(paths.metaPath);
 
     if (!existing) {
-        throw new Error(
-            `Missing devnet meta at ${paths.metaPath}. Run: pnpm -C packages/perpv3-ts run devnet:regen`
-        );
+        throw new Error(`Missing devnet meta at ${paths.metaPath}. Run: pnpm -C packages/perpv3-ts run devnet:regen`);
     }
 
     if (existing.cacheKey !== expected.cacheKey) {

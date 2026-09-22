@@ -13,4 +13,3 @@ export abstract class NumericConverter {
         return ratioWad / BigInt(10) ** BigInt(14);
     }
 }
-

@@ -103,7 +103,6 @@ export class WebSocketManager {
         return client.subscribeInstrument(params, handler);
     }
 
-
     /**
      * Subscribe to trades updates.
      * @param url - WebSocket URL
