@@ -143,3 +143,9 @@ Changesets 3 skips private-package versioning by default and defaults peer-depen
 bumps to patch. Describe incompatible public changes with an explicit changeset;
 do not rely on a peer dependency update to select a breaking release. Keep the
 local viem-kit override's publication guard until the dependency is released.
+
+Run `pnpm run test:release` to check native changeset creation, version plans,
+changelogs, lockfile refresh, empty-release failure and the local override
+publication guard. The tests use disposable Git fixtures and installed tools,
+with registry dependencies omitted and pnpm in offline mode. They do not apply
+the checkout's pending changesets or publish packages. Both CI workflows run them.

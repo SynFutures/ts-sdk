@@ -66,6 +66,8 @@ jobs:
               run: pnpm run format:check
             - name: Lint Workspace
               run: pnpm run lint
+            - name: Test Release Tooling
+              run: pnpm run test:release
             - name: Verify PerpV3 Package
               run: pnpm -C packages/perpv3-ts run verify
             - name: Devnet Tests
