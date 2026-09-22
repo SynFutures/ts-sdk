@@ -325,3 +325,15 @@ describe('SynFutures parser integration', () => {
         expect(formatted).toBe('OrderImrUnsafe(amount: 1, minAmount: 2)');
     });
 });
+
+test.each([1n, -1n, 0n])('serializes frontend Trade at signed size %s', async (direction) => {
+    const parser = createFrontendInstrumentParser();
+    const formatted = await parser.parseEvent?.({
+        eventName: 'Trade',
+        args: { size: direction * 10n ** 18n, entryNotional: 2n * 10n ** 18n, sqrtPX96: 2n ** 96n },
+    } as ParseEventInput);
+    expect(JSON.parse(formatted ?? '{}')).toMatchObject({
+        tradeType: direction > 0n ? 'buy' : 'sell',
+        tradePriceB: direction === 0n ? '0' : '2000000000000000000',
+    });
+});

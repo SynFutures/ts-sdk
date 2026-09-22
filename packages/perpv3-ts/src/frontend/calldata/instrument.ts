@@ -308,6 +308,9 @@ export function encodeCancelOrderTransaction(
         routerAddress,
         maxCancelCount = MAX_CANCEL_ORDER_COUNT,
     } = options || {};
+    if (!Number.isInteger(maxCancelCount) || maxCancelCount < 1 || maxCancelCount > MAX_CANCEL_ORDER_COUNT) {
+        throw Errors.encoding(`maxCancelCount must be an integer between 1 and ${MAX_CANCEL_ORDER_COUNT}`);
+    }
     const operation = INSTRUMENT_OPERATION_METADATA.cancelOrder.write;
     const needBatch = param.ticks.length > maxCancelCount;
 

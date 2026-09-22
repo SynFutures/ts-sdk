@@ -1069,7 +1069,7 @@ export function createFrontendInstrumentEventParsers(): EventParserMap<typeof CU
                 size: formatWad(size),
                 price: formatSqrtPX96(sqrtPX96),
                 tradeType: size > 0n ? 'buy' : 'sell',
-                tradePriceB: wdiv(entryNotional, size),
+                tradePriceB: (size === 0n ? 0n : wdiv(entryNotional, size < 0n ? -size : size)).toString(),
             });
         },
         Place({ args }) {

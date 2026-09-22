@@ -59,3 +59,17 @@ describe('trade simulations with offline numerical fixtures', () => {
         expect(normalizeBigIntObject(result)).toEqual(expected.simulation);
     });
 });
+
+describe('trade quotation identity', () => {
+    test.each([2n, -1n, 0n])('rejects quotation size multiplied by %s', (factor) => {
+        const scenario = scenarios.trades[0];
+        const { input, settings } = tradeInputs(scenario);
+        const quotation = new QuotationWithSize(
+            BigInt(scenario.signedSize) * factor,
+            parseQuotation(scenario.quotation)
+        );
+        expect(() => input.simulate(parseOnchainContext(scenario.context), quotation, settings)).toThrow(
+            'Quotation size and direction must match the trade input'
+        );
+    });
+});

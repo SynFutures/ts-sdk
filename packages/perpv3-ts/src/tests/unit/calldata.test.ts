@@ -17,7 +17,11 @@ import {
     contractCallEncoder,
 } from '../../frontend/calldata';
 import { encodeDepositTransaction, encodeWithdrawTransaction } from '../../frontend/calldata/account';
-import { encodeMarketOrderTransaction, encodeSettleTransaction } from '../../frontend/calldata/instrument';
+import {
+    encodeCancelOrderTransaction,
+    encodeMarketOrderTransaction,
+    encodeSettleTransaction,
+} from '../../frontend/calldata/instrument';
 import { createInstrumentWriteRequest as createInstrumentWriteRequestFromModule } from '../../frontend/calldata/requests';
 import { encodeApproveTransaction } from '../../frontend/calldata/token';
 import { INSTRUMENT_OPERATION_METADATA } from '../../operations/instrument';
@@ -235,4 +239,18 @@ describe('frontend calldata typed requests', () => {
         expect(decoded.functionName).toBe('approve');
         expect(decoded.args).toEqual([spenderAddress, amount]);
     });
+});
+
+test.each([0, -1, 1.5, 9, NaN, Infinity])('rejects invalid cancel batch size %s before grouping', (maxCancelCount) => {
+    expect(() =>
+        encodeCancelOrderTransaction(
+            {
+                instrumentAddress: '0x0000000000000000000000000000000000000011',
+                expiry: 1,
+                ticks: [1],
+                userSetting: new UserSetting(60, 50, 3n * 10n ** 18n),
+            },
+            { maxCancelCount }
+        )
+    ).toThrow('maxCancelCount must be an integer between 1 and 8');
 });

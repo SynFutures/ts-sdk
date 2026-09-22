@@ -53,6 +53,14 @@ export class TradeInput {
         quotationWithSize: QuotationWithSize,
         userSetting: UserSetting
     ): [TradeParam, TradeSimulation] {
+        const signedSize = this.baseQuantity * BigInt(sideSign(this.side));
+        if (quotationWithSize.size !== signedSize) {
+            throw Errors.validation('Quotation size and direction must match the trade input', ErrorCode.INVALID_SIZE, {
+                expectedSize: signedSize.toString(),
+                quotationSize: quotationWithSize.size.toString(),
+            });
+        }
+
         // Step 1: Extract context and validate inputs as early as possible
         const { instrumentSetting } = snapshot;
         const currentPosition = snapshot.portfolio.position;
@@ -68,7 +76,12 @@ export class TradeInput {
         const updatedAmm = snapshot.updateAmmFundingIndex();
 
         // Step 3: Build trade parameters
-        const tradeParam = this.toTradeParam(quotationWithSize, snapshot.expiry, userSetting, snapshot.blockInfo.timestamp);
+        const tradeParam = this.toTradeParam(
+            quotationWithSize,
+            snapshot.expiry,
+            userSetting,
+            snapshot.blockInfo.timestamp
+        );
         const isLong = tradeParam.size >= ZERO;
         const tradeSign = isLong ? 1n : -1n;
 
@@ -87,7 +100,7 @@ export class TradeInput {
 
         // Step 5: Create trade position and combine with current position
         const quotation = quotationWithSize.quotation;
-        const tradeSize = tradeSign * quotationWithSize.baseQuantity;
+        const tradeSize = tradeParam.size;
         const tradeBalance = marginDelta < ZERO ? -quotation.fee : marginDelta - quotation.fee;
         const socialLossIndex = isLong ? updatedAmm.longSocialLossIndex : updatedAmm.shortSocialLossIndex;
         const fundingIndex = isLong ? updatedAmm.longFundingIndex : updatedAmm.shortFundingIndex;
