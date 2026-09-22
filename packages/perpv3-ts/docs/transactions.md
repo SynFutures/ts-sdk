@@ -1,0 +1,62 @@
+# Transactions and parsers
+
+Create a `ChainKit` per RPC/workflow when clients or token metadata differ.
+Inject the same public client used for reads and simulations. A process-wide
+registry is suitable only when a shared default configuration is intended.
+Wallets and signer policy belong to the caller; Node-only account helpers are
+imported from `@derivation-tech/viem-kit/node`.
+
+## Execute a typed request
+
+The request builder preserves the gate ABI argument tuple. `payload` is the
+packed deposit parameter returned by the relevant PerpV3 encoder. The context
+supplies a configured wallet, public client and effective chain.
+
+```typescript
+import type { Address, Hex } from 'viem';
+import { assertTransactionSuccess, sendContractTransaction, type TxContext } from '@derivation-tech/viem-kit';
+import { createGateWriteRequest } from '@synfutures/perpv3-ts/frontend';
+import { createGateParser } from '@synfutures/perpv3-ts/parsers';
+
+export async function submitDeposit(context: TxContext, gate: Address, payload: Hex) {
+    const request = createGateWriteRequest(gate, 'deposit', [payload]);
+    const sent = await sendContractTransaction(
+        context,
+        {
+            ...request,
+            parser: createGateParser(),
+        },
+        { diagnostics: { timeout: 1_000 } }
+    );
+    try {
+        return assertTransactionSuccess(await sent.receipt);
+    } finally {
+        await sent.diagnostics;
+    }
+}
+```
+
+A reverted receipt is a completed transaction, not successful execution.
+`assertTransactionSuccess` rejects it. Diagnostic work is a separate bounded
+promise: awaiting a receipt alone does not mean event/error formatting has
+finished. A CLI that needs diagnostic output awaits it before exiting, including
+when the receipt assertion throws. Parser or observer failures do not undo an
+already-submitted transaction.
+
+Preserve submitted hashes and inspect the viem-kit submission/wait error before
+retrying. An ambiguous send outcome requires reconciliation; submitting the same
+business action again can duplicate it. Simulation freshness, fee policy, gas
+buffering, approvals and persistent reconciliation remain caller responsibilities.
+
+## Parser ownership
+
+`createInstrumentParser`, `createGateParser`, `createConfigParser` and the other
+factories from `/parsers` use the viem-kit typed parser contract.
+`createFrontendInstrumentParser` shares instrument transaction/error handling
+while retaining UI-specific event descriptions.
+
+Supply `ParserDeps` for token metadata, address labels and RPC queries. Parser
+factories do not select a global chain or signer. Decoded errors are discriminated
+by `kind`; only custom errors have the corresponding ABI name and arguments.
+Register parsers with a kit, pass a request parser directly, or invoke them for
+standalone formatting.

@@ -31,7 +31,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 else
   sed -i -e "s/{PACKAGE}/${packageName}/g" "$packageDir/package.json"
 fi
-cp "./templates/README.md.tmpl" "$packageDir/README.md"
+sed "s/{PACKAGE}/${packageName}/g" ./templates/README.md.tmpl > "$packageDir/README.md"
 
 # copy_templates=(
 # 	"eslint.config.js"
