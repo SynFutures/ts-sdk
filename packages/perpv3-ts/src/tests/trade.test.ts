@@ -6,6 +6,7 @@ import { WAD, ZERO } from '../constants';
 import { abs } from '../math';
 import tradeScenarios from './fixtures/trade-scenarios.abc.json';
 import { normalizeBigIntObject, parseOnchainContext, parseQuotation } from './helpers/abcFixture';
+import { asRecord, isRecord } from './helpers/record';
 
 type ScenarioType = 'margin' | 'leverage' | 'close' | 'adjustMargin';
 
@@ -68,12 +69,12 @@ interface AdjustMarginScenario {
     context: PairSnapshot;
 }
 
-const decodedScenarios = (tradeScenarios as RawScenario[]).map((entry) => ({
+const decodedScenarios = parseRawScenarios(tradeScenarios).map((entry) => ({
     name: entry.name,
     type: entry.type,
     signedSize: entry.signedSize ? BigInt(entry.signedSize) : undefined,
     quotation: entry.quotation ? parseQuotation(entry.quotation) : undefined,
-    context: parseOnchainContext(entry.context as never),
+    context: parseOnchainContext(entry.context),
     input: entry.input,
     expected: entry.expected,
 }));
@@ -85,19 +86,12 @@ const marginScenarios: Array<{ data: MarginScenario; expectedSimulation: unknown
         return {
             data: {
                 name: scenario.name,
-                instrumentAddress: input.instrumentAddress as Address,
-                traderAddress: input.traderAddress as Address,
-                side: Number(input.side) as Side,
-                baseQuantity: BigInt(input.baseQuantity as string),
-                margin: BigInt(input.margin as string),
-                userSetting:
-                    input.userSetting instanceof UserSetting
-                        ? input.userSetting
-                        : new UserSetting(
-                              (input.userSetting as { deadline: number; slippage: number }).deadline,
-                              (input.userSetting as { deadline: number; slippage: number }).slippage,
-                              3n * WAD
-                          ),
+                instrumentAddress: inputAddress(input, 'instrumentAddress'),
+                traderAddress: inputAddress(input, 'traderAddress'),
+                side: inputSide(input),
+                baseQuantity: inputBigInt(input, 'baseQuantity'),
+                margin: inputBigInt(input, 'margin'),
+                userSetting: inputUserSetting(input),
                 signedSize: scenario.signedSize!,
                 quotation: scenario.quotation!,
                 context: scenario.context,
@@ -113,19 +107,12 @@ const leverageScenarios: Array<{ data: LeverageScenario; expectedSimulation: unk
         return {
             data: {
                 name: scenario.name,
-                instrumentAddress: input.instrumentAddress as Address,
-                traderAddress: input.traderAddress as Address,
-                side: Number(input.side) as Side,
-                baseQuantity: BigInt(input.baseQuantity as string),
-                targetLeverage: BigInt(input.targetLeverage as string),
-                userSetting:
-                    input.userSetting instanceof UserSetting
-                        ? input.userSetting
-                        : new UserSetting(
-                              (input.userSetting as { deadline: number; slippage: number }).deadline,
-                              (input.userSetting as { deadline: number; slippage: number }).slippage,
-                              3n * WAD
-                          ),
+                instrumentAddress: inputAddress(input, 'instrumentAddress'),
+                traderAddress: inputAddress(input, 'traderAddress'),
+                side: inputSide(input),
+                baseQuantity: inputBigInt(input, 'baseQuantity'),
+                targetLeverage: inputBigInt(input, 'targetLeverage'),
+                userSetting: inputUserSetting(input),
                 signedSize: scenario.signedSize!,
                 quotation: scenario.quotation!,
                 context: scenario.context,
@@ -141,17 +128,10 @@ const closeScenarios: Array<{ data: CloseScenario; expectedSimulation: unknown }
         return {
             data: {
                 name: scenario.name,
-                instrumentAddress: input.instrumentAddress as Address,
-                traderAddress: input.traderAddress as Address,
-                baseQuantity: BigInt(input.baseQuantity as string),
-                userSetting:
-                    input.userSetting instanceof UserSetting
-                        ? input.userSetting
-                        : new UserSetting(
-                              (input.userSetting as { deadline: number; slippage: number }).deadline,
-                              (input.userSetting as { deadline: number; slippage: number }).slippage,
-                              3n * WAD
-                          ),
+                instrumentAddress: inputAddress(input, 'instrumentAddress'),
+                traderAddress: inputAddress(input, 'traderAddress'),
+                baseQuantity: inputBigInt(input, 'baseQuantity'),
+                userSetting: inputUserSetting(input),
                 signedSize: scenario.signedSize!,
                 quotation: scenario.quotation!,
                 context: scenario.context,
@@ -167,18 +147,11 @@ const adjustMarginScenarios: Array<{ data: AdjustMarginScenario; expectedSimulat
         return {
             data: {
                 name: scenario.name,
-                instrumentAddress: input.instrumentAddress as Address,
-                traderAddress: input.traderAddress as Address,
-                amount: BigInt(input.amount as string),
+                instrumentAddress: inputAddress(input, 'instrumentAddress'),
+                traderAddress: inputAddress(input, 'traderAddress'),
+                amount: inputBigInt(input, 'amount'),
                 transferIn: Boolean(input.transferIn),
-                userSetting:
-                    input.userSetting instanceof UserSetting
-                        ? input.userSetting
-                        : new UserSetting(
-                              (input.userSetting as { deadline: number; slippage: number }).deadline,
-                              (input.userSetting as { deadline: number; slippage: number }).slippage,
-                              3n * WAD
-                          ),
+                userSetting: inputUserSetting(input),
                 context: scenario.context,
             },
             expectedSimulation: scenario.expected.simulation,
@@ -202,12 +175,7 @@ describe('trade simulations (ABC fixture data)', () => {
 
                 const context = data.context;
                 const quotationWithSize = new QuotationWithSize(data.signedSize, data.quotation);
-                const input = new TradeInput(
-                    data.traderAddress,
-                    data.baseQuantity,
-                    data.side as Side,
-                    data.margin
-                );
+                const input = new TradeInput(data.traderAddress, data.baseQuantity, data.side, data.margin);
 
                 const [, simulation] = input.simulate(context, quotationWithSize, data.userSetting);
                 expect(omitLeverage(normalizeBigIntObject(simulation) as unknown)).toEqual(
@@ -233,7 +201,7 @@ describe('trade simulations (ABC fixture data)', () => {
 
                 const context = data.context;
                 const quotationWithSize = new QuotationWithSize(data.signedSize, data.quotation);
-                const input = new TradeInput(data.traderAddress, data.baseQuantity, data.side as Side);
+                const input = new TradeInput(data.traderAddress, data.baseQuantity, data.side);
 
                 const [, simulation] = input.simulate(context, quotationWithSize, data.userSetting);
                 expect(omitLeverage(normalizeBigIntObject(simulation) as unknown)).toEqual(
@@ -274,11 +242,7 @@ describe('trade simulations (ABC fixture data)', () => {
                 const input = new AdjustInput(data.traderAddress, data.amount, data.transferIn);
                 const [, simulation] = input.simulate(context, data.userSetting);
                 // Transform old expected simulation structure to new postPosition structure
-                const oldExpected = expectedSimulation as {
-                    positionMargin: string;
-                    leverage: string;
-                    liquidationPrice: string;
-                };
+                const oldExpected = parseOldAdjustExpected(expectedSimulation);
                 const position = context.portfolio.position;
                 const expectedPostPosition = {
                     balance: oldExpected.positionMargin,
@@ -297,10 +261,64 @@ describe('trade simulations (ABC fixture data)', () => {
 });
 
 function omitLeverage(value: unknown): Record<string, unknown> {
-    if (!value || typeof value !== 'object') {
+    if (!isRecord(value)) {
         throw new Error('Expected object to omit leverage');
     }
-    const record = value as Record<string, unknown>;
-    const { leverage: _leverage, marginDelta: _marginDelta, ...withoutLeverage } = record;
+    const { leverage: _leverage, marginDelta: _marginDelta, ...withoutLeverage } = value;
     return withoutLeverage;
+}
+
+function parseRawScenarios(value: unknown): RawScenario[] {
+    if (!Array.isArray(value)) {
+        throw new Error('Trade scenario fixture must be an array');
+    }
+    return value.map(parseRawScenario);
+}
+
+function parseRawScenario(value: unknown): RawScenario {
+    if (!isRecord(value) || !isScenarioType(value.type) || !isRecord(value.input) || !isRecord(value.expected)) {
+        throw new Error('Invalid trade scenario fixture entry');
+    }
+    return {
+        name: String(value.name ?? ''),
+        type: value.type,
+        signedSize: typeof value.signedSize === 'string' ? value.signedSize : undefined,
+        quotation: value.quotation,
+        context: value.context,
+        input: value.input,
+        expected: {
+            simulation: value.expected.simulation,
+        },
+    };
+}
+
+function isScenarioType(value: unknown): value is ScenarioType {
+    return value === 'margin' || value === 'leverage' || value === 'close' || value === 'adjustMargin';
+}
+
+function inputAddress(input: Record<string, unknown>, key: string): Address {
+    return String(input[key] ?? '') as Address;
+}
+
+function inputSide(input: Record<string, unknown>): Side {
+    return Number(input.side) as Side;
+}
+
+function inputBigInt(input: Record<string, unknown>, key: string): bigint {
+    return BigInt(String(input[key] ?? 0));
+}
+
+function inputUserSetting(input: Record<string, unknown>): UserSetting {
+    if (input.userSetting instanceof UserSetting) {
+        return input.userSetting;
+    }
+    const userSetting = asRecord(input.userSetting);
+    return new UserSetting(Number(userSetting.deadline ?? 0), Number(userSetting.slippage ?? 0), 3n * WAD);
+}
+
+function parseOldAdjustExpected(value: unknown): { positionMargin: string } {
+    const record = asRecord(value);
+    return {
+        positionMargin: String(record.positionMargin ?? '0'),
+    };
 }

@@ -13,6 +13,7 @@ import {
     type SpacingConfig,
 } from '../../types/contract';
 import { PairSnapshot } from '../../types/snapshot';
+import { asRecord, recordEntries } from './record';
 
 type JsonPrimitive = string | number | boolean | null;
 
@@ -42,16 +43,7 @@ export interface RawQuotation {
     postTick: number;
 }
 
-type UnknownRecord = Record<string, unknown>;
-
-function asRecord(value: unknown): UnknownRecord {
-    if (!value || typeof value !== 'object') {
-        return {};
-    }
-    return value as UnknownRecord;
-}
-
-export function parseBigInt(value: JsonPrimitive): bigint {
+export function parseBigInt(value: unknown): bigint {
     if (typeof value === 'bigint') {
         return value;
     }
@@ -61,74 +53,85 @@ export function parseBigInt(value: JsonPrimitive): bigint {
     throw new Error(`Invalid bigint value in fixture: ${String(value)}`);
 }
 
+function parseNumber(value: unknown, fallback = 0): number {
+    return Number(value ?? fallback);
+}
+
+function parseString(value: unknown, fallback = ''): string {
+    return String(value ?? fallback);
+}
+
+function parseArray(value: unknown): unknown[] {
+    return Array.isArray(value) ? value : [];
+}
+
+function parseTypedString<T extends string>(value: unknown): T {
+    return parseString(value) as T;
+}
+
 function parsePriceData(raw: unknown): PriceData {
     const record = asRecord(raw);
     return {
-        instrument: record.instrument as PriceData['instrument'],
-        expiry: Number(record.expiry ?? 0),
-        markPrice: parseBigInt(record.markPrice as JsonPrimitive),
-        spotPrice: parseBigInt(record.spotPrice as JsonPrimitive),
-        benchmarkPrice: parseBigInt(record.benchmarkPrice as JsonPrimitive),
-        feeder0: record.feeder0 as PriceData['feeder0'],
-        feeder1: record.feeder1 as PriceData['feeder1'],
-        feeder0UpdatedAt: parseBigInt(record.feeder0UpdatedAt as JsonPrimitive),
-        feeder1UpdatedAt: parseBigInt(record.feeder1UpdatedAt as JsonPrimitive),
+        instrument: parseTypedString<PriceData['instrument']>(record.instrument),
+        expiry: parseNumber(record.expiry),
+        markPrice: parseBigInt(record.markPrice),
+        spotPrice: parseBigInt(record.spotPrice),
+        benchmarkPrice: parseBigInt(record.benchmarkPrice),
+        feeder0: parseTypedString<PriceData['feeder0']>(record.feeder0),
+        feeder1: parseTypedString<PriceData['feeder1']>(record.feeder1),
+        feeder0UpdatedAt: parseBigInt(record.feeder0UpdatedAt),
+        feeder1UpdatedAt: parseBigInt(record.feeder1UpdatedAt),
     };
 }
 
 function parseAmm(raw: unknown): Amm {
     const record = asRecord(raw);
     return {
-        expiry: Number(record.expiry ?? 0),
-        timestamp: Number(record.timestamp ?? 0),
-        status: Number(record.status ?? 0),
-        tick: Number(record.tick ?? 0),
-        sqrtPX96: parseBigInt(record.sqrtPX96 as JsonPrimitive),
-        liquidity: parseBigInt(record.liquidity as JsonPrimitive),
-        totalLiquidity: parseBigInt(record.totalLiquidity as JsonPrimitive),
-        totalShort: parseBigInt(record.totalShort as JsonPrimitive),
-        openInterests: parseBigInt(record.openInterests as JsonPrimitive),
-        totalLong: parseBigInt(record.totalLong as JsonPrimitive),
-        involvedFund: parseBigInt(record.involvedFund as JsonPrimitive),
-        feeIndex: parseBigInt(record.feeIndex as JsonPrimitive),
-        protocolFee: parseBigInt(record.protocolFee as JsonPrimitive),
-        longSocialLossIndex: parseBigInt(record.longSocialLossIndex as JsonPrimitive),
-        shortSocialLossIndex: parseBigInt(record.shortSocialLossIndex as JsonPrimitive),
-        longFundingIndex: parseBigInt(record.longFundingIndex as JsonPrimitive),
-        shortFundingIndex: parseBigInt(record.shortFundingIndex as JsonPrimitive),
-        insuranceFund: parseBigInt(record.insuranceFund as JsonPrimitive),
-        settlementPrice: parseBigInt(record.settlementPrice as JsonPrimitive),
+        expiry: parseNumber(record.expiry),
+        timestamp: parseNumber(record.timestamp),
+        status: parseNumber(record.status),
+        tick: parseNumber(record.tick),
+        sqrtPX96: parseBigInt(record.sqrtPX96),
+        liquidity: parseBigInt(record.liquidity),
+        totalLiquidity: parseBigInt(record.totalLiquidity),
+        totalShort: parseBigInt(record.totalShort),
+        openInterests: parseBigInt(record.openInterests),
+        totalLong: parseBigInt(record.totalLong),
+        involvedFund: parseBigInt(record.involvedFund),
+        feeIndex: parseBigInt(record.feeIndex),
+        protocolFee: parseBigInt(record.protocolFee),
+        longSocialLossIndex: parseBigInt(record.longSocialLossIndex),
+        shortSocialLossIndex: parseBigInt(record.shortSocialLossIndex),
+        longFundingIndex: parseBigInt(record.longFundingIndex),
+        shortFundingIndex: parseBigInt(record.shortFundingIndex),
+        insuranceFund: parseBigInt(record.insuranceFund),
+        settlementPrice: parseBigInt(record.settlementPrice),
     };
 }
 
 function parsePosition(raw: unknown): Position {
     const record = asRecord(raw);
     return new Position(
-        parseBigInt(record.balance as JsonPrimitive),
-        parseBigInt(record.size as JsonPrimitive),
-        parseBigInt(record.entryNotional as JsonPrimitive),
-        parseBigInt(record.entrySocialLossIndex as JsonPrimitive),
-        parseBigInt(record.entryFundingIndex as JsonPrimitive)
+        parseBigInt(record.balance),
+        parseBigInt(record.size),
+        parseBigInt(record.entryNotional),
+        parseBigInt(record.entrySocialLossIndex),
+        parseBigInt(record.entryFundingIndex)
     );
 }
 
 function parseOrder(raw: unknown, tick: number, nonce: number): Order {
     const record = asRecord(raw);
-    return new Order(
-        parseBigInt(record.balance as JsonPrimitive),
-        parseBigInt(record.size as JsonPrimitive),
-        tick,
-        nonce
-    );
+    return new Order(parseBigInt(record.balance), parseBigInt(record.size), tick, nonce);
 }
 
 function parseRange(raw: unknown, tickLower: number, tickUpper: number): Range {
     const record = asRecord(raw);
     return new Range(
-        parseBigInt(record.liquidity as JsonPrimitive),
-        parseBigInt(record.entryFeeIndex as JsonPrimitive),
-        parseBigInt(record.balance as JsonPrimitive),
-        parseBigInt(record.sqrtEntryPX96 as JsonPrimitive),
+        parseBigInt(record.liquidity),
+        parseBigInt(record.entryFeeIndex),
+        parseBigInt(record.balance),
+        parseBigInt(record.sqrtEntryPX96),
         tickLower,
         tickUpper
     );
@@ -137,35 +140,25 @@ function parseRange(raw: unknown, tickLower: number, tickUpper: number): Range {
 function parsePortfolio(raw: unknown): Portfolio {
     const record = asRecord(raw);
     const position = parsePosition(record.position);
-    const oids = Array.isArray(record.oids)
-        ? record.oids.map((oid: unknown) => Number((oid as JsonPrimitive) ?? 0))
-        : [];
-    const orders = Array.isArray(record.orders)
-        ? record.orders.map((order: unknown, index: number) => {
-              const oid = oids[index];
-              if (oid === undefined) {
-                  throw new Error('Order oid is missing');
-              }
-              const { tick, nonce } = Order.unpackKey(oid);
-              return parseOrder(order, tick, nonce);
-          })
-        : [];
-    const rids = Array.isArray(record.rids)
-        ? record.rids.map((rid: unknown) => Number((rid as JsonPrimitive) ?? 0))
-        : [];
-    const ranges = Array.isArray(record.ranges)
-        ? record.ranges.map((range: unknown, index: number) => {
-              const rid = rids[index];
-              if (rid === undefined) {
-                  throw new Error('Range rid is missing');
-              }
-              const { tickLower, tickUpper } = Range.unpackKey(rid);
-              return parseRange(range, tickLower, tickUpper);
-          })
-        : [];
-    const ordersTaken = Array.isArray(record.ordersTaken)
-        ? record.ordersTaken.map((item: unknown) => parseBigInt(item as JsonPrimitive))
-        : [];
+    const oids = parseArray(record.oids).map((oid) => parseNumber(oid));
+    const orders = parseArray(record.orders).map((order, index) => {
+        const oid = oids[index];
+        if (oid === undefined) {
+            throw new Error('Order oid is missing');
+        }
+        const { tick, nonce } = Order.unpackKey(oid);
+        return parseOrder(order, tick, nonce);
+    });
+    const rids = parseArray(record.rids).map((rid) => parseNumber(rid));
+    const ranges = parseArray(record.ranges).map((range, index) => {
+        const rid = rids[index];
+        if (rid === undefined) {
+            throw new Error('Range rid is missing');
+        }
+        const { tickLower, tickUpper } = Range.unpackKey(rid);
+        return parseRange(range, tickLower, tickUpper);
+    });
+    const ordersTaken = parseArray(record.ordersTaken).map((item) => parseBigInt(item));
 
     return {
         oids,
@@ -182,22 +175,22 @@ function parseQuoteState(raw: unknown): QuoteState {
     const fundFlow = asRecord(record.fundFlow);
     const pending = asRecord(record.pending);
     return {
-        quote: record.quote as QuoteState['quote'],
-        decimals: Number(record.decimals ?? 0),
-        symbol: String(record.symbol ?? ''),
-        threshold: parseBigInt(record.threshold as JsonPrimitive),
-        reserve: parseBigInt(record.reserve as JsonPrimitive),
-        balance: parseBigInt(record.balance as JsonPrimitive),
-        allowance: parseBigInt(record.allowance as JsonPrimitive),
+        quote: parseTypedString<QuoteState['quote']>(record.quote),
+        decimals: parseNumber(record.decimals),
+        symbol: parseString(record.symbol),
+        threshold: parseBigInt(record.threshold),
+        reserve: parseBigInt(record.reserve),
+        balance: parseBigInt(record.balance),
+        allowance: parseBigInt(record.allowance),
         fundFlow: {
-            totalIn: parseBigInt(fundFlow.totalIn as JsonPrimitive),
-            totalOut: parseBigInt(fundFlow.totalOut as JsonPrimitive),
+            totalIn: parseBigInt(fundFlow.totalIn),
+            totalOut: parseBigInt(fundFlow.totalOut),
         },
         pending: {
-            timestamp: Number(pending.timestamp ?? 0),
+            timestamp: parseNumber(pending.timestamp),
             native: Boolean(pending.native),
-            amount: parseBigInt(pending.amount as JsonPrimitive),
-            exemption: parseBigInt(pending.exemption as JsonPrimitive),
+            amount: parseBigInt(pending.amount),
+            exemption: parseBigInt(pending.exemption),
         },
     };
 }
@@ -205,63 +198,64 @@ function parseQuoteState(raw: unknown): QuoteState {
 function parseSpacing(raw: unknown): SpacingConfig {
     const record = asRecord(raw);
     return {
-        pearl: Number(record.pearl ?? 0),
-        order: Number(record.order ?? 0),
-        range: Number(record.range ?? 0),
+        pearl: parseNumber(record.pearl),
+        order: parseNumber(record.order),
+        range: parseNumber(record.range),
     };
 }
 
 function parseBlockInfo(raw: unknown): BlockInfo {
     const record = asRecord(raw);
     return {
-        timestamp: Number(record.timestamp ?? 0),
-        height: Number(record.height ?? 0),
+        timestamp: parseNumber(record.timestamp),
+        height: parseNumber(record.height),
     };
 }
 
 export function parseQuotation(raw: unknown): Quotation {
     const record = asRecord(raw);
     return {
-        benchmark: parseBigInt(record.benchmark as JsonPrimitive),
-        sqrtFairPX96: parseBigInt(record.sqrtFairPX96 as JsonPrimitive),
-        tick: Number(record.tick ?? 0),
-        mark: parseBigInt(record.mark as JsonPrimitive),
-        entryNotional: parseBigInt(record.entryNotional as JsonPrimitive),
-        fee: parseBigInt(record.fee as JsonPrimitive),
-        minAmount: parseBigInt(record.minAmount as JsonPrimitive),
-        sqrtPostFairPX96: parseBigInt(record.sqrtPostFairPX96 as JsonPrimitive),
-        postTick: Number(record.postTick ?? 0),
+        benchmark: parseBigInt(record.benchmark),
+        sqrtFairPX96: parseBigInt(record.sqrtFairPX96),
+        tick: parseNumber(record.tick),
+        mark: parseBigInt(record.mark),
+        entryNotional: parseBigInt(record.entryNotional),
+        fee: parseBigInt(record.fee),
+        minAmount: parseBigInt(record.minAmount),
+        sqrtPostFairPX96: parseBigInt(record.sqrtPostFairPX96),
+        postTick: parseNumber(record.postTick),
     };
 }
 
-export function parseOnchainContext(raw: RawOnchainContext): PairSnapshot {
-    const settingRaw = asRecord(raw.setting);
-    const priceDataRaw = raw.priceData;
-    const ammRaw = raw.amm;
-    const portfolioRaw = raw.portfolio;
-    const quoteStateRaw = raw.quoteState;
-    const spacingRaw = raw.spacing;
-    const blockInfoRaw = raw.blockInfo;
+export function parseOnchainContext(raw: unknown): PairSnapshot {
+    const record = asRecord(raw);
+    const settingRaw = asRecord(record.setting);
+    const priceDataRaw = record.priceData;
+    const ammRaw = record.amm;
+    const portfolioRaw = record.portfolio;
+    const quoteStateRaw = record.quoteState;
+    const spacingRaw = record.spacing;
+    const blockInfoRaw = record.blockInfo;
     const paramRaw = asRecord(settingRaw.param);
 
     const setting = {
-        symbol: String(settingRaw.symbol ?? ''),
-        config: settingRaw.config as Setting['config'],
-        gate: settingRaw.gate as Setting['gate'],
-        market: settingRaw.market as Setting['market'],
-        quote: settingRaw.quote as Setting['quote'],
-        decimals: Number(settingRaw.decimals ?? 0),
-        initialMarginRatio: Number(settingRaw.initialMarginRatio ?? 0),
-        maintenanceMarginRatio: Number(settingRaw.maintenanceMarginRatio ?? 0),
+        symbol: parseString(settingRaw.symbol),
+        config: parseTypedString<Setting['config']>(settingRaw.config),
+        gate: parseTypedString<Setting['gate']>(settingRaw.gate),
+        market: parseTypedString<Setting['market']>(settingRaw.market),
+        quote: parseTypedString<Setting['quote']>(settingRaw.quote),
+        decimals: parseNumber(settingRaw.decimals),
+        initialMarginRatio: parseNumber(settingRaw.initialMarginRatio),
+        maintenanceMarginRatio: parseNumber(settingRaw.maintenanceMarginRatio),
         placePaused: Boolean(settingRaw.placePaused),
-        fundingHour: Number(settingRaw.fundingHour ?? 0),
+        fundingHour: parseNumber(settingRaw.fundingHour),
         disableOrderRebate: Boolean(settingRaw.disableOrderRebate),
         param: {
-            minMarginAmount: parseBigInt(paramRaw.minMarginAmount as JsonPrimitive),
-            tradingFeeRatio: Number(paramRaw.tradingFeeRatio ?? 0),
-            protocolFeeRatio: Number(paramRaw.protocolFeeRatio ?? 0),
-            qtype: Number(paramRaw.qtype ?? 0),
-            tip: parseBigInt(paramRaw.tip as JsonPrimitive),
+            minMarginAmount: parseBigInt(paramRaw.minMarginAmount),
+            tradingFeeRatio: parseNumber(paramRaw.tradingFeeRatio),
+            protocolFeeRatio: parseNumber(paramRaw.protocolFeeRatio),
+            qtype: parseNumber(paramRaw.qtype),
+            tip: parseBigInt(paramRaw.tip),
         },
     };
 
@@ -269,11 +263,11 @@ export function parseOnchainContext(raw: RawOnchainContext): PairSnapshot {
     const quoteState = quoteStateRaw
         ? parseQuoteState(quoteStateRaw)
         : PairSnapshot.emptyQuoteState(setting.quote, setting.decimals, '');
-    const quotation = raw.quotation ? parseQuotation(raw.quotation) : undefined;
+    const quotation = record.quotation ? parseQuotation(record.quotation) : undefined;
 
     return new PairSnapshot({
         setting,
-        condition: raw.condition !== undefined ? (Number(raw.condition) as Condition) : Condition.NORMAL,
+        condition: record.condition !== undefined ? (parseNumber(record.condition) as Condition) : Condition.NORMAL,
         amm: parseAmm(ammRaw),
         priceData: parsePriceData(priceDataRaw),
         spacing: parseSpacing(spacingRaw),
@@ -297,7 +291,7 @@ function normalizeBigIntInternal(value: unknown): unknown {
     }
     if (value && typeof value === 'object') {
         const result: Record<string, unknown> = {};
-        for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+        for (const [key, entry] of recordEntries(value)) {
             result[key] = normalizeBigIntInternal(entry);
         }
         return result;

@@ -1,5 +1,7 @@
 export function waitForRpc(params: { rpcUrl: string; timeoutMs: number }): Promise<void>;
 
+export function getDevnetInitialTimestamp(manifest: { instruments?: Array<{ expiry?: number }> }): number | undefined;
+
 export function buildAnvilArgs(params: {
     host: string;
     port: number;
@@ -7,5 +9,5 @@ export function buildAnvilArgs(params: {
     mnemonic: string;
     loadStatePath?: string;
     dumpStatePath?: string;
+    timestamp?: number;
 }): string[];
-

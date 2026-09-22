@@ -6,7 +6,7 @@ import net from 'node:net';
 import path from 'node:path';
 
 import { assertStateFresh, getDevnetPaths } from '../devnet-meta.js';
-import { buildAnvilArgs, resolveAnvilCommand, waitForRpc } from '../anvil.js';
+import { buildAnvilArgs, getDevnetInitialTimestamp, resolveAnvilCommand, waitForRpc } from '../anvil.js';
 
 async function isTcpPortAvailable(host, port) {
     return await new Promise((resolve) => {
@@ -104,7 +104,9 @@ export default async function globalSetup() {
     const { paths } = assertStateFresh();
 
     if (!existsSync(paths.manifestPath)) {
-        throw new Error(`Missing devnet manifest at ${paths.manifestPath}. Run: pnpm -C packages/perpv3-ts run devnet:regen`);
+        throw new Error(
+            `Missing devnet manifest at ${paths.manifestPath}. Run: pnpm -C packages/perpv3-ts run devnet:regen`
+        );
     }
 
     const preset = JSON.parse(readFileSync(paths.presetPath, 'utf8'));
@@ -113,7 +115,12 @@ export default async function globalSetup() {
     const chainId = preset?.anvil?.chainId;
     const mnemonic = preset?.anvil?.mnemonic;
 
-    if (typeof host !== 'string' || typeof port !== 'number' || typeof chainId !== 'number' || typeof mnemonic !== 'string') {
+    if (
+        typeof host !== 'string' ||
+        typeof port !== 'number' ||
+        typeof chainId !== 'number' ||
+        typeof mnemonic !== 'string'
+    ) {
         throw new Error(`Invalid devnet preset at ${paths.presetPath}`);
     }
 
@@ -125,6 +132,7 @@ export default async function globalSetup() {
     const runtimeDir = path.join(paths.devnetRoot, '.runtime');
     mkdirSync(runtimeDir, { recursive: true });
     const runtimePath = path.join(runtimeDir, 'anvil.json');
+    const manifest = JSON.parse(readFileSync(paths.manifestPath, 'utf8'));
 
     const args = buildAnvilArgs({
         host,
@@ -132,6 +140,7 @@ export default async function globalSetup() {
         chainId,
         mnemonic,
         loadStatePath: paths.statePath,
+        timestamp: getDevnetInitialTimestamp(manifest),
     });
 
     const { command, prefixArgs } = resolveAnvilCommand();
@@ -142,7 +151,9 @@ export default async function globalSetup() {
         await waitForRpc({ rpcUrl, timeoutMs: 15_000 });
 
         if (child.exitCode !== null) {
-            throw new Error(`Anvil exited immediately (exitCode=${child.exitCode}). Is port ${resolvedPort} already in use?`);
+            throw new Error(
+                `Anvil exited immediately (exitCode=${child.exitCode}). Is port ${resolvedPort} already in use?`
+            );
         }
 
         const chainIdHex = await jsonRpc(rpcUrl, 'eth_chainId', []);
@@ -151,7 +162,6 @@ export default async function globalSetup() {
             throw new Error(`Unexpected chainId from RPC: got ${chainIdHex}, expected ${expectedChainIdHex}`);
         }
 
-        const manifest = JSON.parse(readFileSync(paths.manifestPath, 'utf8'));
         const observerAddress = manifest?.contracts?.observer;
         if (typeof observerAddress !== 'string' || !observerAddress.startsWith('0x') || observerAddress.length !== 42) {
             throw new Error(`Invalid observer address in manifest: ${paths.manifestPath}`);
