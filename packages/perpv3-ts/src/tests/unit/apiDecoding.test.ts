@@ -11,6 +11,9 @@ import {
     decodeQuotation,
     decodeQuotationWithSize,
 } from '../../apis/decoders';
+import { getPerpInfo } from '../../info';
+import { buildOnChainContextFromQuery, toBigIntValue } from '../../apis/utils';
+import fixture from '../fixtures/simulation-context.json';
 import { MarketModule } from '../../apis/market';
 import type { ApiSigner } from '../../apis/interfaces';
 import { fetchOnchainContext } from '../../queries/api';
@@ -282,6 +285,7 @@ describe('API decoding', () => {
             }),
         });
 
+        expect(snapshot.instrumentSetting.configAddress).toBe(getPerpInfo(8453).config);
         expect(snapshot.priceData.markPrice).toBe(markPrice);
         expect(snapshot.priceData.benchmarkPrice).toBe(markPrice);
     });
@@ -461,5 +465,51 @@ describe('API decoding', () => {
 
         expect(details.amm.liquidity).toBe(100n);
         expect(details.tick2Pearl.get(3)).toEqual({ liquidityNet: 40n, left: 50n });
+    });
+});
+
+function pascalCase(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map(pascalCase);
+    if (value !== null && typeof value === 'object')
+        return Object.fromEntries(
+            Object.entries(value).map(([key, item]) => [key[0].toUpperCase() + key.slice(1), pascalCase(item)])
+        );
+    return value;
+}
+
+describe('PascalCase on-chain query decoding', () => {
+    test('preserves valid zeros and snapshot values', () => {
+        const snapshot = buildOnChainContextFromQuery(pascalCase(fixture.context));
+        expect(snapshot.amm.liquidity).toBe(BigInt(fixture.context.amm.liquidity));
+        expect(snapshot.instrumentSetting.fundingHour).toBe(0);
+        expect(snapshot.portfolio.position.size).toBe(0n);
+    });
+    test('rejects empty nested structures at the HTTP boundary', async () => {
+        const market = createMarketModule({ Setting: {}, Amm: {}, PriceData: {}, Spacing: {}, BlockInfo: {} });
+        await expect(
+            market.fetchMarketOnChainContextQuery({
+                chainId: 8453,
+                instrument: '0x0000000000000000000000000000000000001000',
+                expiry: 1,
+            })
+        ).rejects.toThrow('Setting.Param');
+    });
+    test.each([false, 0, 'invalid'])('rejects malformed optional portfolio %s', (Portfolio) => {
+        const raw = pascalCase(fixture.context) as Record<string, unknown>;
+        expect(() => buildOnChainContextFromQuery({ ...raw, Portfolio })).toThrow('Portfolio');
+    });
+    test.each([null, undefined, '', 'broken', '1.5', '1e-1', '1e999999999', 1.5, Number.MAX_SAFE_INTEGER + 1])(
+        'rejects invalid integer %s',
+        (value) => {
+            expect(() => toBigIntValue(value)).toThrow('Invalid bigint');
+        }
+    );
+    test.each([
+        ['0', 0n],
+        ['1.2e3', 1200n],
+        ['-12.00', -12n],
+        ['0e-5', 0n],
+    ] as const)('preserves exact integer %s', (value, expected) => {
+        expect(toBigIntValue(value)).toBe(expected);
     });
 });

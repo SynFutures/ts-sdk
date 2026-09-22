@@ -28,7 +28,6 @@ import type {
     FetchOnChainContextQueryInput,
     FetchOnChainContextQueryResponse,
     ApiSigner,
-    OnChainContextQueryResponseFromApi,
 } from './interfaces';
 import { HttpClient } from '../utils';
 import { buildOnChainContextFromQuery } from './utils';
@@ -45,18 +44,7 @@ import {
     decodeQuotationWithSize,
     decodeQuoteState,
 } from './decoders';
-import { isRecord, requireRecord } from './codecs';
-
-function hasOnChainQueryShape(value: unknown): value is OnChainContextQueryResponseFromApi {
-    return (
-        isRecord(value) &&
-        value.Setting !== undefined &&
-        value.Amm !== undefined &&
-        value.PriceData !== undefined &&
-        value.Spacing !== undefined &&
-        value.BlockInfo !== undefined
-    );
-}
+import { requireRecord } from './codecs';
 
 /**
  * MarketModule - Market API endpoints
@@ -137,11 +125,7 @@ export class MarketModule extends BaseApiModule {
         const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
 
         const rawData = getApiData(res);
-        if (!rawData) {
-            return null;
-        }
-
-        if (!hasOnChainQueryShape(rawData)) {
+        if (rawData === null) {
             return null;
         }
 
