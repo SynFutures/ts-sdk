@@ -4,6 +4,9 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const PERP_EXPIRY = 0xffffffff;
+const FUTURES_START_LEAD_SECONDS = 86_400;
+
 async function sleep(ms) {
     await new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -53,11 +56,23 @@ export function resolveAnvilCommand() {
     return { command: process.execPath, prefixArgs: [binMjsPath] };
 }
 
-export function buildAnvilArgs({ host, port, chainId, mnemonic, loadStatePath, dumpStatePath }) {
+export function getDevnetInitialTimestamp(manifest) {
+    const instruments = Array.isArray(manifest?.instruments) ? manifest.instruments : [];
+    const datedExpiries = instruments
+        .map((instrument) => instrument?.expiry)
+        .filter(
+            (expiry) => Number.isSafeInteger(expiry) && expiry !== PERP_EXPIRY && expiry > FUTURES_START_LEAD_SECONDS
+        );
+    if (datedExpiries.length === 0) return undefined;
+    return Math.min(...datedExpiries) - FUTURES_START_LEAD_SECONDS;
+}
+
+export function buildAnvilArgs({ host, port, chainId, mnemonic, loadStatePath, dumpStatePath, timestamp }) {
     const args = ['--host', host, '--port', String(port), '--chain-id', String(chainId), '--mnemonic', mnemonic];
 
     if (loadStatePath) args.push('--load-state', loadStatePath);
     if (dumpStatePath) args.push('--dump-state', dumpStatePath);
+    if (timestamp !== undefined) args.push('--timestamp', String(timestamp));
 
     return args;
 }
