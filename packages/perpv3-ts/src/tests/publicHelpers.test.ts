@@ -1,3 +1,4 @@
+import { getPerpInfo } from '../info';
 import { WAD, ZERO } from '../constants';
 import { alphaWadToTickDelta, ratioToWad, tickToSqrtX96, wadToTick } from '../math';
 import { estimateAPY } from '../frontend';
@@ -5,6 +6,10 @@ import { NumericConverter } from '../utils';
 import { Condition, QuoteType, Side, Status, type Amm } from '../types';
 
 describe('Public helpers', () => {
+    test('rejects the retired ABC deployment while retaining Base configuration', () => {
+        expect(() => getPerpInfo(20250903)).toThrow();
+        expect(getPerpInfo(8453).observer).toBe('0x16Ae357dFe705D1B9862132Dca02e07150876e3E');
+    });
     const makeAmm = (overrides: Partial<Amm>): Amm => ({
         expiry: 0,
         timestamp: 0,

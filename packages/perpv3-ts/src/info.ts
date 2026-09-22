@@ -31,16 +31,6 @@ const PerpInfoMap: Record<number, PerpInfo> = {
         gate: '0x208B443983D8BcC8578e9D86Db23FbA547071270',
         guardian: '0xBe0F37274AdADb32441acDB74791de159B0BD87E',
     },
-    20250903: {
-        // ABC Testnet
-        pearlSpacing: 1,
-        orderSpacing: 1,
-        rangeSpacing: 50,
-        config: '0xdfBA572929De47838BdE12336dfE8842B06d9628',
-        observer: '0xEb8F6266Ab36A296fF8D092E45D2327511FB7bA6',
-        gate: '0x22C05a9E9B2a0094e278153CED02B8617A0b00fE',
-        guardian: '0x544d56774E7cD11CD1986Dc00831DB567B7Eabb9',
-    },
     143: {
         // Monad Mainnet
         pearlSpacing: 1,
@@ -56,10 +46,10 @@ const PerpInfoMap: Record<number, PerpInfo> = {
         pearlSpacing: 1,
         orderSpacing: 1,
         rangeSpacing: 50,
-        config: "0x0506087b6b9A514E924E8d262DF1D50f987635C0",
-        observer: "0x486F01dbd17F3EF4A3C889Abca7E22c2f4498e3f",
-        gate: "0xD016AEd1584f3Ec2A09c722797989F64dA605c7e",
-        guardian: "0x206f0a544C3e0861f7D1AfBA02d627BA8fE2759c",
+        config: '0x0506087b6b9A514E924E8d262DF1D50f987635C0',
+        observer: '0x486F01dbd17F3EF4A3C889Abca7E22c2f4498e3f',
+        gate: '0xD016AEd1584f3Ec2A09c722797989F64dA605c7e',
+        guardian: '0x206f0a544C3e0861f7D1AfBA02d627BA8fE2759c',
     },
 };
 

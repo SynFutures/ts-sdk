@@ -1,10 +1,17 @@
+import { assertTransactionSuccess } from '@derivation-tech/viem-kit';
 import { parseUnits } from 'viem';
 import { abs, sqrtX96ToWad, wmul } from '@synfutures/perpv3-ts/math';
 import { WAD_DECIMALS, ZERO } from '@synfutures/perpv3-ts/constants';
 import { CURRENT_INSTRUMENT_ABI } from '@synfutures/perpv3-ts/abis';
 import { AdjustInput, TradeInput, QuotationWithSize } from '@synfutures/perpv3-ts/actions';
 import { Side, UserSetting } from '@synfutures/perpv3-ts/types';
-import { encodeAdjustParam, encodeTradeParam, formatTick, formatTokenAmount, formatWad } from '@synfutures/perpv3-ts/utils';
+import {
+    encodeAdjustParam,
+    encodeTradeParam,
+    formatTick,
+    formatTokenAmount,
+    formatWad,
+} from '@synfutures/perpv3-ts/utils';
 import type { DemoContext } from './framework/types';
 import { registerDemo } from './framework/registry';
 import { DefaultUserSetting, ensureMarginAndAllowance } from './utils';
@@ -59,14 +66,15 @@ export async function demoTradeByMargin(context: DemoContext): Promise<void> {
     console.log(`ℹ️ Post-trade margin delta: ${formatWad(tradeParam.amount)}`);
     console.log(`ℹ️ Post-trade leverage: ${formatWad(simulation.postPosition.leverage(snapshot.amm, markPrice))}`);
 
-    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
-    await sendTxWithLog(publicClient, walletClient, kit, {
-        address: perpClient.instrumentAddress,
-        abi: CURRENT_INSTRUMENT_ABI,
-        functionName: 'trade',
-        args: [encodeTradeParam(tradeParam)],
-        gas: BigInt(500000),
-    });
+    assertTransactionSuccess(
+        await kit.sendTx(walletClient, {
+            address: perpClient.instrumentAddress,
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'trade',
+            args: [encodeTradeParam(tradeParam)],
+            gas: BigInt(500000),
+        })
+    );
 
     console.log(`✅ Trade by margin executed successfully!`);
 }
@@ -122,14 +130,15 @@ export async function demoTradeByLeverage(context: DemoContext): Promise<void> {
     console.log(`ℹ️ Post-trade margin delta: ${formatWad(tradeParam.amount)}`);
     console.log(`ℹ️ Post-trade leverage: ${formatWad(simulation.postPosition.leverage(snapshot.amm, markPrice))}`);
 
-    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
-    await sendTxWithLog(publicClient, walletClient, kit, {
-        address: perpClient.instrumentAddress,
-        abi: CURRENT_INSTRUMENT_ABI,
-        functionName: 'trade',
-        args: [encodeTradeParam(tradeParam)],
-        gas: BigInt(500000),
-    });
+    assertTransactionSuccess(
+        await kit.sendTx(walletClient, {
+            address: perpClient.instrumentAddress,
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'trade',
+            args: [encodeTradeParam(tradeParam)],
+            gas: BigInt(500000),
+        })
+    );
 
     console.log(`✅ Trade by leverage executed successfully!`);
 }
@@ -179,14 +188,15 @@ export async function demoCloseTrade(context: DemoContext): Promise<void> {
     console.log(`📈 Closing position (limit tick: ${formatTick(tradeParam.limitTick)})...`);
     console.log(`ℹ️ Realized PnL: ${formatWad(simulation.realized)}`);
 
-    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
-    await sendTxWithLog(publicClient, walletClient, kit, {
-        address: perpClient.instrumentAddress,
-        abi: CURRENT_INSTRUMENT_ABI,
-        functionName: 'trade',
-        args: [encodeTradeParam(tradeParam)],
-        gas: BigInt(500000),
-    });
+    assertTransactionSuccess(
+        await kit.sendTx(walletClient, {
+            address: perpClient.instrumentAddress,
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'trade',
+            args: [encodeTradeParam(tradeParam)],
+            gas: BigInt(500000),
+        })
+    );
 
     console.log(`✅ Position closed successfully!`);
 }
@@ -239,14 +249,15 @@ export async function demoAdjustMargin(context: DemoContext): Promise<void> {
     console.log(`ℹ️ Liquidation price: ${formatWad(newLiquidationPrice)}`);
 
     // Adjust margin uses trade function with size=0
-    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
-    await sendTxWithLog(publicClient, walletClient, kit, {
-        address: perpClient.instrumentAddress,
-        abi: CURRENT_INSTRUMENT_ABI,
-        functionName: 'trade',
-        args: [encodeAdjustParam(adjustParam)],
-        gas: BigInt(500000),
-    });
+    assertTransactionSuccess(
+        await kit.sendTx(walletClient, {
+            address: perpClient.instrumentAddress,
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'trade',
+            args: [encodeAdjustParam(adjustParam)],
+            gas: BigInt(500000),
+        })
+    );
 
     console.log(`✅ Margin adjusted successfully!`);
 }
@@ -315,14 +326,15 @@ export async function demoAdjustLeverage(context: DemoContext): Promise<void> {
     console.log(`ℹ️ Liquidation price: ${formatWad(newLiquidationPrice)}`);
 
     // Adjust leverage uses trade function with size=0
-    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
-    await sendTxWithLog(publicClient, walletClient, kit, {
-        address: perpClient.instrumentAddress,
-        abi: CURRENT_INSTRUMENT_ABI,
-        functionName: 'trade',
-        args: [encodeAdjustParam(adjustParam)],
-        gas: BigInt(500000),
-    });
+    assertTransactionSuccess(
+        await kit.sendTx(walletClient, {
+            address: perpClient.instrumentAddress,
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'trade',
+            args: [encodeAdjustParam(adjustParam)],
+            gas: BigInt(500000),
+        })
+    );
 
     console.log(`✅ Leverage adjusted successfully!`);
 }

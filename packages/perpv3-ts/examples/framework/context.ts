@@ -1,6 +1,6 @@
 import type { Address } from 'viem';
 import { createWalletClient, http } from 'viem';
-import { getAccount } from '@derivation-tech/viem-kit';
+import { getAccount } from '@derivation-tech/viem-kit/node';
 import { PerpClient, getPerpInfo, PERP_EXPIRY } from '@synfutures/perpv3-ts';
 import type { DemoContext } from './types';
 import { DefaultUserSetting, findInstrumentBySymbol, prepare } from '../utils';
@@ -46,15 +46,4 @@ export async function createDemoContext(
         walletAddress,
         perpClient,
     };
-}
-
-/**
- * Refresh the demo context.
- * Useful when state may have changed after a transaction.
- * Note: PerpClient is immutable, so we don't need to refresh it.
- */
-export async function refreshDemoContext(context: DemoContext): Promise<DemoContext> {
-    // PerpClient is immutable and doesn't need refreshing
-    // Snapshots are fetched fresh via client.getSnapshot() when needed
-    return context;
 }

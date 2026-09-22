@@ -1,6 +1,7 @@
-import type { Address, PublicClient, WalletClient } from 'viem';
+import type { Address, Chain, PublicClient, WalletClient } from 'viem';
 import { createPublicClient, http } from 'viem';
-import { ChainKit, ChainKitRegistry, ERC20, sendTxWithLog } from '@derivation-tech/viem-kit';
+import * as chains from 'viem/chains';
+import { ChainKit, ERC20, assertTransactionSuccess } from '@derivation-tech/viem-kit';
 import { abs, wdiv } from '@synfutures/perpv3-ts/math';
 import { WAD, ZERO } from '@synfutures/perpv3-ts/constants';
 import { PlaceInput, RemoveInput } from '@synfutures/perpv3-ts/actions';
@@ -24,7 +25,13 @@ import { getPerpInfo, type PerpInfo } from '@synfutures/perpv3-ts';
 import { CURRENT_OBSERVER_ABI, CURRENT_INSTRUMENT_ABI } from '@synfutures/perpv3-ts/abis';
 import { createInstrumentParser, createGateParser } from '@synfutures/perpv3-ts/parsers';
 import { fetchOnchainContext, type RpcConfig } from '@synfutures/perpv3-ts/queries';
-import { encodeCancelParam, encodeTradeParam, encodeRemoveParam, formatTick, formatWad } from '@synfutures/perpv3-ts/utils';
+import {
+    encodeCancelParam,
+    encodeTradeParam,
+    encodeRemoveParam,
+    formatTick,
+    formatWad,
+} from '@synfutures/perpv3-ts/utils';
 
 export const DefaultUserSetting = new UserSetting(10, 10, 3n * WAD, 1); // 10 seconds deadline, 0.1% slippage tolerance, 3x leverage, 1bps margin buffer
 
@@ -34,14 +41,18 @@ export async function prepare(chainName: string): Promise<{
     perpInfo: PerpInfo;
     instrumentSettingMap: Map<Address, InstrumentSetting>;
 }> {
-    const kit = ChainKitRegistry.for(chainName);
+    const chain: Chain | undefined = Object.entries(chains).find(
+        ([name]) => name.toLowerCase() === chainName.toLowerCase()
+    )?.[1];
+    if (!chain) throw new Error(`Unknown chain: ${chainName}`);
+    const perpInfo = getPerpInfo(chain.id);
 
     const publicClient = createPublicClient({
-        chain: kit.chain,
-        transport: http(kit.chain.rpcUrls.default.http[0]),
+        chain,
+        transport: http(chain.rpcUrls.default.http[0]),
     });
 
-    const perpInfo = getPerpInfo(kit.chain.id);
+    const kit = new ChainKit(chain, { publicClient });
 
     kit.registerAddressName(perpInfo.config, 'Config');
     kit.registerAddressName(perpInfo.observer, 'Observer');
@@ -190,7 +201,9 @@ export async function ensureMarginAndAllowance(
         const gateAddress = snapshot.instrumentSetting.gateAddress;
         // ERC20 `approve` sets the allowance value (not an additive increase), so we approve the target allowance.
         const requiredAllowance = snapshot.quoteState.allowance + allowanceGap;
-        await ERC20.approve(publicClient, walletClient, kit, quoteAddress, gateAddress, requiredAllowance);
+        assertTransactionSuccess(
+            await ERC20.approve(publicClient, walletClient, kit, quoteAddress, gateAddress, requiredAllowance)
+        );
     }
 }
 
@@ -253,19 +266,21 @@ export async function cancelOrdersAtTicks(
                 `🗑️ Canceling ${ticksArray.length} remaining orders at: ${ticksArray.map((tick) => formatTick(tick)).join(', ')}`
             );
         }
-        await sendTxWithLog(publicClient, walletClient, kit, {
-            address: instrumentAddress,
-            abi: CURRENT_INSTRUMENT_ABI,
-            functionName: 'cancel',
-            args: [
-                encodeCancelParam({
-                    expiry: PERP_EXPIRY,
-                    ticks: ticksArray,
-                    deadline: DefaultUserSetting.getDeadline(),
-                }),
-            ],
-            gas: BigInt(500000),
-        });
+        assertTransactionSuccess(
+            await kit.sendTx(walletClient, {
+                address: instrumentAddress,
+                abi: CURRENT_INSTRUMENT_ABI,
+                functionName: 'cancel',
+                args: [
+                    encodeCancelParam({
+                        expiry: PERP_EXPIRY,
+                        ticks: ticksArray,
+                        deadline: DefaultUserSetting.getDeadline(),
+                    }),
+                ],
+                gas: BigInt(500000),
+            })
+        );
         return ticksArray;
     } else {
         if (ticksToCancel.length === 1) {
@@ -337,13 +352,15 @@ export async function closePositionIfExists(
             deadline: userSetting.getDeadline(),
         };
 
-        await sendTxWithLog(publicClient, walletClient, kit, {
-            address: instrumentAddress,
-            abi: CURRENT_INSTRUMENT_ABI,
-            functionName: 'trade',
-            args: [encodeTradeParam(closeTradeParam)],
-            gas: BigInt(500000),
-        });
+        assertTransactionSuccess(
+            await kit.sendTx(walletClient, {
+                address: instrumentAddress,
+                abi: CURRENT_INSTRUMENT_ABI,
+                functionName: 'trade',
+                args: [encodeTradeParam(closeTradeParam)],
+                gas: BigInt(500000),
+            })
+        );
         console.log(`✅ Position closed successfully`);
         return true;
     } else {
@@ -411,13 +428,15 @@ export async function removeAllRanges(
         const removeInput = new RemoveInput(walletAddress, tickLower, tickUpper);
         const [removeParam] = removeInput.simulate(currentContext, userSetting);
 
-        await sendTxWithLog(publicClient, walletClient, kit, {
-            address: instrumentAddress,
-            abi: CURRENT_INSTRUMENT_ABI,
-            functionName: 'remove',
-            args: [encodeRemoveParam(removeParam)],
-            gas: BigInt(500000),
-        });
+        assertTransactionSuccess(
+            await kit.sendTx(walletClient, {
+                address: instrumentAddress,
+                abi: CURRENT_INSTRUMENT_ABI,
+                functionName: 'remove',
+                args: [encodeRemoveParam(removeParam)],
+                gas: BigInt(500000),
+            })
+        );
 
         removedRids.push(rid);
     }
