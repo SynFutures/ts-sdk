@@ -36,6 +36,14 @@ by changing expected hashes. Dependency lifecycle scripts can be disabled when
 platform binaries are already installed; inspect a missing Anvil binary before
 approving its installation script.
 
+## Adding a package
+
+Run `bash scripts/init.sh package-name` from the workspace root. The scaffolder
+refuses existing targets and creates source/test directories, a manifest, README
+and TypeScript configuration links. Add source and tests, install the declared
+dependencies, then run the generated package's build and tests. Edit `templates/`
+when changing future scaffolds; existing packages are not regenerated.
+
 ## Demos
 
 ```sh
