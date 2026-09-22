@@ -6,14 +6,6 @@ export function compareTradeResults(apiResult: unknown, rpcResult: unknown): voi
     const apiNormalized = normalizeData(apiResult);
     const rpcNormalized = normalizeData(alignedRpc);
 
-    // Funding index can legitimately differ when API and RPC snapshots come from different source timings.
-    if (hasPostPosition(apiNormalized) && hasPostPosition(rpcNormalized)) {
-        rpcNormalized.postPosition = {
-            ...rpcNormalized.postPosition,
-            entryFundingIndex: apiNormalized.postPosition.entryFundingIndex,
-        };
-    }
-
     if (process.env.DEBUG_PARITY_TEST) {
         console.log('[DEBUG] API Result:', JSON.stringify(apiNormalized, null, 2));
         console.log('[DEBUG] RPC Result (aligned):', JSON.stringify(rpcNormalized, null, 2));
@@ -53,15 +45,6 @@ function pickStructure(source: unknown, template: unknown, path = 'root'): unkno
         result[key] = pickStructure(source[key], template[key], `${path}.${key}`);
     }
     return result;
-}
-
-type ResultWithPostPosition = { postPosition: { entryFundingIndex: unknown } };
-
-function hasPostPosition(value: unknown): value is ResultWithPostPosition {
-    if (!isRecord(value) || !isRecord(value.postPosition)) {
-        return false;
-    }
-    return 'entryFundingIndex' in value.postPosition;
 }
 
 function normalizeInternal(value: unknown): unknown {

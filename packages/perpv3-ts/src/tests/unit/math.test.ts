@@ -17,9 +17,8 @@ import {
     tickToWad,
     sqrtX96ToTick,
 } from '../../math';
-import { RATIO_DECIMALS, WAD } from '../../constants';
+import { WAD } from '../../constants';
 import { Condition, InstrumentSetting, QuoteType, Range, Setting, Side, UserSetting } from '../../types';
-import { calcOrderLeverageByMargin, getNextSqrtPriceFromInput } from './utils/mathTestUtils';
 import { zeroAddress } from 'viem';
 
 const DEFAULT_TEST_SPACING = {
@@ -58,15 +57,6 @@ const createMockInstrumentSetting = (imr: number = 1000): InstrumentSetting => {
         DEFAULT_TEST_SPACING.rangeSpacing
     );
 };
-
-// Test-only helper functions (moved from calculation.ts)
-function relativeDiffRatioWadAbs(wadA: bigint, wadB: bigint): bigint {
-    return wdivUp(abs(wadA - wadB), wadA < wadB ? wadA : wadB);
-}
-
-function getMaxLeverage(imr: number): number {
-    return 1 / (imr / 10 ** RATIO_DECIMALS);
-}
 
 describe('math.ts', () => {
     describe('shiftLeft', () => {
@@ -350,15 +340,6 @@ describe('math.ts', () => {
             const deltaQuote = tempRange.getDeltaQuoteAutoRoundUp(sqrtA, sqrtB, liquidity);
             expect(deltaQuote).toBe(197524280019n);
         });
-
-        test('getNextSqrtPriceFromInput', () => {
-            const sqrtP = tickToSqrtX96(150);
-            const liquidity = 500_000_000_000n;
-            const amount = 25_000_000_000_000n;
-
-            const nextSqrtPrice = getNextSqrtPriceFromInput(sqrtP, liquidity, amount, true);
-            expect(nextSqrtPrice).toBe(1553721004984048833025106378n);
-        });
     });
 
     describe('Boost Calculations - Specific Test Cases', () => {
@@ -379,27 +360,10 @@ describe('math.ts', () => {
     });
 
     describe('Utility Functions - Specific Test Cases', () => {
-        test('getMaxLeverage with specific IMR values', () => {
-            expect(getMaxLeverage(1_000)).toBe(10);
-            expect(getMaxLeverage(500)).toBe(20);
-            expect(getMaxLeverage(300)).toBeCloseTo(33.333, 2);
-            expect(getMaxLeverage(100)).toBe(100);
-        });
-
-        test('calcOrderLeverageByMargin with specific values', () => {
-            const tick = 250;
-            const baseQuantity = 4n * WAD;
-            const margin = 6n * WAD;
-
-            const result = calcOrderLeverageByMargin(tick, baseQuantity, margin);
-            expect(result).toBe(683542559311177083n);
-        });
-
-        test('relativeDiffRatioWadAbs with specific values', () => {
-            const wadA = (9n * WAD) / 10n;
-            const wadB = (11n * WAD) / 10n;
-            const result = relativeDiffRatioWadAbs(wadA, wadB);
-            expect(result).toBe(222222222222222223n);
+        test('instrument maximum leverage rounds down in WAD', () => {
+            expect(createMockInstrumentSetting(1000).maxLeverage).toBe(10n * WAD);
+            expect(createMockInstrumentSetting(500).maxLeverage).toBe(20n * WAD);
+            expect(createMockInstrumentSetting(300).maxLeverage).toBe(33333333333333333333n);
         });
 
         test('ratioToWad conversion with specific values', () => {

@@ -17,7 +17,7 @@ import {
     type Portfolio,
     type Setting,
 } from '../../types';
-import { abs, tickToWad, wdiv, wmul } from '../../math';
+import { abs, tickToSqrtX96, tickToWad, wdiv, wmul } from '../../math';
 
 const fixtureSnapshot = parseOnchainContext(onchainFixture.context);
 const fixtureInstrumentAddress = onchainFixture.instrumentAddress as Address;
@@ -482,24 +482,20 @@ describe('simulateRemove', () => {
             expect(result.postPosition).toBeDefined();
         });
 
-        it('should handle different AMM tick positions', () => {
-            // AMM tick below range
-            const ammBelowRange = { ...fixtureAmm, tick: 800 };
-            const context1 = createOnchainContext(ammBelowRange, fixturePortfolio);
-            const [, result1] = fixtureRemoveInput.simulate(context1, fixtureUserSetting);
-            // AMM tick within range
-            const ammInRange = { ...fixtureAmm, tick: 1000 };
-            const context2 = createOnchainContext(ammInRange, fixturePortfolio);
-            const [, result2] = fixtureRemoveInput.simulate(context2, fixtureUserSetting);
-
-            // AMM tick above range
-            const ammAboveRange = { ...fixtureAmm, tick: 1200 };
-            const context3 = createOnchainContext(ammAboveRange, fixturePortfolio);
-            const [, result3] = fixtureRemoveInput.simulate(context3, fixtureUserSetting);
-
-            expect(result1.removedPosition).toBeDefined();
-            expect(result2.removedPosition).toBeDefined();
-            expect(result3.removedPosition).toBeDefined();
+        it('conserves position size below, within and above the range', () => {
+            const ticks = [
+                fixtureRangeTicks.lower - 50,
+                Math.floor((fixtureRangeTicks.lower + fixtureRangeTicks.upper) / 2),
+                fixtureRangeTicks.upper + 50,
+            ];
+            const sizes = ticks.map((tick) => {
+                const context = createOnchainContext({ ...fixtureAmm, tick, sqrtPX96: tickToSqrtX96(tick) });
+                const [, result] = fixtureRemoveInput.simulate(context, fixtureUserSetting);
+                expect(result.postPosition.size).toBe(fixturePosition.size + result.removedPosition.size);
+                return result.removedPosition.size;
+            });
+            expect(sizes[0]).toBeGreaterThan(sizes[1]);
+            expect(sizes[1]).toBeGreaterThan(sizes[2]);
         });
 
         it('should handle zero liquidity range', () => {
@@ -518,8 +514,8 @@ describe('simulateRemove', () => {
             const context = createOnchainContext(fixtureAmm, portfolioWithZeroLiquidity);
             const [, result] = fixtureRemoveInput.simulate(context, fixtureUserSetting);
 
-            expect(result.removedPosition).toBeDefined();
-            expect(result.postPosition).toBeDefined();
+            expect(result.removedPosition.size).toBe(0n);
+            expect(result.postPosition.size).toBe(fixturePosition.size);
         });
 
         it('should handle zero balance position', () => {
@@ -593,20 +589,6 @@ describe('simulateRemove', () => {
     });
 
     describe('Edge Cases', () => {
-        it('should handle minimum valid rangeId', () => {
-            const [, result] = fixtureRemoveInput.simulate(fixtureOnchainContext, fixtureUserSetting);
-
-            expect(result.removedPosition).toBeDefined();
-            expect(result.postPosition).toBeDefined();
-        });
-
-        it('should handle maximum valid RemoveParam', () => {
-            const [, result] = fixtureRemoveInput.simulate(fixtureOnchainContext, fixtureUserSetting);
-
-            expect(result.removedPosition).toBeDefined();
-            expect(result.postPosition).toBeDefined();
-        });
-
         it('should handle very large position', () => {
             const largePosition = new Position(
                 1000000000000000000n,
@@ -640,113 +622,13 @@ describe('simulateRemove', () => {
         });
     });
 
-    describe('Complete Process Tests', () => {
-        it('should handle complete remove liquidity workflow with different inputs', () => {
-            // Test with different input parameters
-            const testInputs = [
-                {
-                    name: 'Standard input',
-                    input: {
-                        instrumentAddress: fixtureInstrumentAddress,
-                        traderAddress: fixtureTraderAddress,
-                        tickLower: fixtureRangeTicks.lower,
-                        tickUpper: fixtureRangeTicks.upper,
-                        expiry: PERP_EXPIRY,
-                        userSetting: fixtureUserSetting,
-                    },
-                },
-                {
-                    name: 'High slippage input',
-                    input: {
-                        instrumentAddress: fixtureInstrumentAddress,
-                        traderAddress: fixtureTraderAddress,
-                        tickLower: fixtureRangeTicks.lower,
-                        tickUpper: fixtureRangeTicks.upper,
-                        expiry: PERP_EXPIRY - 1000,
-                        userSetting: new UserSetting(
-                            fixtureUserSetting.deadlineOffset + 3600,
-                            fixtureUserSetting.slippage * 5,
-                            3n * WAD
-                        ),
-                    },
-                },
-                {
-                    name: 'Zero slippage input',
-                    input: {
-                        instrumentAddress: fixtureInstrumentAddress,
-                        traderAddress: fixtureTraderAddress,
-                        tickLower: fixtureRangeTicks.lower,
-                        tickUpper: fixtureRangeTicks.upper,
-                        expiry: PERP_EXPIRY / 2,
-                        userSetting: new UserSetting(
-                            Math.max(1800, Math.floor(fixtureUserSetting.deadlineOffset / 2)),
-                            0,
-                            3n * WAD
-                        ), // 0% slippage
-                    },
-                },
-            ];
-
-            testInputs.forEach(({ input }) => {
-                const userSetting: UserSetting = input.userSetting || fixtureUserSetting;
-                const removeInput = new RemoveInput(input.traderAddress, input.tickLower, input.tickUpper);
-                const [, result] = removeInput.simulate(createOnchainContext(), userSetting);
-
-                // Verify simulation results
-                expect(result.removedPosition).toBeDefined();
-                expect(result.postPosition).toBeDefined();
-            });
-        });
-
-        it('should validate the complete workflow with realistic market conditions', () => {
-            // Create realistic market conditions
-            const realisticAmm: Amm = {
-                ...fixtureAmm,
-                tick: fixtureAmm.tick + 25,
-                totalLiquidity: fixtureAmm.totalLiquidity + 10n,
-                totalLong: fixtureAmm.totalLong + 10n,
-                totalShort: fixtureAmm.totalShort + 10n,
-            };
-
-            const realisticRange = new Range(
-                fixtureRange.liquidity + 1n,
-                fixtureRange.entryFeeIndex,
-                fixtureRange.balance,
-                fixtureRange.sqrtEntryPX96,
-                fixtureRange.tickLower,
-                fixtureRange.tickUpper
-            );
-
-            const realisticPosition = new Position(
-                fixturePosition.balance,
-                fixturePosition.size + 1n,
-                fixturePosition.entryNotional,
-                fixturePosition.entrySocialLossIndex,
-                fixturePosition.entryFundingIndex
-            );
-
-            const realisticInput = new RemoveInput(
-                fixtureTraderAddress,
-                fixtureRangeTicks.lower,
-                fixtureRangeTicks.upper
-            );
-
-            const realisticPortfolio: Portfolio = {
-                ...fixturePortfolio,
-                position: realisticPosition,
-                ranges: [realisticRange],
-            };
-            const realisticContext = createOnchainContext(realisticAmm, realisticPortfolio);
-            const [, result] = realisticInput.simulate(realisticContext, fixtureUserSetting);
-
-            // Verify simulation results
-            expect(result.removedPosition).toBeDefined();
-            expect(result.postPosition).toBeDefined();
-
-            // Verify positions expose bigint balances
-            expect(typeof result.removedPosition.balance).toBe('bigint');
-            expect(typeof result.postPosition.balance).toBe('bigint');
-        });
+    it.each([0, 100, 500])('applies slippage %i and deadline to remove calldata', (slippage) => {
+        const settings = new UserSetting(1800, slippage, 3n * WAD);
+        const [param, result] = fixtureRemoveInput.simulate(fixtureOnchainContext, settings);
+        expect(param.expiry).toBe(fixtureOnchainContext.expiry);
+        expect(param.deadline).toBe(fixtureBlockInfo.timestamp + 1800);
+        expect(BigInt(param.limitTicks)).toBe(settings.getEncodedLiquidityLimitTicks(fixtureAmm.sqrtPX96));
+        expect(result.postPosition.size).toBe(fixturePosition.size + result.removedPosition.size);
     });
 
     it('allows add liquidity when AMM is dormant by deriving init price', () => {
