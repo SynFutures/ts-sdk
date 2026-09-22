@@ -904,7 +904,11 @@ export async function runMultiOrderFillAndCancelFlow(): Promise<void> {
         crossTwoSide
     ).simulate(takerBeforeCrossTwo, crossTwoQuotation, userSetting);
 
+    // Timestamp changes add accounting work beyond the same-block gas estimate.
+    // Exercise that transition explicitly with a bounded local-test gas budget.
+    await ctx.publicClient.transport.request({ method: 'evm_increaseTime', params: [1] });
     const crossTwoHash = await takerWallet.writeContract({
+        gas: 1_000_000n,
         address: INSTRUMENT_ADDRESS,
         abi: CURRENT_INSTRUMENT_ABI,
         functionName: 'trade',
