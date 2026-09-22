@@ -78,7 +78,7 @@ export async function demoAddLiquidity(context: DemoContext): Promise<void> {
  * Demo: Remove liquidity using RemoveInput
  */
 export async function demoRemoveLiquidity(context: DemoContext): Promise<void> {
-    const { walletAddress, publicClient, walletClient, kit, perpClient } = context;
+    const { walletAddress, walletClient, kit, perpClient } = context;
 
     // Get fresh snapshot
     const snapshot = await perpClient.getSnapshot(walletAddress);

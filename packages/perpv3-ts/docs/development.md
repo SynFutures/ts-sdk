@@ -28,7 +28,10 @@ provenance in the repository's `vendor/README.md` define this branch's dependenc
 Workspace tasks run through pnpm scripts. tsdown builds the 11 public entries with
 shared chunks and bundled declarations, preserving `.mjs`/`.cjs` and `.d.ts`/`.d.cts`
 exports. Runtime dependencies remain external; sourcemaps omit embedded source contents. ESLint 10 uses the root `eslint.config.mjs` flat config
-for code checks; TypeScript checks types, and Prettier owns formatting. CI runs workspace lint
+for code checks; TypeScript checks types, and Prettier owns formatting. ESLint uses
+TypeScript project services to check unhandled and misused Promises in handwritten SDK
+source and examples. Explicit `any` and unused variables are errors; only test and
+typecheck fixtures allow deliberately unused values. Lint commands fail on warnings. CI runs workspace lint
 and `format:check` before package verification. The workspace owns one pinned Prettier version;
 `pnpm run format` formats maintained source, configuration and documentation. Generated ABIs,
 fixed fixtures and devnet snapshots are excluded.
