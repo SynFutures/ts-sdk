@@ -36,7 +36,7 @@
     },
     "pnpm": {
         "overrides": {
-            "@derivation-tech/viem-kit": "file:./vendor/derivation-tech-viem-kit-d67d06d.tgz"
+            "@derivation-tech/viem-kit": "file:./vendor/derivation-tech-viem-kit-a29a081.tgz"
         }
     },
     "packageManager": "pnpm@10.34.5"
