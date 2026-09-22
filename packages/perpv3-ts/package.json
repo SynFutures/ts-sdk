@@ -152,7 +152,7 @@
         "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
         "prepack": "pnpm run build && pnpm run build:check",
         "lint": "eslint",
-        "format": "prettier --write \"{src,examples,typecheck,scripts}/**/*.{ts,js,mjs,cjs,json,md}\" \"*.{ts,js,mjs,cjs,json,md}\" \"docs/**/*.md\"",
+        "format": "prettier --write . --ignore-path ../../.prettierignore",
         "test:unit": "jest --config jest.config.js",
         "test:devnet": "jest --config jest.devnet.config.js",
         "test": "pnpm run test:unit && pnpm run test:devnet",
@@ -166,7 +166,8 @@
         "typecheck:docs": "node scripts/typecheck-docs.mjs",
         "typecheck:tests": "tsc --noEmit -p tsconfig.tests.json",
         "typecheck:tools": "tsc --noEmit -p tsconfig.tools.json",
-        "test:live": "jest --config jest.live.config.js"
+        "test:live": "jest --config jest.live.config.js",
+        "format:check": "prettier --check . --ignore-path ../../.prettierignore"
     },
     "keywords": [
         "synfutures",
@@ -200,7 +201,6 @@
         "dotenv": "^17.4.2",
         "eslint": "^10.11.0",
         "jest": "^30.5.2",
-        "prettier": "^3.0.0",
         "ts-jest": "^29.4.12",
         "ts-node": "^10.9.2",
         "tsup": "^8.5.1",

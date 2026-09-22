@@ -4,15 +4,7 @@ import typescript from 'typescript-eslint';
 
 export default [
     {
-        ignores: [
-            '**/dist/**',
-            '**/coverage/**',
-            '**/devnet/.runtime/**',
-            '.worktrees/**',
-            'jest.config.js',
-            'templates',
-            '**/*.d.ts',
-        ],
+        ignores: ['**/dist/**', '**/coverage/**', '**/devnet/.runtime/**', '.worktrees/**', 'templates', '**/*.d.ts'],
     },
     eslint.configs.recommended,
     ...typescript.configs.recommended,
