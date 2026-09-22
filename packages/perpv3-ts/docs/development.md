@@ -8,6 +8,7 @@ provenance in the repository's `vendor/README.md` define this branch's dependenc
 
 | Command                                                | Scope and effects                                               |
 | ------------------------------------------------------ | --------------------------------------------------------------- |
+| `pnpm run build`                                       | builds workspace packages in dependency order                   |
 | `pnpm install --frozen-lockfile`                       | installs the locked workspace dependencies                      |
 | `pnpm -C packages/perpv3-ts run build:check`           | checks production source types                                  |
 | `pnpm -C packages/perpv3-ts run typecheck:tests`       | checks all unit, devnet and live test source types              |
