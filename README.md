@@ -5,7 +5,8 @@ a TypeScript SDK for SynFutures V3 queries, simulations, calldata and contract p
 
 ## Development
 
-Use Node.js 18 or later and pnpm 10. Access to the configured `@synfutures`
+Use Node.js 22 or later and the pnpm version pinned in `package.json`.
+Published SDK runtime support starts at Node.js 18. Access to the configured `@synfutures`
 registry is required for the contract artifact development dependency.
 
 ```sh
@@ -38,8 +39,7 @@ The workspace has no fixed-version package group; inspect `.changeset/config.jso
 and the generated changeset before committing it.
 
 `make version` changes package versions and the lockfile. `make publish` publishes
-packages. `make release` performs both operations. The `release:dry` script also
-runs `changeset version`, so it changes local files despite its name.
+packages. `make release` performs both operations. The `release:dry` script reports pending changeset status without applying versions.
 
 Replace the local viem-kit override with the released dependency before publishing.
 The PerpV3 `prepublishOnly` check rejects a remaining override. Release execution

@@ -1,8 +1,6 @@
-# pnpm-workspace.yaml
 packages:
-  - 'packages/*'
-  - '!**/test/**'
+    - 'packages/*'
 
 catalog:
-    "@derivation-tech/viem-kit": "^0.2.1"
-    "viem": "^2.45"
+    '@derivation-tech/viem-kit': '^0.2.1'
+    viem: '^2.45'

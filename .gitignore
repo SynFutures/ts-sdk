@@ -41,6 +41,7 @@ build/Release
 
 # Dependency directories
 node_modules/
+.pnpm-store/
 jspm_packages/
 
 # Snowpack dependency directory (https://snowpack.dev/)
@@ -69,7 +70,6 @@ web_modules/
 
 # Output of 'npm pack'
 *.tgz
-!/synfutures-v3-contracts-*.tgz
 
 # Yarn Integrity file
 .yarn-integrity
@@ -78,7 +78,9 @@ web_modules/
 yarn.lock
 package-lock.json
 
-# dotenv environment variable files
+# Local credentials and environment files
+.npmrc
+.env.*
 .env
 .env.development.local
 .env.test.local

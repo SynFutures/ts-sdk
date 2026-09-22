@@ -8,15 +8,15 @@
     "scripts": {
         "preinstall": "node scripts/ensure-pnpm.cjs",
         "nx": "nx run-many --target=build --all",
-        "test": "nx run-many --target=test --all",
+        "test": "pnpm -r run test",
         "deps": "pnpm -r i",
         "init": "./scripts/init.sh",
         "prepare": "husky",
         "lint": "eslint",
-        "format": "prettier --write packages/**/*.ts",
+        "format": "pnpm -r run format",
         "clean": "pnpm -r clean",
         "release": "changeset publish",
-        "release:dry": "changeset version && changeset publish --dry-run"
+        "release:dry": "changeset status"
     },
     "devDependencies": {
         "@changesets/cli": "^2.28.1",
@@ -33,17 +33,13 @@
         "typescript-eslint": "^8.3.0"
     },
     "engines": {
-        "node": ">=18",
-        "pnpm": ">=8"
+        "node": ">=22",
+        "pnpm": ">=10 <11"
     },
     "pnpm": {
-        "peerDependencyRules": {
-            "allowedVersions": {
-                "eslint": "^9.2.0"
-            }
-        },
         "overrides": {
             "@derivation-tech/viem-kit": "file:./vendor/derivation-tech-viem-kit-d67d06d.tgz"
         }
-    }
+    },
+    "packageManager": "pnpm@10.34.5"
 }
