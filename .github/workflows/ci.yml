@@ -22,7 +22,7 @@ jobs:
             - name: Setup Minimum Consumer Runtime
               uses: actions/setup-node@v6.2.0
               with:
-                  node-version: '18.18.0'
+                  node-version: '22'
             - name: Save Minimum Runtime Path
               id: consumer-runtime
               run: echo "node=$(command -v node)" >> "$GITHUB_OUTPUT"
@@ -70,7 +70,7 @@ jobs:
               run: pnpm -C packages/perpv3-ts run verify
             - name: Devnet Tests
               run: pnpm -C packages/perpv3-ts run test:devnet
-            - name: Verify Node 18 Packed Consumer
+            - name: Verify Node 22 Packed Consumer
               env:
                   PERPV3_CONSUMER_NODE: ${{ steps.consumer-runtime.outputs.node }}
               run: pnpm -C packages/perpv3-ts run verify:consumer

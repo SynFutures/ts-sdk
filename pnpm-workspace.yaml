@@ -2,5 +2,5 @@ packages:
     - 'packages/*'
 
 catalog:
-    '@derivation-tech/viem-kit': '^0.2.1'
+    '@derivation-tech/viem-kit': '^0.2.2'
     viem: '^2.56.8'
