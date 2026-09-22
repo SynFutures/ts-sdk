@@ -4,16 +4,36 @@ import type { AuthInfo } from '../apis/interfaces';
 import { ErrorCode, SynfError } from '../types/error';
 import { APIHeaders, getHeaders } from './mm';
 
+export type QueryParams = object;
+
+type RetryableRequestConfig = AxiosRequestConfig & { _retryCount?: number };
+
+function appendQueryParam(searchParams: URLSearchParams, key: string, value: unknown): void {
+    if (value === null || value === undefined) {
+        return;
+    }
+    searchParams.append(key, String(value));
+}
+
 /**
  * Get the sorted query string from the parameters
  * @param params - The parameters to get the sorted query string from
  * @returns The sorted query string
  */
-export function getSortedQueryString(params: Record<string, string>): string {
+export function getSortedQueryString(params: QueryParams): string {
     if (Object.keys(params).length === 0) {
         return '';
     }
-    const pa = new URLSearchParams(params);
+    const pa = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+        if (Array.isArray(value)) {
+            for (const item of value) {
+                appendQueryParam(pa, key, item);
+            }
+            continue;
+        }
+        appendQueryParam(pa, key, value);
+    }
     pa.sort();
     return pa.toString();
 }
@@ -30,19 +50,17 @@ export function getRequestUrlFromSortedQuery(url: string, sortedQuery: string): 
     return url + (url.includes('?') ? '&' : '?') + sortedQuery;
 }
 
-
 /**
- * 
+ *
  * @param url - The base URL to get the request URL from
  * @param params - The parameters to get the request URL from
- * @returns 
+ * @returns
  */
 
-export function getRequestUrlWithQuery(url: string, params: Record<string, any>): string {
+export function getRequestUrlWithQuery(url: string, params: QueryParams): string {
     const sortedQuery = getSortedQueryString(params);
     return getRequestUrlFromSortedQuery(url, sortedQuery);
 }
-
 
 /**
  * Get the request path from the full URL
@@ -66,7 +84,7 @@ function isMarketMakerEndpoint(url: string): boolean {
 // ============================================================================
 // Axios Functions
 // ============================================================================
-export async function axiosGet<T = any>({
+export async function axiosGet<T = unknown>({
     url,
     config,
     authInfo,
@@ -76,7 +94,7 @@ export async function axiosGet<T = any>({
     config?: AxiosRequestConfig;
     authInfo?: AuthInfo;
     jwtToken?: string;
-}): Promise<AxiosResponse> {
+}): Promise<AxiosResponse<T>> {
     const { params, ...restConfig } = config ?? {};
     if (params) {
         const sortedParams = getSortedQueryString(params);
@@ -105,7 +123,6 @@ export async function axiosGet<T = any>({
     });
 }
 
-
 /**
  * HttpClient config
  */
@@ -113,8 +130,6 @@ export interface HttpClientConfig {
     baseUrl?: string;
     timeout?: number;
     retries?: number;
-
-
 }
 
 /**
@@ -122,8 +137,8 @@ export interface HttpClientConfig {
  * This class is used to make HTTP requests to the API.
  */
 export class HttpClient {
-    private client: AxiosInstance;
-    private config: HttpClientConfig;
+    private readonly client: AxiosInstance;
+    private readonly config: HttpClientConfig;
 
     constructor(config?: HttpClientConfig) {
         const baseUrl = config?.baseUrl ?? API_DOMAIN;
@@ -137,7 +152,7 @@ export class HttpClient {
             baseURL: this.config.baseUrl,
             timeout: this.config.timeout,
             headers: {
-                'accept': 'application/json',
+                accept: 'application/json',
             },
         });
 
@@ -145,34 +160,31 @@ export class HttpClient {
     }
 
     private setupInterceptors(): void {
-        // Request interceptor
-        this.client.interceptors.request.use(
-            (config) => {
-                return config;
-            },
-            (error) => {
-                return Promise.reject(error);
-            }
-        );
-
-        // Response interceptor
         this.client.interceptors.response.use(
             (response: AxiosResponse) => {
                 return response;
             },
-            async (error) => {
-                const originalRequest = error.config;
+            async (error: unknown) => {
+                const originalRequest = axios.isAxiosError(error)
+                    ? (error.config as RetryableRequestConfig | undefined)
+                    : undefined;
+                const responseStatus = axios.isAxiosError(error) ? error.response?.status : undefined;
 
-                // Retry logic
-                if (
-                    error.response?.status >= 500 &&
-                    originalRequest._retryCount < (this.config.retries ?? 3)
-                ) {
-                    originalRequest._retryCount = (originalRequest._retryCount || 0) + 1;
+                // A failed response can follow a successful write; only repeat read-only requests.
+                const method = originalRequest?.method?.toUpperCase() ?? 'GET';
+                const retryable = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+                if (retryable && responseStatus !== undefined && responseStatus >= 500 && originalRequest) {
+                    const maxRetries = this.config.retries ?? 3;
+                    const retryCount = originalRequest._retryCount ?? 0;
+                    if (retryCount >= maxRetries) {
+                        throw this.handleError(error);
+                    }
+
+                    originalRequest._retryCount = retryCount + 1;
 
                     // Exponential backoff
                     const delay = Math.pow(2, originalRequest._retryCount) * 100;
-                    await new Promise(resolve => setTimeout(resolve, delay));
+                    await new Promise((resolve) => setTimeout(resolve, delay));
 
                     return this.client(originalRequest);
                 }
@@ -182,55 +194,46 @@ export class HttpClient {
         );
     }
 
-    private handleError(error: any): SynfError {
-        if (error.response) {
+    private handleError(error: unknown): SynfError {
+        if (axios.isAxiosError(error)) {
             // Server responded with error status
-            const message = error.response.data?.message || error.response.data?.error || error.message;
-            return new SynfError(
-                message,
-                ErrorCode.API_REQUEST_FAILED,
-                {
-                    status: error.response.status,
-                    data: error.response.data,
-                }
-            );
-        } else if (error.request) {
-            // Request was made but no response received
-            return new SynfError('Network error: No response received', ErrorCode.API_REQUEST_FAILED);
-        } else {
+            const data = error.response?.data;
+            const dataRecord = data && typeof data === 'object' ? (data as Record<string, unknown>) : undefined;
+            const message =
+                (typeof dataRecord?.message === 'string' && dataRecord.message) ||
+                (typeof dataRecord?.error === 'string' && dataRecord.error) ||
+                error.message;
+            return new SynfError(message, ErrorCode.API_REQUEST_FAILED, {
+                status: error.response?.status,
+                data,
+            });
+        }
+
+        if (error instanceof Error) {
             return new SynfError(error.message, ErrorCode.API_REQUEST_FAILED);
         }
+
+        if (typeof error === 'object' && error !== null && 'request' in error) {
+            // Request was made but no response received
+            return new SynfError('Network error: No response received', ErrorCode.API_REQUEST_FAILED);
+        }
+
+        return new SynfError('Unknown HTTP error', ErrorCode.API_REQUEST_FAILED);
     }
 
-
-    async get<T = unknown>(
-        url: string,
-        config?: AxiosRequestConfig
-    ): Promise<AxiosResponse<T>> {
+    async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
         return await this.client.get(url, config);
     }
 
-    async post<T = unknown>(
-        url: string,
-        data?: unknown,
-        config?: AxiosRequestConfig
-    ): Promise<AxiosResponse<T>> {
+    async post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
         return await this.client.post(url, data, config);
     }
 
-    async put<T = unknown>(
-        url: string,
-        data?: any,
-        config?: AxiosRequestConfig
-    ): Promise<AxiosResponse<T>> {
+    async put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
         return await this.client.put(url, data, config);
     }
 
-    async delete<T = unknown>(
-        url: string,
-        config?: AxiosRequestConfig
-    ): Promise<AxiosResponse<T>> {
+    async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
         return await this.client.delete(url, config);
     }
-
-} 
+}

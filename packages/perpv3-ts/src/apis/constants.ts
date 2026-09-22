@@ -97,6 +97,8 @@ export const INSTRUMENT_BIGINT_KEYS: string[] = [
     'settlementPrice',
     'markPrice',
     'fairPrice',
+    'scaler0',
+    'scaler1',
     // Nested setting keys
     'minMarginAmount',
     'stabilityFeeRatioParam',
@@ -152,6 +154,8 @@ export const PORTFOLIO_BIG_INT_KEYS = [
     'settlementPrice',
     'markPrice',
     'fairPrice',
+    'scaler0',
+    'scaler1',
     // Nested setting keys
     'minMarginAmount',
     'stabilityFeeRatioParam',

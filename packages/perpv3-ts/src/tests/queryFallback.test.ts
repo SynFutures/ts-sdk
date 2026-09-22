@@ -1,12 +1,13 @@
 import { describe, expect, jest, test } from '@jest/globals';
-import type { Address, PublicClient } from 'viem';
+import type { Address } from 'viem';
 import type { ApiSigner } from '../apis/interfaces';
-import { httpClient } from '../apis';
 import { WAD } from '../constants';
 import { PerpClient } from '../client';
 import { inquireByBaseSize, type ApiConfig, type RpcConfig } from '../queries';
 import { UserSetting } from '../types';
 import { HttpClient } from '../utils';
+import { apiEnvelopeResponse } from './helpers/http';
+import { mockPublicClient } from './helpers/viem';
 
 const CHAIN_ID = 8453;
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
@@ -143,7 +144,7 @@ function buildMockRpcConfig(instrument: Address, expiry: number): RpcConfig {
         }
     });
 
-    const publicClient = { multicall, readContract } as unknown as PublicClient;
+    const publicClient = mockPublicClient({ multicall, readContract });
 
     return {
         chainId: CHAIN_ID,
@@ -263,13 +264,15 @@ describe('PerpClient fallback (API -> rpcFallback)', () => {
         const rpcFallback = buildMockRpcConfig(instrument, expiry);
 
         const signer: ApiSigner = { sign: () => ({}) };
+        const apiHttpClient = new HttpClient();
 
         const apiConfig: ApiConfig = {
             chainId: CHAIN_ID,
             signer,
+            httpClient: apiHttpClient,
         };
 
-        const getSpy = jest.spyOn(httpClient, 'get').mockResolvedValue({ data: { data: null } } as any);
+        const getSpy = jest.spyOn(apiHttpClient, 'get').mockResolvedValue(apiEnvelopeResponse(null));
         const client = new PerpClient(apiConfig, userSetting, instrument, expiry, { rpcFallback });
 
         // length=0 keeps the orderbook-side construction minimal for tests.
@@ -282,43 +285,37 @@ describe('PerpClient fallback (API -> rpcFallback)', () => {
 });
 
 describe('direct API query helpers', () => {
-    test('inquireByBaseSize honors ApiConfig.baseUrl instead of using the global httpClient', async () => {
+    test('inquireByBaseSize honors an explicit ApiConfig.httpClient', async () => {
         const instrument = '0x0000000000000000000000000000000000000001' as Address;
         const expiry = 0xffffffff;
         const signer: ApiSigner = { sign: () => ({}) };
+        const httpClient = new HttpClient();
 
-        const globalGetSpy = jest.spyOn(httpClient, 'get').mockImplementation(async () => {
-            throw new Error('global-client-used');
-        });
-        const customGetSpy = jest.spyOn(HttpClient.prototype, 'get').mockResolvedValue({
-            data: {
-                data: {
-                    benchmark: '0',
-                    sqrtFairPX96: '0',
-                    tick: 0,
-                    mark: '0',
-                    entryNotional: '0',
-                    fee: '0',
-                    minAmount: '0',
-                    sqrtPostFairPX96: '0',
-                    postTick: 0,
-                },
-            },
-        } as any);
+        const customGetSpy = jest.spyOn(httpClient, 'get').mockResolvedValue(
+            apiEnvelopeResponse({
+                benchmark: '0',
+                sqrtFairPX96: '0',
+                tick: 0,
+                mark: '0',
+                entryNotional: '0',
+                fee: '0',
+                minAmount: '0',
+                sqrtPostFairPX96: '0',
+                postTick: 0,
+            })
+        );
 
         try {
             const quotation = await inquireByBaseSize(instrument, expiry, 1n, {
                 chainId: CHAIN_ID,
-                baseUrl: 'https://custom.example',
                 signer,
+                httpClient,
             });
 
             expect(quotation.tick).toBe(0);
-            expect(globalGetSpy).not.toHaveBeenCalled();
             expect(customGetSpy).toHaveBeenCalled();
         } finally {
             customGetSpy.mockRestore();
-            globalGetSpy.mockRestore();
         }
     });
 });

@@ -1,18 +1,6 @@
 import { Address } from 'viem';
 import { Erc20TokenInfo } from '@derivation-tech/viem-kit';
-import {
-    Amm,
-    BlockInfo,
-    Condition,
-    MinimalPearl,
-    Order,
-    PairSnapshot,
-    Position,
-    QuoteParam,
-    Quotation,
-    Range,
-    Side,
-} from '../types';
+import { Amm, BlockInfo, Condition, MinimalPearl, PairSnapshot, QuoteParam, Quotation, Side } from '../types';
 import { HISTORY_RANGE } from './constants';
 
 // TokenInfo type compatible with API responses (name is optional, address can be string or Address)
@@ -63,7 +51,7 @@ export type AmmFromApi = Omit<Amm, 'status'> & {
     status: number; // API returns number, not Status enum
     blockInfo: BlockInfo;
     fairPrice: bigint;
-    instrumentAddr: string;
+    instrumentAddr: Address;
     markPrice: bigint;
 };
 // SettingFromApi is a subset of Setting with API response structure
@@ -77,21 +65,19 @@ export interface SettingFromApi {
 export interface MarketFromApi {
     config: {
         dailyInterestRate: number;
-        feederSource: [
-            {
-                aggregator0: string;
-                aggregator1: string;
-                baseSymbol: string;
-                ftype: number;
-                heartBeat0: number;
-                heartBeat1: number;
-                quoteSymbol: string;
-            },
-        ];
+        feederSource: Array<{
+            aggregator0: Address;
+            aggregator1: Address;
+            baseSymbol: string;
+            ftype: number;
+            heartBeat0: number;
+            heartBeat1: number;
+            quoteSymbol: string;
+        }>;
     };
     feeder: {
-        aggregator0: string;
-        aggregator1: string;
+        aggregator0: Address;
+        aggregator1: Address;
         ftype: number;
         heartBeat0: number;
         heartBeat1: number;
@@ -365,32 +351,40 @@ export type FetchFuturesInstrumentInquireByNotionalResponseData = QuotationFromA
 export type FetchFuturesInstrumentInquireByNotionalResponse =
     FetchFuturesInstrumentInquireByNotionalResponseData | null;
 
-// OrderFromApi extends Order with API-specific metadata fields
-export type OrderFromApi = Order & {
-    limitPrice: bigint;
+export interface OrderFromApi {
+    balance: bigint;
+    size: bigint;
+    tick: number;
     nonce: number;
+    limitPrice: bigint;
     oid: number;
     side: Side;
     taken: bigint;
-    tick: number;
-};
-// PositionFromApi extends Position with API-specific fields
-export type PositionFromApi = Position & {
+}
+export interface PositionFromApi {
+    balance: bigint;
+    size: bigint;
+    entryNotional: bigint;
+    entrySocialLossIndex: bigint;
+    entryFundingIndex: bigint;
     entryPrice: bigint;
     side: Side;
-};
-// RangeFromApi extends Range with API-specific metadata fields
-export type RangeFromApi = Range & {
+}
+export interface RangeFromApi {
+    liquidity: bigint;
+    entryFeeIndex: bigint;
+    balance: bigint;
+    sqrtEntryPX96: bigint;
+    tickLower: number;
+    tickUpper: number;
     entryPrice: bigint;
     expiry: number;
     instrumentAddr: Address;
     lowerPrice: bigint;
     rid: number;
-    tickLower: number;
-    tickUpper: number;
     traderAddr: Address;
     upperPrice: bigint;
-};
+}
 export interface PortfolioFromApi {
     blockInfo: BlockInfo;
     instrumentAddr: Address;
@@ -556,7 +550,7 @@ export interface FetchTradeHistoryItem {
     tradeFee: string;
     txHash: string;
     type: string;
-    typeString: string
+    typeString: string;
 }
 
 export type FetchMmAccountTransactionHistoryResponse = {
@@ -579,7 +573,6 @@ export interface FetchMmFundingHistoryItem {
 }
 export type FetchMmFundingHistoryResponse = FetchMmFundingHistoryItem[];
 
-
 export interface FetchMmInstrumentInfoInput {
     chainId: number;
     symbol?: string;
@@ -588,7 +581,7 @@ export interface FetchMmInstrumentInfoInput {
 export interface FetchMmInstrumentInfoItem {
     base: {
         symbol: string;
-    },
+    };
     disableMakerOrderRebate: boolean;
     fundingIntervalHour: number;
     initialMarginRatio: number;
@@ -598,13 +591,13 @@ export interface FetchMmInstrumentInfoItem {
     market: {
         address: string;
         type: string;
-    },
-    minMarginAmount: string;
+    };
+    minMarginAmount: bigint;
     protocolFeeRatio: number;
-    quote: TokenInfo,
+    quote: TokenInfo;
     quoteType: string;
     symbol: string;
-    tip: string;
+    tip: bigint;
     tradingFeeRatio: number;
 }
 
@@ -631,7 +624,6 @@ export interface FetchMmKlineItem {
     symbol: string;
 }
 export type FetchMmKlineResponse = FetchMmKlineItem[];
-
 
 export interface FetchMmLiquidityHistoryInput {
     chainId: number;
@@ -670,7 +662,7 @@ export interface FetchMmLiquidityHistoryItem {
 export type FetchMmLiquidityHistoryResponse = {
     list: FetchMmLiquidityHistoryItem[];
     totalCount: number;
-}
+};
 
 export interface FetchMmOrderHistoryInput {
     chainId: number;
@@ -965,8 +957,8 @@ export interface TradeHistory extends InstrumentHistoryBasicInfo {
     price: string;
     tradeFee: string;
     protocolFee: string;
-    // type: number; // TOOD: 0/1
-    typeString: 'market' | 'fill' | 'range' | 'take_over' | 'liquidation'; // TOOD: 0/1
+    // Current history API exposes the display type string, not the numeric type code.
+    typeString: 'market' | 'fill' | 'range' | 'take_over' | 'liquidation';
     side: 'long' | 'short';
     // missing for now
     isRangeLiquidated?: boolean;
@@ -981,7 +973,6 @@ export interface OrderHistory extends Omit<InstrumentHistoryBasicInfo, 'txHash' 
     takenBalance: string;
     orderPrice: string;
     feeRebate: string;
-    // type: number; // TOOD: 0/1
     cancelTimestamp: number;
     tradeValue: string;
 
@@ -1002,15 +993,14 @@ export interface LiquidityHistory extends InstrumentHistoryBasicInfo {
 
     lowerPrice: string;
     lowerTick: number;
-    // type: number;
-    typeString: string; // TODO: 0/1
+    // Current history API exposes the display type string, not the numeric type code.
+    typeString: string;
     upperPrice: string;
     upperTick: number;
 }
 
 export interface FundingHistory extends InstrumentHistoryBasicInfo {
-    // type: number;
-    typeString: 'receive' | 'pay'; // receive/pay
+    typeString: 'receive' | 'pay';
     value: string;
     valueUsd: string;
 }
@@ -1173,5 +1163,6 @@ export interface FetchMarketPairInfoInput {
  * Response containing detailed market pair information
  * @returns IMarketPair object with pricing, volume, and market metrics or null if not found
  */
-export type FetchMarketPairInfoResponse = IMarketPair | null;
-export type FetchMarketPairListResponse = IMarketPair[] | undefined;
+export type MarketPairWithChainId = IMarketPair & { chainId: number };
+export type FetchMarketPairInfoResponse = MarketPairWithChainId | null;
+export type FetchMarketPairListResponse = MarketPairWithChainId[] | undefined;

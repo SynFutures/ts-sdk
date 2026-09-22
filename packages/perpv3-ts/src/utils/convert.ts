@@ -1,36 +1,66 @@
-/**
- * Recursively converts specified keys in an object to BigInt
- * @param obj - The object to process
- * @param bigIntKeys - Array of keys that should be converted to BigInt
- * @returns A new object with specified keys converted to BigInt
- */
-export function bigIntObjectCheckByKeys(obj: any, bigIntKeys?: string[]): any {
-	if (!bigIntKeys || bigIntKeys.length === 0) {
-		return obj;
-	}
-	if (obj === null || obj === undefined || typeof obj !== 'object') {
-		return obj;
-	}
+type UnknownRecord = {
+    [key: string]: unknown;
+};
 
-	const cloneObj = Array.isArray(obj) ? [...obj] : { ...obj };
-	if (cloneObj) {
-		Object.keys(cloneObj).forEach((key) => {
-			try {
-				const val = cloneObj[key];
-				// If bigNumberKeys is provided, only convert keys that are in the array
-				if (bigIntKeys?.includes(key)) {
-					cloneObj[key] = BigInt(val || 0);
-				} else if (typeof val === 'object' && val && Object.keys(val).length > 0) {
-					const newVal = bigIntObjectCheckByKeys(val, bigIntKeys);
-					cloneObj[key] = newVal;
-				}
-			} catch (error) {
-				console.error(`Error converting key ${key} to BigInt`, error);
-				// Silently handle conversion errors and return the original cloned object
-				// This prevents the function from throwing while maintaining data integrity
-			}
-		});
-	}
-	return cloneObj;
+const INTEGER_STRING_REGEX = /^[+-]?\d+$/;
+
+function isRecord(value: unknown): value is UnknownRecord {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function invalidBigIntValue(key: string, value: unknown): Error {
+    return new Error(`Invalid bigint value for key "${key}": ${String(value)}`);
+}
+
+function parseBigIntField(value: unknown, key: string): bigint {
+    if (value === null || value === undefined) {
+        throw invalidBigIntValue(key, value);
+    }
+    if (typeof value === 'bigint') {
+        return value;
+    }
+    if (typeof value === 'number') {
+        if (Number.isSafeInteger(value)) {
+            return BigInt(value);
+        }
+        throw invalidBigIntValue(key, value);
+    }
+    if (typeof value === 'string') {
+        const normalized = value.trim();
+        if (!normalized) {
+            throw invalidBigIntValue(key, value);
+        }
+        if (INTEGER_STRING_REGEX.test(normalized)) {
+            return BigInt(normalized);
+        }
+    }
+    throw invalidBigIntValue(key, value);
+}
+
+function normalizeBigIntFieldsValue(value: unknown, bigIntKeys: ReadonlySet<string>): unknown {
+    if (Array.isArray(value)) {
+        return value.map((item) => normalizeBigIntFieldsValue(item, bigIntKeys));
+    }
+    if (!isRecord(value)) {
+        return value;
+    }
+
+    const normalized: UnknownRecord = {};
+    for (const [key, entry] of Object.entries(value)) {
+        normalized[key] = bigIntKeys.has(key)
+            ? parseBigIntField(entry, key)
+            : normalizeBigIntFieldsValue(entry, bigIntKeys);
+    }
+    return normalized;
+}
+
+/**
+ * Recursively converts specified keys in an object to bigint.
+ * Empty, missing, unsafe, or malformed values fail fast.
+ */
+export function normalizeBigIntFields<T>(obj: T, bigIntKeys?: readonly string[]): T {
+    if (!bigIntKeys || bigIntKeys.length === 0) {
+        return obj;
+    }
+    return normalizeBigIntFieldsValue(obj, new Set(bigIntKeys)) as T;
+}
