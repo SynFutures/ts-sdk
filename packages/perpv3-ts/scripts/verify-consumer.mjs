@@ -12,6 +12,7 @@ const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const workspaceDir = resolve(packageDir, '../..');
 const require = createRequire(join(packageDir, 'package.json'));
 const manifest = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'));
+const consumerNode = process.env.PERPV3_CONSUMER_NODE || process.execPath;
 const temporary = mkdtempSync(join(tmpdir(), 'perpv3-consumer-'));
 const consumer = join(temporary, 'consumer');
 const env = {
@@ -73,8 +74,8 @@ try {
         })
     );
     run(process.execPath, [require.resolve('typescript/bin/tsc'), '-p', 'tsconfig.json']);
-    run(process.execPath, ['--disallow-code-generation-from-strings', 'dist/index.mjs']);
-    run(process.execPath, ['--disallow-code-generation-from-strings', 'dist/index.cjs']);
+    run(consumerNode, ['--disallow-code-generation-from-strings', 'dist/index.mjs']);
+    run(consumerNode, ['--disallow-code-generation-from-strings', 'dist/index.cjs']);
     const entries = Object.keys(packed.exports).filter((key) => key !== './package.json');
     const importAll = entries
         .map(
@@ -86,8 +87,8 @@ try {
         join(consumer, 'entries.cjs'),
         entries.map((entry) => `require('${manifest.name}${entry === '.' ? '' : entry.slice(1)}');`).join('\n')
     );
-    run(process.execPath, ['--disallow-code-generation-from-strings', 'entries.mjs']);
-    run(process.execPath, ['--disallow-code-generation-from-strings', 'entries.cjs']);
+    run(consumerNode, ['--disallow-code-generation-from-strings', 'entries.mjs']);
+    run(consumerNode, ['--disallow-code-generation-from-strings', 'entries.cjs']);
     const tsupRequire = createRequire(require.resolve('tsup/package.json'));
     const { build } = tsupRequire('esbuild');
     const browser = join(temporary, 'browser.cjs');
@@ -106,9 +107,9 @@ try {
         ),
         'Node tooling entered browser bundle'
     );
-    run(process.execPath, ['--disallow-code-generation-from-strings', browser]);
+    run(consumerNode, ['--disallow-code-generation-from-strings', browser]);
     log(
-        `Packed consumer passed on Node ${process.versions.node}: ${entries.length} ESM/CJS entries, NodeNext types, calldata/parser runtime, browser bundle, exact viem-kit tarball files`
+        `Packed consumer passed on Node ${run(consumerNode, ['-p', 'process.versions.node']).trim()}: ${entries.length} ESM/CJS entries, NodeNext types, calldata/parser runtime, browser bundle, exact viem-kit tarball files`
     );
 } catch (error) {
     if (error.stdout) log(error.stdout.toString());

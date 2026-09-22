@@ -3,7 +3,8 @@
 Run workspace commands from the repository root. The dependency lockfile and
 `package.json` scripts define the toolchain (Node.js 24 LTS from `.nvmrc`, pinned pnpm 10).
 Run `nvm install && nvm use` before workspace commands; CI and release read the same Node version file.
-Published SDK runtime support remains Node.js 18 or later. The local viem-kit override and its
+Published SDK runtime support remains Node.js 18 or later. CI executes the packed ESM/CJS
+consumer on Node 18.18.0 as a compatibility check; development and release tools use Node 24. The local viem-kit override and its
 provenance in the repository's `vendor/README.md` define this branch's dependency bytes.
 
 | Command                                                | Scope and effects                                               |
@@ -25,7 +26,9 @@ provenance in the repository's `vendor/README.md` define this branch's dependenc
 
 Workspace tasks run through pnpm scripts. ESLint 10 uses the root `eslint.config.mjs` flat config
 for code checks; TypeScript checks types, and Prettier owns formatting. CI runs workspace lint
-before package verification.
+and `format:check` before package verification. The workspace owns one pinned Prettier version;
+`pnpm run format` formats maintained source, configuration and documentation. Generated ABIs,
+fixed fixtures and devnet snapshots are excluded.
 
 Tests have three explicit scopes under `src/tests`:
 
@@ -39,7 +42,9 @@ Run live checks with `pnpm -C packages/perpv3-ts run test:live --runTestsByPath 
 can override the built-in deployment. `live/apiRpcParity.test.ts` requires a
 non-empty `SIMULATE_PARITY_FIXTURE` matching the scenario types in
 `src/tests/live/apiRpcParity/types.ts`, plus its explicit RPC/API settings.
-A selected live test fails on missing configuration or request errors.
+A selected live test fails on missing configuration or request errors. API/RPC parity pins RPC
+reads to the API snapshot height and compares independently simulated results, including funding
+indices. A scenario block number must match that height; moving block tags are rejected.
 
 Unit or devnet success does not establish parity with deployed APIs, production
 configuration or hardware wallets. Keep dated run counts and logs in CI output
@@ -55,7 +60,10 @@ Teardown stops only the child process owned by that run.
 Dated futures start from a timestamp derived from the snapshot's expiries.
 
 Run `devnet:regen` only when intentionally refreshing contract artifacts or the
-preset; it rewrites snapshot files. A stale-state failure should not be bypassed
+preset; it stages state, manifest and metadata before replacing the snapshot files.
+Caught publication failures restore the prior files; abrupt process or machine failure during
+the multi-file replacement is not crash-atomic. Use `devnet:regen -- --output-dir <directory>`
+to inspect a separate snapshot without replacing the committed one. A stale-state failure should not be bypassed
 by changing expected hashes. Dependency lifecycle scripts can be disabled when
 platform binaries are already installed; inspect a missing Anvil binary before
 approving its installation script.

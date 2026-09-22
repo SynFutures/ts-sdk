@@ -36,8 +36,8 @@ importers:
         specifier: ^16.4.0
         version: 16.4.0
       prettier:
-        specifier: ^3.3.3
-        version: 3.4.2
+        specifier: 3.6.2
+        version: 3.6.2
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -93,9 +93,6 @@ importers:
       jest:
         specifier: ^30.5.2
         version: 30.5.2(@types/node@24.13.6)(ts-node@10.9.2(@types/node@24.13.6)(typescript@5.9.3))
-      prettier:
-        specifier: ^3.0.0
-        version: 3.6.2
       ts-jest:
         specifier: ^29.4.12
         version: 29.4.12(@babel/core@7.28.5)(@jest/transform@30.5.2)(@jest/types@30.5.1)(babel-jest@30.5.2(@babel/core@7.28.5))(esbuild@0.27.1)(jest-util@30.5.1)(jest@30.5.2(@types/node@24.13.6)(ts-node@10.9.2(@types/node@24.13.6)(typescript@5.9.3)))(typescript@5.9.3)
@@ -2808,11 +2805,6 @@ packages:
   prettier@2.8.8:
     resolution: {integrity: sha512-tdN8qQGvNjw4CHbY+XXk0JgCXn9QiF21a55rBe5LJAU+kDyC4WQn4+awm2Xfk2lQMk5fKup9XgzTZtGkjBdP9Q==}
     engines: {node: '>=10.13.0'}
-    hasBin: true
-
-  prettier@3.4.2:
-    resolution: {integrity: sha512-e9MewbtFo+Fevyuxn/4rrcDAaq0IYxPGLvObpQjiZBMAzB9IGmzlnG9RZy3FFas+eBMu2vA0CszMeduow5dIuQ==}
-    engines: {node: '>=14'}
     hasBin: true
 
   prettier@3.6.2:
@@ -6143,8 +6135,6 @@ snapshots:
   prelude-ls@1.2.1: {}
 
   prettier@2.8.8: {}
-
-  prettier@3.4.2: {}
 
   prettier@3.6.2: {}
 

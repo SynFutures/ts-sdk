@@ -25,7 +25,7 @@ Import `PublicModule`, `MarketModule`, `MarketMakerModule`, `TokenModule` and
 `HttpClient`, signer or MM authentication. The former standalone helper family
 has been removed; use the matching module method rather than a second facade.
 
-The API boundary decodes `unknown` payloads into validated wire values before
+The on-chain context and quotation API decoders validate `unknown` payloads before
 constructing domain objects. Integer strings become `bigint` where the domain
 requires exact integers; malformed required fields throw. Missing data, a zero
 value and a decoding failure have different meanings. For example, MM instrument
@@ -40,7 +40,9 @@ Query serialization retains explicit `0` and `false` and omits nullish values.
 
 Use `PerpClient` subscription methods for a bound pair, or `PublicWebsocketClient`
 from `/apis` for explicit subscription management. Each subscription returns an
-unsubscribe operation; release it when the owning view or workflow ends.
+unsubscribe operation; release it when the owning view or workflow ends. Identical wire
+topics remain subscribed until their last typed or raw subscriber is removed. Events from
+a replaced socket cannot reset the active connection or deliver stale data.
 
 The transport, request/acknowledgment protocol, subscription registry and payload
 normalization have separate owners. Stream schemas validate metadata and required

@@ -13,10 +13,11 @@
         "init": "./scripts/init.sh",
         "prepare": "husky",
         "lint": "eslint",
-        "format": "pnpm -r run format",
+        "format": "prettier --write .",
         "clean": "pnpm -r clean",
         "release": "changeset publish",
-        "release:dry": "changeset status"
+        "release:dry": "changeset status",
+        "format:check": "prettier --check ."
     },
     "devDependencies": {
         "@changesets/cli": "^2.31.1",
@@ -25,7 +26,7 @@
         "eslint-config-prettier": "^10.1.8",
         "husky": "^9.1.6",
         "lint-staged": "^16.4.0",
-        "prettier": "^3.3.3",
+        "prettier": "3.6.2",
         "typescript": "5.9.3",
         "typescript-eslint": "^8.70.1"
     },
