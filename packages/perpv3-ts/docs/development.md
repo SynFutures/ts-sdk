@@ -89,3 +89,17 @@ approve tokens and perform cleanup. Listing and help do not load signer settings
 or execute a demo. Inspect the selected example and configuration before running
 it. Numerical fixtures use synthetic addresses and network-independent names. They
 preserve fixed regression inputs and expectations without selecting a live chain.
+
+## Published package checks
+
+`verify:consumer` checks the existing build through one `pnpm pack` tarball, with
+lifecycle hooks disabled. It runs strict `publint` and `attw --profile node16`, then
+compiles and executes ESM/CJS consumers, checks all public entries and shared class/logger
+identity, and bundles a browser consumer using a direct esbuild dependency.
+TypeScript consumers must use exports-aware resolution (`Node16`, `NodeNext` or
+`Bundler`); legacy `node10` resolution is not supported. The attw profile still checks
+both CJS and ESM under Node16 resolution and bundler resolution.
+
+Set `PERPV3_CONSUMER_NODE` to an absolute Node executable path to run the packed
+consumer on another supported runtime. Package-check tools and TypeScript continue
+to run on the development Node version.

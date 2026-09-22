@@ -193,14 +193,17 @@
         }
     },
     "devDependencies": {
+        "@arethetypeswrong/cli": "0.18.5",
         "@foundry-rs/anvil": "1.5.1",
         "@jest/globals": "^30.5.2",
         "@synfutures/v3-contracts": "^0.0.2",
         "@types/jest": "^30.0.0",
         "@types/node": "22.20.4",
         "dotenv": "^17.4.2",
+        "esbuild": "0.28.2",
         "eslint": "^10.11.0",
         "jest": "^30.5.2",
+        "publint": "0.3.24",
         "ts-jest": "^29.4.12",
         "ts-node": "^10.9.2",
         "tsup": "^8.5.1",
