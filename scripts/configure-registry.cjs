@@ -18,6 +18,6 @@ if (
 }
 if (!process.env.RUNNER_TEMP) throw new Error('RUNNER_TEMP must be set');
 registry.pathname = registry.pathname.replace(/\/?$/, '/');
-// Both workflows share this scope mapping; the token is resolved only in authenticated steps.
+// Workflows share this scope mapping; the token is resolved only in authenticated steps.
 const content = `@synfutures:registry=${registry.href}\n@derivation-tech:registry=${registry.href}\n//${registry.host}${registry.pathname}:_authToken=\${NODE_AUTH_TOKEN}\n`;
 writeFileSync(join(process.env.RUNNER_TEMP, 'perpv3-registry.npmrc'), content, { mode: 0o600 });

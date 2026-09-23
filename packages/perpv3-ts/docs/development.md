@@ -134,10 +134,10 @@ Changesets 3 and `changesets/action@v2` share the root release commands:
 - `pnpm run release` publishes packages. Versioning and publishing require release authorization.
 
 The workflow uses the v2 inputs `version-script`, `publish-script` and `github-token`.
-Both workflows use `scripts/configure-registry.cjs` to create a temporary npm
+Workflows use `scripts/configure-registry.cjs` to create a temporary npm
 config preserving both private registry scopes (`@synfutures` and
 `@derivation-tech`). Its token is supplied through `NODE_AUTH_TOKEN` only to the
-install and release steps, because installing the private contract artifacts also
+install, release and dependency-report steps, because installing the private contract artifacts also
 requires authentication. Verification steps do not receive the registry token.
 
 Changesets 3 skips private-package versioning by default and defaults peer-dependent
@@ -163,3 +163,33 @@ Installs are explicit (`verifyDepsBeforeRun: false`): lint, tests and builds mus
 start a dependency installation after CI has removed registry credentials. The
 release-age exceptions are pinned to the reviewed Prettier and ts-jest versions,
 not entire package families.
+
+## Dependency updates
+
+Run `pnpm run deps:outdated` with the same private registry configuration as installation.
+The dependency-report workflow runs weekly and on manual dispatch, writing candidates
+into the Actions job summary. It reads registry and official Node release metadata;
+it does not install dependencies, run package hooks or create update PRs.
+`pnpm outdated --recursive --include-github-actions` covers workspace packages and
+workflow actions. The report separately includes the pinned package manager, pnpm
+registry tags, `.nvmrc`, the latest patch in that Node major and current/LTS releases.
+Updates do not fail the job; malformed reports and registry/network errors do.
+Registry tags may lag a pinned release and must not trigger automatic downgrades.
+The schedule becomes active only after this workflow reaches the default branch.
+
+Review major upgrades against these current compatibility constraints:
+
+- TypeScript remains 6.0.3 while the installed typescript-eslint peer range is
+  below 6.1 and ts-jest's range is below 7. Upgrade that toolchain together.
+- Development stays on Node 24 LTS. Published SDK compatibility and `@types/node`
+  stay on Node 22; a newer development runtime must not silently expand the SDK's APIs.
+- `@noble/curves` stays on 1.9.7. Version 2 is ESM-only; changing it requires checking
+  CJS consumers across supported Node 22 versions. Replacing it with viem signature
+  parsing also needs an explicit API decision because viem rejects recovery values
+  that the current `splitSignature` accepts.
+- viem-kit remains a reviewed local tarball. Update it through the provenance and
+  packed-consumer checks, not an automatic registry upgrade.
+
+Use small commits for configuration migration, dependency updates and mechanical
+formatting. Validate the affected tools, then the package's full verification gate;
+Anvil upgrades also require regenerating and testing the local snapshot.

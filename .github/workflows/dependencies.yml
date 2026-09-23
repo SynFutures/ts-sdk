@@ -1,0 +1,36 @@
+name: Dependency Report
+
+on:
+    workflow_dispatch:
+    schedule:
+        - cron: '0 2 * * 1'
+
+permissions:
+    contents: read
+
+jobs:
+    report:
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        steps:
+            - name: Checkout Repo
+              uses: actions/checkout@v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v6.1.0
+              with:
+                  run_install: false
+            - name: Setup Node
+              uses: actions/setup-node@v7.0.0
+              with:
+                  node-version-file: .nvmrc
+            - name: Configure private registry
+              env:
+                  NPM_REGISTRY_URL: ${{ secrets.NPM_REGISTRY_URL }}
+              run: node scripts/configure-registry.cjs
+            - name: Report dependency and toolchain updates
+              env:
+                  PNPM_CONFIG_USERCONFIG: ${{ runner.temp }}/perpv3-registry.npmrc
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+              run: node scripts/dependency-report.cjs
