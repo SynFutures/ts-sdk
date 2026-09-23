@@ -1,7 +1,7 @@
 # Development and validation
 
 Run workspace commands from the repository root. The dependency lockfile and
-`package.json` scripts define the toolchain (Node.js 24 LTS from `.nvmrc`, pinned pnpm 10).
+`package.json` scripts define the toolchain (Node.js 24 LTS from `.nvmrc`, pinned pnpm 12).
 Run `nvm install && nvm use` before workspace commands; CI and release read the same Node version file.
 Published SDK runtime support remains Node.js 22 or later. CI executes the packed ESM/CJS
 consumer on Node 22 to check the lowest supported major version; development and release tools use Node 24. The local viem-kit override and its
@@ -151,3 +151,10 @@ publication guard, plus registry URL validation and deferred token configuration
 The tests use disposable Git fixtures and installed tools, with registry dependencies
 omitted and pnpm in offline mode. They do not apply
 the checkout's pending changesets or publish packages. Both CI workflows run them.
+
+The pnpm 12 workspace keeps overrides and dependency build permissions in
+`pnpm-workspace.yaml`. Platform binaries are installed through optional dependencies;
+package build hooks are explicitly disabled for Anvil, esbuild, unrs-resolver and
+Parcel's watcher. Use `pnpm_config_*` for pnpm settings. The release step also keeps
+`NPM_CONFIG_USERCONFIG` for tools that invoke npm. The local viem-kit publication
+guard reads the effective pnpm override, so moving configuration cannot bypass it.

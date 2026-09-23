@@ -19,8 +19,8 @@ const consumer = join(temporary, 'consumer');
 const env = {
     PATH: process.env.PATH,
     TMPDIR: temporary,
-    npm_config_userconfig: '/dev/null',
-    npm_config_ignore_scripts: 'true',
+    pnpm_config_userconfig: '/dev/null',
+    pnpm_config_ignore_scripts: 'true',
 };
 function run(command, args, cwd = consumer) {
     return execFileSync(command, args, { cwd, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -53,8 +53,8 @@ try {
         mkdirSync(dirname(link), { recursive: true });
         symlinkSync(resolve(packageDir, 'node_modules', name), link, 'dir');
     }
-    const workspace = JSON.parse(readFileSync(join(workspaceDir, 'package.json'), 'utf8'));
-    const override = workspace.pnpm?.overrides?.['@derivation-tech/viem-kit'];
+    const overrides = JSON.parse(run('pnpm', ['config', 'get', 'overrides', '--json'], workspaceDir));
+    const override = overrides?.['@derivation-tech/viem-kit'];
     if (override?.startsWith('file:')) {
         const expected = join(temporary, 'viem-kit');
         mkdirSync(expected);

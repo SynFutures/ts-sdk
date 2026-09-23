@@ -5,3 +5,13 @@ catalog:
     '@derivation-tech/viem-kit': '^0.2.2'
     viem: '^2.56.8'
     typescript: '6.0.3'
+
+overrides:
+    '@derivation-tech/viem-kit': 'file:./vendor/derivation-tech-viem-kit-85252d4.tgz'
+
+# Native binaries are supplied by platform-specific optional dependencies.
+allowBuilds:
+    '@foundry-rs/anvil': false
+    '@parcel/watcher': false
+    esbuild: false
+    unrs-resolver: false

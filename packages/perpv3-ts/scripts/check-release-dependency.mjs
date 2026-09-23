@@ -1,8 +1,11 @@
-import { URL } from 'node:url';
-import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
-const workspace = JSON.parse(readFileSync(new URL('../../../package.json', import.meta.url), 'utf8'));
-const override = workspace.pnpm?.overrides?.['@derivation-tech/viem-kit'];
-if (override) {
+const overrides = JSON.parse(
+    execFileSync('pnpm', ['config', 'get', 'overrides', '--json'], {
+        cwd: new URL('../../../', import.meta.url),
+        encoding: 'utf8',
+    })
+);
+if (overrides?.['@derivation-tech/viem-kit']) {
     throw new Error('Replace the local viem-kit override with a released catalog version before publishing.');
 }

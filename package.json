@@ -35,12 +35,7 @@
     },
     "engines": {
         "node": ">=24 <25",
-        "pnpm": ">=10 <11"
+        "pnpm": ">=12 <13"
     },
-    "pnpm": {
-        "overrides": {
-            "@derivation-tech/viem-kit": "file:./vendor/derivation-tech-viem-kit-85252d4.tgz"
-        }
-    },
-    "packageManager": "pnpm@10.34.5"
+    "packageManager": "pnpm@12.6.0"
 }
