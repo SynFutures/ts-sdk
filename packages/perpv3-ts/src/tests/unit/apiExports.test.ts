@@ -1,4 +1,12 @@
 describe('API export surface', () => {
+    test('SDK entrypoints expose permit signing without the removed signature parser', async () => {
+        const entrypoints = await Promise.all([import('../../index'), import('../../frontend')]);
+        for (const entrypoint of entrypoints) {
+            expect(typeof entrypoint.signErc20PermitTypedData).toBe('function');
+            expect(entrypoint).not.toHaveProperty('splitSignature');
+        }
+    });
+
     test('apis root exposes module classes without legacy function helpers', async () => {
         const apis = await import('../../apis');
 

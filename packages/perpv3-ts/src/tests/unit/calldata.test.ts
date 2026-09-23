@@ -134,6 +134,44 @@ describe('frontend calldata typed requests', () => {
         );
     });
 
+    describe('ERC-20 permit signatures', () => {
+        const tokenAddress = '0x0000000000000000000000000000000000000077';
+        const spenderAddress = '0x0000000000000000000000000000000000000144';
+        const ownerAddress = '0x0000000000000000000000000000000000000055';
+        const r = `0x${'11'.repeat(32)}` as const;
+        const s = `0x${'22'.repeat(32)}` as const;
+        const params = { tokenAddress, spenderAddress, amount: 100n } as const;
+        const options = { useApproveFor: true, ownerAddress, deadline: 1_700_000_600 } as const;
+
+        it.each([
+            ['00', 27],
+            ['01', 28],
+            ['1b', 27],
+            ['1c', 28],
+        ] as const)('encodes signature suffix %s as contract recovery value %i', (suffix, expectedV) => {
+            const signature = `${r}${s.slice(2)}${suffix}` as const;
+            const tx = encodeApproveTransaction(params, { ...options, signature });
+            const decoded = decodeFunctionData({ abi: ERC20_WITH_PERMIT_ABI, data: tx.data });
+
+            expect(tx.to).toBe(tokenAddress);
+            expect(tx.value).toBe(0n);
+            expect(decoded.functionName).toBe('permit');
+            expect(decoded.args).toEqual([ownerAddress, spenderAddress, 100n, 1_700_000_600n, expectedV, r, s]);
+        });
+
+        it.each(['02', '1d', 'ff'])('rejects unsupported recovery value %s before encoding', (suffix) => {
+            const signature = `${r}${s.slice(2)}${suffix}` as const;
+            expect(() => encodeApproveTransaction(params, { ...options, signature })).toThrow();
+        });
+
+        it.each(['0x1234', `0x${'00'.repeat(32)}${s.slice(2)}1b`] as const)(
+            'rejects malformed or invalid signature %s before encoding',
+            (signature) => {
+                expect(() => encodeApproveTransaction(params, { ...options, signature })).toThrow();
+            }
+        );
+    });
+
     it('exposes instrument calldata intent encoders as direct modules', () => {
         const instrumentAddress = '0x0000000000000000000000000000000000000011' as const;
         const targetAddress = '0x0000000000000000000000000000000000000122';

@@ -52,6 +52,27 @@ retrying. An ambiguous send outcome requires reconciliation; submitting the same
 business action again can duplicate it. Simulation freshness, fee policy, gas
 buffering, approvals and persistent reconciliation remain caller responsibilities.
 
+## Signature parsing and permits
+
+Import `parseSignature` directly from viem; the SDK no longer exports
+`splitSignature`. viem returns `r`, `s` and `yParity` (0 or 1). Its optional `v`
+is a bigint, so do not substitute it directly for the removed helper's numeric `v`.
+For contracts expecting the traditional recovery value, use `yParity + 27`:
+
+```typescript
+import { parseSignature, type Hex } from 'viem';
+
+declare const signature: Hex;
+const { r, s, yParity } = parseSignature(signature);
+const v = yParity + 27;
+console.log({ r, s, v });
+```
+
+`encodeApproveTransaction` with `useApproveFor` performs this conversion when
+encoding ERC-20 `permit`: suffixes 0/1 and 27/28 are accepted and encoded as
+27/28; other recovery values are rejected before encoding. This is stricter than
+the removed helper. `signErc20PermitTypedData` remains the SDK's permit-signing helper.
+
 ## Parser ownership
 
 `createInstrumentParser`, `createGateParser`, `createConfigParser` and the other
