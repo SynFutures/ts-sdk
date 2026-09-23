@@ -195,7 +195,7 @@
     },
     "devDependencies": {
         "@arethetypeswrong/cli": "0.18.5",
-        "@foundry-rs/anvil": "1.5.1",
+        "@foundry-rs/anvil": "1.7.1",
         "@jest/globals": "^30.5.2",
         "@synfutures/v3-contracts": "^0.0.2",
         "@types/jest": "^30.0.0",
