@@ -158,3 +158,8 @@ package build hooks are explicitly disabled for Anvil, esbuild, unrs-resolver an
 Parcel's watcher. Use `pnpm_config_*` for pnpm settings. The release step also keeps
 `NPM_CONFIG_USERCONFIG` for tools that invoke npm. The local viem-kit publication
 guard reads the effective pnpm override, so moving configuration cannot bypass it.
+
+Installs are explicit (`verifyDepsBeforeRun: false`): lint, tests and builds must not
+start a dependency installation after CI has removed registry credentials. The
+release-age exceptions are pinned to the reviewed Prettier and ts-jest versions,
+not entire package families.

@@ -205,7 +205,7 @@
         "eslint": "^10.11.0",
         "jest": "^30.5.2",
         "publint": "0.3.24",
-        "ts-jest": "^29.4.12",
+        "ts-jest": "^29.4.13",
         "tsdown": "0.23.0",
         "tsx": "^4.23.15",
         "typescript": "catalog:"
