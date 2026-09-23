@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
 const { existsSync, mkdtempSync, readFileSync, rmSync, statSync } = require('node:fs');
 const { tmpdir } = require('node:os');
-const { join, resolve } = require('node:path');
+const { dirname, join, resolve } = require('node:path');
 const { test } = require('node:test');
 
 const script = resolve(__dirname, '../configure-registry.cjs');
@@ -31,6 +31,20 @@ for (const registry of ['https://registry.example.invalid', 'https://registry.ex
         );
         assert.equal(statSync(file).mode & 0o777, 0o600);
         assert.equal(result.stdout, '');
+        const config = spawnSync('pnpm', ['config', 'get', '@synfutures:registry', '--json'], {
+            cwd: dirname(file),
+            env: {
+                PATH: process.env.PATH,
+                HOME: dirname(file),
+                pnpm_config_userconfig: file,
+                NODE_AUTH_TOKEN: 'fixture-token-never-written',
+            },
+            encoding: 'utf8',
+            timeout: 10_000,
+        });
+        assert.ifError(config.error);
+        assert.equal(config.status, 0, config.stderr);
+        assert.equal(JSON.parse(config.stdout), normalized);
     });
 }
 

@@ -26,14 +26,15 @@ function fixture(t) {
     // Copy release inputs only; never use the checkout's Git metadata, credentials or pending changesets.
     for (const file of [
         ...packageFiles,
-        'pnpm-workspace.yaml',
         '.changeset/config.json',
         'packages/perpv3-ts/scripts/check-release-dependency.mjs',
     ]) {
         mkdirSync(dirname(join(cwd, file)), { recursive: true });
         copyFileSync(join(workspace, file), join(cwd, file));
     }
-    symlinkSync(join(workspace, 'node_modules'), join(cwd, 'node_modules'), 'dir');
+    writeFileSync(join(cwd, 'pnpm-workspace.yaml'), 'packages:\n    - packages/*\n');
+    mkdirSync(join(cwd, 'node_modules/.bin'), { recursive: true });
+    symlinkSync(require.resolve('@changesets/cli/bin.js'), join(cwd, 'node_modules/.bin/changeset'));
     // Exercise the real release commands without registry dependencies or a populated pnpm cache.
     for (const file of packageFiles) {
         const manifest = readJson(join(cwd, file));
@@ -46,7 +47,8 @@ function fixture(t) {
         ]) {
             delete manifest[field];
         }
-        delete manifest.pnpm;
+        // Use the invoking pnpm binary; fixtures must not download a package manager.
+        delete manifest.packageManager;
         if (!manifest.private) manifest.version = '1.2.3';
         writeJson(join(cwd, file), manifest);
     }
@@ -56,9 +58,10 @@ function fixture(t) {
         TMPDIR: process.env.TMPDIR,
         HOME: cwd,
         CI: 'true',
-        npm_config_userconfig: '/dev/null',
-        npm_config_offline: 'true',
-        npm_config_ignore_scripts: 'true',
+        pnpm_config_userconfig: '/dev/null',
+        pnpm_config_offline: 'true',
+        pnpm_config_ignore_scripts: 'true',
+        pnpm_config_verify_deps_before_run: 'false',
         GIT_CONFIG_GLOBAL: '/dev/null',
         GIT_CONFIG_NOSYSTEM: '1',
     };
@@ -137,12 +140,14 @@ for (const [bump, version] of [
 
 test('prepublishOnly rejects the local viem-kit override and allows removal of the override', (t) => {
     const { cwd, run } = fixture(t);
-    const manifest = readJson(join(cwd, 'package.json'));
-    manifest.pnpm = { overrides: { '@derivation-tech/viem-kit': 'file:./vendor/local-fixture.tgz' } };
-    writeJson(join(cwd, 'package.json'), manifest);
+    const configFile = join(cwd, 'pnpm-workspace.yaml');
+    const config = readFileSync(configFile, 'utf8');
+    writeFileSync(
+        configFile,
+        config + "\noverrides:\n    '@derivation-tech/viem-kit': file:./vendor/local-fixture.tgz\n"
+    );
     const check = ['-C', 'packages/perpv3-ts', 'run', 'prepublishOnly'];
     assert.match(run('pnpm', check, 1), /Replace the local viem-kit override/);
-    delete manifest.pnpm.overrides['@derivation-tech/viem-kit'];
-    writeJson(join(cwd, 'package.json'), manifest);
+    writeFileSync(configFile, config);
     run('pnpm', check);
 });
