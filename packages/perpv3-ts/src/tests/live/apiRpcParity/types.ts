@@ -3,12 +3,7 @@ import type { RpcConfig } from '../../../queries/config';
 import type { PairSnapshot, UserSetting } from '../../../types';
 
 export type ScenarioType =
-    | 'marketByMargin'
-    | 'marketByLeverage'
-    | 'marketClose'
-    | 'adjustMargin'
-    | 'adjustMarginByLeverage'
-    | 'limitOrder';
+    'marketByMargin' | 'marketByLeverage' | 'marketClose' | 'adjustMargin' | 'adjustMarginByLeverage' | 'limitOrder';
 
 export interface RawUserSetting {
     deadline: number;
