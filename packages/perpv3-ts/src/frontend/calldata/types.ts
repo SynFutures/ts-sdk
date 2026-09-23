@@ -362,7 +362,8 @@ export interface ApproveEncoder {
  * Combines all individual encoding interfaces
  */
 export interface IContractCallEncoder
-    extends MarketOrderEncoder,
+    extends
+        MarketOrderEncoder,
         LimitOrderEncoder,
         CancelOrderEncoder,
         AdjustMarginEncoder,

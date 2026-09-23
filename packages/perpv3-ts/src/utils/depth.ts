@@ -50,7 +50,7 @@ export function buildDepthLevels(
     let currentLiquidity = currLiquidity;
     let currentPX96 = currPX96;
 
-    for (let tick = currTick; right ? tick < currTick + tickDelta : tick > currTick - tickDelta; ) {
+    for (let tick = currTick; right ? tick < currTick + tickDelta : tick > currTick - tickDelta;) {
         const page = calcPage(currTick, tick, pageAdjustmentDelta, size, right);
         if (page >= length) {
             break;
