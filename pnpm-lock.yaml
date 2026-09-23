@@ -237,8 +237,8 @@ importers:
         specifier: 0.18.5
         version: 0.18.5
       '@foundry-rs/anvil':
-        specifier: 1.5.1
-        version: 1.5.1
+        specifier: 1.7.1
+        version: 1.7.1
       '@jest/globals':
         specifier: ^30.5.2
         version: 30.5.2(supports-color@8.1.1)
@@ -833,43 +833,43 @@ packages:
     resolution: {integrity: sha512-IkO+/KEUvwbVpiURZg+P7zF74z5Jxe0UgJxVni+RtoHQ6IZieXaO02kmadomap/q+l6bc/jdPGGqTjhuZnuz1Q==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
 
-  '@foundry-rs/anvil-darwin-amd64@1.5.1':
-    resolution: {integrity: sha512-uIMvV+G8NgPvZ/PKD4/bUAMb1R/AttzB2cmkFQvzPPgfSXza+65xrF+PhckFKRud5WWbq+MW365v5Ds5Y0Y1MQ==}
+  '@foundry-rs/anvil-darwin-amd64@1.7.1':
+    resolution: {integrity: sha512-OgwzwY+FsGrsPyDv4mmbhOwARO8s37YHrm2qaNzgSH4VlKnXgJCrnoT7bpgOhLyBPtxXjBT8L2E3b79deesXRg==}
     engines: {node: '>=20'}
     cpu: [x64]
     os: [darwin]
     hasBin: true
 
-  '@foundry-rs/anvil-darwin-arm64@1.5.1':
-    resolution: {integrity: sha512-pFELxWnGYS2oIhPKwD+aAy+QXZv1SCl77Np7aqBDp7QTDZf2pcSR8382IkA5c/RbruA++KNWIpAK7bcdp8JqzQ==}
+  '@foundry-rs/anvil-darwin-arm64@1.7.1':
+    resolution: {integrity: sha512-JNeu3+A3f/npXLn8SR8EahVcqE7BpO9VQZMcPvSIy27/RNc1GsoEBvSLR99aSvt8sGKWAgNg/EzrtjAPq6mxcA==}
     engines: {node: '>=20'}
     cpu: [arm64]
     os: [darwin]
     hasBin: true
 
-  '@foundry-rs/anvil-linux-amd64@1.5.1':
-    resolution: {integrity: sha512-17AQOAcW1/iLQ9batoTWNMDp6hcCvh5rH0f5fkEzvsiv50Sq6Q4jyyGB30YEdQnHFkkmmQNKsZz/R1RhuyxJkg==}
+  '@foundry-rs/anvil-linux-amd64@1.7.1':
+    resolution: {integrity: sha512-+XmShybEaxfCrr0OUUZwYEy2OnYZt5pHH9TzBtLv3+VrK0O/ANuNSVEahqNhKHlgX7GRJ59383ofNhxkRWIYTg==}
     engines: {node: '>=20'}
     cpu: [x64]
     os: [linux]
     hasBin: true
 
-  '@foundry-rs/anvil-linux-arm64@1.5.1':
-    resolution: {integrity: sha512-4qe+8emZrM9NRg2LPin64aa2lyz6mOWiklu/N0Rw0hWF2nStYuE9L0un7Ud7X1dSmrMDkAHI8rSciOijSfTRNQ==}
+  '@foundry-rs/anvil-linux-arm64@1.7.1':
+    resolution: {integrity: sha512-ykHJmFOGdBR8+9smOKBm9ZZDCCCkLQctiHOAddLvmYx9mPeBDMfq6jP51hKYsO5MG8ClPLSlWe+JpiXPjoXgBQ==}
     engines: {node: '>=20'}
     cpu: [arm64]
     os: [linux]
     hasBin: true
 
-  '@foundry-rs/anvil-win32-amd64@1.5.1':
-    resolution: {integrity: sha512-tf5if3seNV43kkx+J5L8NvS+xaE+Sn8mOdOHdJzT1EH95f9qHdwCaK/9Iud1CdcvN+I0orusN07qdwggW/+jhA==}
+  '@foundry-rs/anvil-win32-amd64@1.7.1':
+    resolution: {integrity: sha512-IeuBcmQ+AQKUxXA77czSVIfpST+KLBdXaL71JlK/h6e0DoP2CYnmVZn8WE/fuQfjAU2zaWw7PDXmq1kedbIUGA==}
     engines: {node: '>=20'}
     cpu: [x64]
     os: [win32]
     hasBin: true
 
-  '@foundry-rs/anvil@1.5.1':
-    resolution: {integrity: sha512-M72VCkqb4S2uShBJUcemD7kjfd3YId7LNYNDqr9RLmgbaEtgZm6XkztefYJX2mouaJtjpL8YGuKczhAIaI79Bw==}
+  '@foundry-rs/anvil@1.7.1':
+    resolution: {integrity: sha512-rcy+hu8e90DNizfh5WpbJjMiadgDBtV3JHe2M6OsdmIzoDH77Gk0sVgNxr7LnBiKpkzt6pV2XEOI7XMXmJo1Kg==}
     hasBin: true
 
   '@humanfs/core@0.19.1':
@@ -3931,28 +3931,28 @@ snapshots:
       '@eslint/core': 1.2.1
       levn: 0.4.1
 
-  '@foundry-rs/anvil-darwin-amd64@1.5.1':
+  '@foundry-rs/anvil-darwin-amd64@1.7.1':
     optional: true
 
-  '@foundry-rs/anvil-darwin-arm64@1.5.1':
+  '@foundry-rs/anvil-darwin-arm64@1.7.1':
     optional: true
 
-  '@foundry-rs/anvil-linux-amd64@1.5.1':
+  '@foundry-rs/anvil-linux-amd64@1.7.1':
     optional: true
 
-  '@foundry-rs/anvil-linux-arm64@1.5.1':
+  '@foundry-rs/anvil-linux-arm64@1.7.1':
     optional: true
 
-  '@foundry-rs/anvil-win32-amd64@1.5.1':
+  '@foundry-rs/anvil-win32-amd64@1.7.1':
     optional: true
 
-  '@foundry-rs/anvil@1.5.1':
+  '@foundry-rs/anvil@1.7.1':
     optionalDependencies:
-      '@foundry-rs/anvil-darwin-amd64': 1.5.1
-      '@foundry-rs/anvil-darwin-arm64': 1.5.1
-      '@foundry-rs/anvil-linux-amd64': 1.5.1
-      '@foundry-rs/anvil-linux-arm64': 1.5.1
-      '@foundry-rs/anvil-win32-amd64': 1.5.1
+      '@foundry-rs/anvil-darwin-amd64': 1.7.1
+      '@foundry-rs/anvil-darwin-arm64': 1.7.1
+      '@foundry-rs/anvil-linux-amd64': 1.7.1
+      '@foundry-rs/anvil-linux-arm64': 1.7.1
+      '@foundry-rs/anvil-win32-amd64': 1.7.1
 
   '@humanfs/core@0.19.1': {}
 

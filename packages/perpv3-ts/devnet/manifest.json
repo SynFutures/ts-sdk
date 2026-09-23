@@ -1,6 +1,6 @@
 {
     "chainId": 31337,
-    "rpcUrl": "http://127.0.0.1:8545",
+    "rpcUrl": "http://127.0.0.1:52720",
     "contractsPackage": {
         "name": "@synfutures/v3-contracts",
         "version": "0.0.2"
@@ -70,7 +70,7 @@
             "quote": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
             "address": "0x373626a56cAc85CBced2A049f305a0C12Eac7e76",
             "index": "0x10ebadd5b3aee79abaf3e43abaef85f55ad84fbb72264fa10d770fc9a30f4284",
-            "expiry": 1769760000,
+            "expiry": 1790928000,
             "symbol": "ETH-USDC-LINK"
         },
         {
