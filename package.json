@@ -19,7 +19,8 @@
         "release:dry": "changeset status",
         "format:check": "prettier --check .",
         "release:version": "changeset version && pnpm install --lockfile-only --ignore-scripts --no-frozen-lockfile",
-        "test:release": "node --test scripts/tests/*.test.cjs"
+        "test:release": "node --test scripts/tests/*.test.cjs",
+        "deps:outdated": "node scripts/dependency-report.cjs"
     },
     "devDependencies": {
         "@changesets/cli": "^3.0.3",
