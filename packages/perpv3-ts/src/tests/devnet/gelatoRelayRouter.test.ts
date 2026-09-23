@@ -1,12 +1,10 @@
-import { erc20Abi } from 'viem';
-import { encodeFunctionData, zeroAddress } from 'viem';
+import { encodeFunctionData, erc20Abi, parseSignature, zeroAddress } from 'viem';
 
 import {
     CURRENT_GATE_ABI,
     CURRENT_GELATO_RELAY_ROUTER_ABI,
     encodeDepositParam,
     encodeWithdrawParam,
-    splitSignature,
 } from '../../index';
 import { createDevnetContext, createDevnetHelpers } from './devnet';
 
@@ -102,13 +100,21 @@ describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter
             primaryType: 'SubAccountManagement',
             message: setMessage,
         });
-        const { v: setV, r: setR, s: setS } = splitSignature(setSig);
+        const { yParity: setYParity, r: setR, s: setS } = parseSignature(setSig);
 
         const setHash = await ctx.walletClients.admin.writeContract({
             address: ctx.manifest.contracts.handler,
             abi: CURRENT_GELATO_RELAY_ROUTER_ABI,
             functionName: 'executeSubAccountManagement',
-            args: [userWallet.account.address, setMessage.action, setMessage.subAccount, deadline, setV, setR, setS],
+            args: [
+                userWallet.account.address,
+                setMessage.action,
+                setMessage.subAccount,
+                deadline,
+                setYParity + 27,
+                setR,
+                setS,
+            ],
         });
         await waitForTx(setHash);
 
@@ -133,7 +139,7 @@ describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter
             primaryType: 'SubAccountManagement',
             message: removeMessage,
         });
-        const { v: removeV, r: removeR, s: removeS } = splitSignature(removeSig);
+        const { yParity: removeYParity, r: removeR, s: removeS } = parseSignature(removeSig);
 
         const removeHash = await ctx.walletClients.admin.writeContract({
             address: ctx.manifest.contracts.handler,
@@ -144,7 +150,7 @@ describe('devnet GelatoRelayRouter (ported from v3-contracts hardhat relayRouter
                 removeMessage.action,
                 removeMessage.subAccount,
                 deadline,
-                removeV,
+                removeYParity + 27,
                 removeR,
                 removeS,
             ],

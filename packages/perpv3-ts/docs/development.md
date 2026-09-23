@@ -183,10 +183,6 @@ Review major upgrades against these current compatibility constraints:
   below 6.1 and ts-jest's range is below 7. Upgrade that toolchain together.
 - Development stays on Node 24 LTS. Published SDK compatibility and `@types/node`
   stay on Node 22; a newer development runtime must not silently expand the SDK's APIs.
-- `@noble/curves` stays on 1.9.7. Version 2 is ESM-only; changing it requires checking
-  CJS consumers across supported Node 22 versions. Replacing it with viem signature
-  parsing also needs an explicit API decision because viem rejects recovery values
-  that the current `splitSignature` accepts.
 - viem-kit remains a reviewed local tarball. Update it through the provenance and
   packed-consumer checks, not an automatic registry upgrade.
 

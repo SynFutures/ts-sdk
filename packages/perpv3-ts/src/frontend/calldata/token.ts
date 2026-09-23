@@ -1,6 +1,5 @@
-import type { Hex } from 'viem';
+import { parseSignature, type Hex } from 'viem';
 import { Errors, ErrorCode } from '../../types';
-import { splitSignature } from '../signature';
 import { encodeTokenCall } from './requests';
 import { requireAddress } from './shared';
 import type { ApproveEncodingOptions, ApproveEncodingParam, TransactionParam } from './types';
@@ -20,14 +19,14 @@ export function encodeApproveTransaction(
         }
         const ownerAddress = requireAddress(options.ownerAddress, 'ownerAddress for approveFor');
 
-        const { r, s, v } = splitSignature(options.signature);
+        const { r, s, yParity } = parseSignature(options.signature);
 
         calldata = encodeTokenCall(params.tokenAddress, 'permit', [
             ownerAddress,
             params.spenderAddress,
             params.amount,
             BigInt(options.deadline),
-            v,
+            yParity + 27,
             r,
             s,
         ]);
