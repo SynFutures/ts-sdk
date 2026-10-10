@@ -1,14 +1,19 @@
 # Local SDK dependency
 
-`derivation-tech-viem-kit-85252d4.tgz` is built from viem-kit commit
-`85252d4e4cc17b2bfbbbec734a04c7725a96b25f` (package version `0.2.2`).
+`derivation-tech-viem-kit-1.0.0-rc.0.tgz` is packed from the viem-kit
+`refactor/viem-kit-core-hardening` branch at commit
+`6c0c7c4c33d5e8edcf9fe524805502833540475c`. The package version in the archive is set to `1.0.0-rc.0`.
 
-SHA-256: `0a07e7855c833a974600093eab1d2c7ae52409d5b3693b420dc96c26717fd06e`.
+SHA-256: `46ddd53a42972bb385133addab514748c6f13cb86c18b64679718cf2d845419d`.
 
-The archive is built from a clean Git snapshot with its frozen lockfile and TypeScript 6.0.3.
-Ledger remains a separately installed optional package; its device dependencies are not included.
+When viem-kit changes, rebuild the archive from a committed revision and update the
+revision and SHA-256 above. Ledger remains a separately installed optional package; its
+device dependencies are not included.
 
 This unpublished dependency is pinned for reproducible local and CI validation.
-Before publishing PerpV3, replace the workspace override and catalog version with the released
-viem-kit version and regenerate the lockfile. Do not publish with the relative
-file dependency.
+Before publishing PerpV3, replace the workspace override and catalog version with the
+released viem-kit version and regenerate the lockfile. `prepublishOnly` rejects the
+local override and any direct `link:` or `file:` viem-kit dependency.
+
+For local development against a viem-kit checkout, point the override at
+`link:<absolute path>/packages/viem-kit` and run `pnpm install`. Do not commit that override.
