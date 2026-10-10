@@ -10,8 +10,7 @@
 **/src/tests/fixtures/**
 pnpm-lock.yaml
 vendor/*.tgz
-# Local work and templates with substitution syntax
+# Local work
 .worktrees/**
 docs/superpowers/**
 AGENTS.md
-templates/**

@@ -10,7 +10,6 @@
         "build": "pnpm -r run build",
         "test": "pnpm -r run test",
         "deps": "pnpm -r i",
-        "init": "./scripts/init.sh",
         "prepare": "husky",
         "lint": "eslint . --max-warnings=0",
         "format": "prettier --write .",

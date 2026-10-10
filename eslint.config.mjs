@@ -6,14 +6,7 @@ import globals from 'globals';
 import typescript from 'typescript-eslint';
 
 export default defineConfig(
-    globalIgnores([
-        '**/dist/**',
-        '**/coverage/**',
-        '**/devnet/.runtime/**',
-        '.worktrees/**',
-        'templates/**',
-        '**/*.d.{ts,cts,mts}',
-    ]),
+    globalIgnores(['**/dist/**', '**/coverage/**', '**/devnet/.runtime/**', '.worktrees/**', '**/*.d.{ts,cts,mts}']),
     {
         files: ['**/*.{js,cjs,mjs}'],
         extends: [eslint.configs.recommended],
