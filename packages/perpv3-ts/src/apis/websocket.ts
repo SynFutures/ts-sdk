@@ -27,16 +27,16 @@ import {
     type PublicWsWireStreamMessage,
 } from './websocket/protocol';
 import {
+    decodeCommonStreamData,
+    decodeInstrumentBasicInfoStreamData,
+    decodeInstrumentStreamData,
+    decodeKlineStreamData,
+    decodeOrderBookStream,
+    decodePortfolioStreamData,
+    decodeTradesStreamData,
     mergeStreamMetadata,
-    normalizeCommonStreamData,
-    normalizeInstrumentBasicInfoStreamData,
-    normalizeInstrumentStreamData,
-    normalizeKlineStreamData,
-    normalizeOptionalNumber,
-    normalizeOrderBookStream,
-    normalizePortfolioStreamData,
-    normalizeTradesStreamData,
 } from './websocket/normalizers';
+import { parseOptionalNumber } from './codecs';
 import {
     PublicWsSubscriptionRegistry,
     type RawSubscriptionRecord,
@@ -186,9 +186,9 @@ export type TradesStreamData = {
 export type TradeItem = {
     id: string;
     chainId: number;
-    instrument: Address;
     instrumentAddress: Address;
     expiry: number;
+    trader: Address;
     size: string;
     balance: string;
     price: string;
@@ -388,6 +388,8 @@ export type InvalidStreamDataEvent = {
     stream: string;
     message: PublicWsWireStreamMessage;
     merged: GenericStreamData;
+    /** Decoding failure that names the rejected field. */
+    error: unknown;
 };
 
 export interface PublicWebsocketClientOptions {
@@ -778,96 +780,80 @@ export class PublicWebsocketClient {
         const merged = mergeStreamMetadata(message);
 
         switch (message.stream) {
-            case 'orderBook': {
+            case 'orderBook':
                 this.notifyRawSubscribers(message.stream, merged);
-                const normalized = normalizeOrderBookStream(merged);
-                if (normalized) {
-                    this.notifyOrderBookSubscribers(normalized);
-                } else {
-                    this.reportInvalidStreamData(message, merged);
-                }
+                this.dispatchDecoded(message, merged, decodeOrderBookStream, (data) =>
+                    this.notifyOrderBookSubscribers(data)
+                );
                 break;
-            }
-            case 'portfolio': {
-                const normalized = normalizePortfolioStreamData(merged);
-                if (normalized) {
-                    this.notifyPortfolioSubscribers(normalized);
-                } else {
-                    this.reportInvalidStreamData(message, merged);
-                }
+            case 'portfolio':
+                this.dispatchDecoded(message, merged, decodePortfolioStreamData, (data) =>
+                    this.notifyPortfolioSubscribers(data)
+                );
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
-            }
-            case 'kline': {
-                const normalized = normalizeKlineStreamData(merged);
-                if (normalized) {
-                    this.notifyKlineSubscribers(normalized);
-                } else {
-                    this.reportInvalidStreamData(message, merged);
-                }
+            case 'kline':
+                this.dispatchDecoded(message, merged, decodeKlineStreamData, (data) =>
+                    this.notifyKlineSubscribers(data)
+                );
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
-            }
-            case 'instrument': {
-                const normalized = normalizeInstrumentStreamData(merged);
-                if (normalized) {
-                    this.notifyInstrumentSubscribers(normalized);
-                } else {
-                    this.reportInvalidStreamData(message, merged);
-                }
+            case 'instrument':
+            case 'marketPairInfoChanged':
+                this.dispatchDecoded(message, merged, decodeInstrumentStreamData, (data) =>
+                    this.notifyInstrumentSubscribers(data)
+                );
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
-            }
-            case 'instrumentBasicInfo': {
-                const normalized = normalizeInstrumentBasicInfoStreamData(merged);
-                if (normalized) {
-                    this.notifyInstrumentBasicInfoSubscribers(normalized);
-                } else {
-                    this.reportInvalidStreamData(message, merged);
-                }
+            case 'instrumentBasicInfo':
+                this.dispatchDecoded(message, merged, decodeInstrumentBasicInfoStreamData, (data) =>
+                    this.notifyInstrumentBasicInfoSubscribers(data)
+                );
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
-            }
-            case 'marketPairInfoChanged': {
-                const normalized = normalizeInstrumentStreamData(merged);
-                if (normalized) {
-                    this.notifyInstrumentSubscribers(normalized);
-                } else {
-                    this.reportInvalidStreamData(message, merged);
-                }
-                this.notifyRawSubscribers(message.stream, merged);
-                break;
-            }
             case 'marketListChanged':
-                if (!this.notifyCommonSubscribers(merged, message.stream)) {
-                    this.reportInvalidStreamData(message, merged);
-                }
-                this.notifyRawSubscribers(message.stream, merged);
-                break;
             case 'blockNumChanged':
-                if (!this.notifyCommonSubscribers(merged, message.stream)) {
-                    this.reportInvalidStreamData(message, merged);
-                }
+                this.notifyCommonSubscribers(message, merged);
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
-            case 'trades': {
-                const normalized = normalizeTradesStreamData(merged);
-                if (normalized) {
-                    this.notifyTradesSubscribers(normalized);
-                } else {
-                    this.reportInvalidStreamData(message, merged);
-                }
+            case 'trades':
+                this.dispatchDecoded(message, merged, decodeTradesStreamData, (data) =>
+                    this.notifyTradesSubscribers(data)
+                );
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
-            }
             default:
                 this.notifyRawSubscribers(message.stream, merged);
                 break;
         }
     }
 
-    private reportInvalidStreamData(message: PublicWsWireStreamMessage, merged: GenericStreamData): void {
-        this.onInvalidStreamData?.({ stream: message.stream, message, merged });
+    /**
+     * Decodes a typed stream payload and notifies subscribers. A decoding failure is reported through
+     * `onInvalidStreamData` and never escapes the socket callback; subscriber errors are not caught here.
+     */
+    private dispatchDecoded<T>(
+        message: PublicWsWireStreamMessage,
+        merged: GenericStreamData,
+        decode: (data: GenericStreamData) => T,
+        notify: (data: T) => void
+    ): void {
+        let decoded: T;
+        try {
+            decoded = decode(merged);
+        } catch (error) {
+            this.reportInvalidStreamData(message, merged, error);
+            return;
+        }
+        notify(decoded);
+    }
+
+    private reportInvalidStreamData(
+        message: PublicWsWireStreamMessage,
+        merged: GenericStreamData,
+        error: unknown
+    ): void {
+        this.onInvalidStreamData?.({ stream: message.stream, message, merged, error });
     }
 
     private notifyOrderBookSubscribers(data: OrderBookStreamData): void {
@@ -910,22 +896,19 @@ export class PublicWebsocketClient {
         }
     }
 
-    private notifyCommonSubscribers(data: GenericStreamData, stream: string): boolean {
-        let matchedSubscription = false;
-        let delivered = false;
-
+    private notifyCommonSubscribers(message: PublicWsWireStreamMessage, data: GenericStreamData): void {
         for (const record of this.subscriptions.commons()) {
-            if (this.commonMatches(record.params, data, stream)) {
-                matchedSubscription = true;
-                const normalized = normalizeCommonStreamData(data, stream, record.params);
-                if (normalized) {
-                    record.handler(normalized, { params: record.params });
-                    delivered = true;
-                }
+            if (!this.commonMatches(record.params, data, message.stream)) continue;
+            // chainId may fall back to the subscription, so decoding happens per subscriber.
+            let decoded: MarketListChangedData | BlockNumChangedData;
+            try {
+                decoded = decodeCommonStreamData(data, message.stream, record.params);
+            } catch (error) {
+                this.reportInvalidStreamData(message, data, error);
+                return;
             }
+            record.handler(decoded, { params: record.params });
         }
-
-        return !matchedSubscription || delivered;
     }
 
     private notifyRawSubscribers(stream: string, data: GenericStreamData): void {
@@ -960,76 +943,51 @@ export class PublicWebsocketClient {
         params: OrderBookSubscribeParams | MmOrderBookSubscribeParams,
         data: OrderBookStreamData
     ): boolean {
-        const chainId = normalizeOptionalNumber(data.chainId);
-        if (chainId !== undefined && chainId !== params.chainId) return false;
-
-        const dataInstrument = data.instrument?.toLowerCase();
-        if (dataInstrument && dataInstrument !== params.instrument.toLowerCase()) return false;
-
-        const expiry = normalizeOptionalNumber(data.expiry);
-        if (expiry !== undefined && expiry !== params.expiry) return false;
-
-        return true;
+        return (
+            data.chainId === params.chainId &&
+            sameAddress(data.instrument, params.instrument) &&
+            expiryMatches(data.expiry, params.expiry)
+        );
     }
 
     private portfolioMatches(params: PortfolioSubscribeParams, data: PortfolioStreamData): boolean {
-        const chainId = normalizeOptionalNumber(data.chainId);
-        if (chainId !== undefined && chainId !== params.chainId) return false;
-        if (data.userAddress?.toLowerCase() !== params.userAddress.toLowerCase()) return false;
-        return true;
+        if (data.chainId !== undefined && data.chainId !== params.chainId) return false;
+        return sameAddress(data.userAddress, params.userAddress);
     }
 
     private klineMatches(params: KlineSubscribeParams, data: KlineStreamData): boolean {
-        const chainId = normalizeOptionalNumber(data.chainId);
-        if (chainId !== undefined && chainId !== params.chainId) return false;
-
-        const dataInstrument = typeof data.instrument === 'string' ? data.instrument.toLowerCase() : undefined;
-        if (dataInstrument && dataInstrument !== params.instrument.toLowerCase()) return false;
-
-        const expiry = normalizeOptionalNumber(data.expiry);
-        if (expiry !== undefined && expiry !== params.expiry) return false;
-
-        const interval = (data as { interval?: string }).interval;
-        if (interval && interval !== params.interval) return false;
-
-        return true;
+        return (
+            data.chainId === params.chainId &&
+            sameAddress(data.instrument, params.instrument) &&
+            expiryMatches(data.expiry, params.expiry) &&
+            data.interval === params.interval
+        );
     }
 
     private instrumentMatches(
         params: InstrumentSubscribeParams,
         data: InstrumentStreamData | MarketPairInfoChangedData
     ): boolean {
-        const chainId = normalizeOptionalNumber((data as { chainId?: number }).chainId);
-        if (chainId !== undefined && chainId !== params.chainId) return false;
-
-        const dataInstrument = data.instrument?.toLowerCase();
-        if (dataInstrument && dataInstrument !== params.instrument.toLowerCase()) return false;
-
-        const expiry = normalizeOptionalNumber((data as { expiry?: number | string }).expiry);
-        const expectedExpiry = normalizeOptionalNumber(params.expiry);
-        if (expectedExpiry !== undefined && expiry !== undefined && expectedExpiry !== expiry) return false;
-
-        return true;
+        return (
+            data.chainId === params.chainId &&
+            sameAddress(data.instrument, params.instrument) &&
+            expiryMatches(data.expiry, params.expiry)
+        );
     }
 
     private instrumentBasicInfoMatches(
         params: InstrumentBasicInfoSubscribeParams,
         data: InstrumentBasicInfoStreamData
     ): boolean {
-        const chainId = normalizeOptionalNumber(data.chainId);
-        if (chainId !== undefined && chainId !== params.chainId) return false;
-
-        const dataInstrument = data.instrument?.toLowerCase();
-        if (dataInstrument && dataInstrument !== params.instrument.toLowerCase()) return false;
-
-        const expiry = normalizeOptionalNumber(data.expiry);
-        if (expiry !== undefined && expiry !== params.expiry) return false;
-
-        return true;
+        return (
+            data.chainId === params.chainId &&
+            sameAddress(data.instrument, params.instrument) &&
+            expiryMatches(data.expiry, params.expiry)
+        );
     }
 
     private commonMatches(params: CommonSubscribeParams, data: GenericStreamData, stream: string): boolean {
-        const chainId = normalizeOptionalNumber((data as { chainId?: number }).chainId);
+        const chainId = parseOptionalNumber((data as { chainId?: number }).chainId);
         if (chainId !== undefined && chainId !== params.chainId) return false;
         // For now accept both blockNumChanged and marketListChanged under common.
         return stream === 'blockNumChanged' || stream === 'marketListChanged';
@@ -1038,8 +996,8 @@ export class PublicWebsocketClient {
     private rawMatches(stream: string, record: RawSubscriptionRecord, data: GenericStreamData): boolean {
         if (!record.streams.includes(stream)) return false;
 
-        const expectedChainId = normalizeOptionalNumber(record.params.chainId);
-        const dataChainId = normalizeOptionalNumber((data as { chainId?: number }).chainId);
+        const expectedChainId = parseOptionalNumber(record.params.chainId);
+        const dataChainId = parseOptionalNumber((data as { chainId?: number }).chainId);
         if (expectedChainId !== undefined && dataChainId !== undefined && expectedChainId !== dataChainId) return false;
 
         const expectedInstrument = record.params.instrument;
@@ -1053,8 +1011,8 @@ export class PublicWebsocketClient {
             return false;
         }
 
-        const expectedExpiry = normalizeOptionalNumber(record.params.expiry);
-        const dataExpiry = normalizeOptionalNumber((data as { expiry?: number | string }).expiry);
+        const expectedExpiry = parseOptionalNumber(record.params.expiry);
+        const dataExpiry = parseOptionalNumber((data as { expiry?: number | string }).expiry);
         if (expectedExpiry !== undefined && dataExpiry !== undefined && expectedExpiry !== dataExpiry) return false;
 
         return true;
@@ -1067,4 +1025,14 @@ export class PublicWebsocketClient {
         const pair = `${instrument}_${data.expiry}`;
         return record.pairSet.has(pair);
     }
+}
+
+function sameAddress(a: string, b: string): boolean {
+    return a.toLowerCase() === b.toLowerCase();
+}
+
+/** A non-numeric expiry label on the stream cannot be compared, so it does not filter the subscriber. */
+function expiryMatches(dataExpiry: number | string, expected: number): boolean {
+    const expiry = parseOptionalNumber(dataExpiry);
+    return expiry === undefined || expiry === expected;
 }

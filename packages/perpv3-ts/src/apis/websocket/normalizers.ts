@@ -14,16 +14,28 @@ import type {
     OrderBookStreamData,
     PortfolioOrderInfo,
     PortfolioStreamData,
+    PortfolioStreamType,
     TradeItem,
     TradesStreamData,
     TradesTokenInfo,
 } from '../websocket';
-import { readOptionalField, readRequiredField, type FieldResult } from './fields';
+import {
+    isRecord,
+    optionalAddress,
+    optionalNumber,
+    optionalString,
+    parseOptionalNumber,
+    requireAddress,
+    requireArray,
+    requireNumber,
+    requireRecord,
+    requireString,
+    type UnknownRecord,
+} from '../codecs';
 import type { PublicWsStreamMetadata } from './protocol';
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return !!value && typeof value === 'object' && !Array.isArray(value);
-}
+// Stream decoders throw on malformed payloads; the client catches at the message boundary and reports
+// the payload through `onInvalidStreamData`.
 
 export type NormalizedStreamPayload =
     | { kind: 'record'; data: Record<string, unknown> }
@@ -38,163 +50,6 @@ export function normalizeStreamPayload(message: { data?: unknown }): NormalizedS
         return { kind: 'array', data: message.data };
     }
     return { kind: 'empty', data: undefined };
-}
-
-export function normalizeOptionalNumber(value: unknown): number | undefined {
-    if (value === undefined || value === null) return undefined;
-    const num = typeof value === 'string' ? Number(value) : (value as number);
-    return Number.isFinite(num) ? num : undefined;
-}
-
-export function isPortfolioStreamData(data: GenericStreamData): data is PortfolioStreamData {
-    const userAddress = data.userAddress;
-    const type = data.type;
-    return typeof userAddress === 'string' && typeof type === 'string';
-}
-
-function isPortfolioStreamType(value: unknown): value is PortfolioStreamData['type'] {
-    return value === 'order' || value === 'range' || value === 'position' || value === 'gate';
-}
-
-function normalizeAddress(value: unknown): Address | undefined {
-    return typeof value === 'string' ? (value as Address) : undefined;
-}
-
-function normalizeOptionalString(value: unknown): string | undefined {
-    return typeof value === 'string' ? value : undefined;
-}
-
-function normalizeNumberOrString(value: unknown): number | string | undefined {
-    return normalizeOptionalNumber(value) ?? normalizeOptionalString(value);
-}
-
-function normalizePortfolioOrderInfo(value: unknown): FieldResult<PortfolioOrderInfo | undefined> {
-    if (value === undefined) return { ok: true, value: undefined };
-    if (!isRecord(value)) return { ok: false };
-
-    const oid = readOptionalField(value, 'oid', normalizeOptionalString);
-    const orderId = readOptionalField(value, 'orderId', normalizeOptionalString);
-    const type = readOptionalField(value, 'type', normalizeOptionalString);
-    if (!oid.ok || !orderId.ok || !type.ok) return { ok: false };
-
-    if (oid.value === undefined && orderId.value === undefined && type.value === undefined) {
-        return { ok: true, value: undefined };
-    }
-
-    return {
-        ok: true,
-        value: {
-            ...(oid.value !== undefined ? { oid: oid.value } : {}),
-            ...(orderId.value !== undefined ? { orderId: orderId.value } : {}),
-            ...(type.value !== undefined ? { type: type.value } : {}),
-        },
-    };
-}
-
-export function normalizePortfolioStreamData(data: GenericStreamData): PortfolioStreamData | null {
-    const userAddress = readRequiredField(data, 'userAddress', normalizeAddress);
-    const type = readRequiredField(data, 'type', (value) => (isPortfolioStreamType(value) ? value : undefined));
-    const chainId = readOptionalField(data, 'chainId', normalizeOptionalNumber);
-    const instrument = readOptionalField(data, 'instrument', normalizeAddress);
-    const expiry = readOptionalField(data, 'expiry', normalizeNumberOrString);
-    const orderInfo = normalizePortfolioOrderInfo(data.orderInfo);
-    if (!userAddress.ok || !type.ok || !chainId.ok || !instrument.ok || !expiry.ok || !orderInfo.ok) return null;
-
-    return {
-        ...(chainId.value !== undefined ? { chainId: chainId.value } : {}),
-        userAddress: userAddress.value,
-        ...(instrument.value !== undefined ? { instrument: instrument.value } : {}),
-        ...(expiry.value !== undefined ? { expiry: expiry.value } : {}),
-        type: type.value,
-        ...(orderInfo.value !== undefined ? { orderInfo: orderInfo.value } : {}),
-    };
-}
-
-export function normalizeKlineStreamData(data: GenericStreamData): KlineStreamData | null {
-    const chainId = readRequiredField(data, 'chainId', normalizeOptionalNumber);
-    const instrument = readRequiredField(data, 'instrument', normalizeAddress);
-    const expiry = readRequiredField(data, 'expiry', normalizeNumberOrString);
-    const interval = readRequiredField(data, 'interval', normalizeOptionalString);
-    const open = readOptionalField(data, 'open', normalizeOptionalNumber);
-    const high = readOptionalField(data, 'high', normalizeOptionalNumber);
-    const low = readOptionalField(data, 'low', normalizeOptionalNumber);
-    const close = readOptionalField(data, 'close', normalizeOptionalNumber);
-    const baseVolume = readOptionalField(data, 'baseVolume', normalizeOptionalNumber);
-    const quoteVolume = readOptionalField(data, 'quoteVolume', normalizeOptionalNumber);
-    const volumeUSD = readOptionalField(data, 'volumeUSD', normalizeOptionalNumber);
-    const timestamp = readOptionalField(data, 'timestamp', normalizeOptionalNumber);
-    const startTime = readOptionalField(data, 'startTime', normalizeOptionalNumber);
-    const endTime = readOptionalField(data, 'endTime', normalizeOptionalNumber);
-
-    if (
-        !chainId.ok ||
-        !instrument.ok ||
-        !expiry.ok ||
-        !interval.ok ||
-        !open.ok ||
-        !high.ok ||
-        !low.ok ||
-        !close.ok ||
-        !baseVolume.ok ||
-        !quoteVolume.ok ||
-        !volumeUSD.ok ||
-        !timestamp.ok ||
-        !startTime.ok ||
-        !endTime.ok
-    ) {
-        return null;
-    }
-
-    return {
-        chainId: chainId.value,
-        instrument: instrument.value,
-        expiry: expiry.value,
-        interval: interval.value,
-        ...(open.value !== undefined ? { open: open.value } : {}),
-        ...(high.value !== undefined ? { high: high.value } : {}),
-        ...(low.value !== undefined ? { low: low.value } : {}),
-        ...(close.value !== undefined ? { close: close.value } : {}),
-        ...(baseVolume.value !== undefined ? { baseVolume: baseVolume.value } : {}),
-        ...(quoteVolume.value !== undefined ? { quoteVolume: quoteVolume.value } : {}),
-        ...(volumeUSD.value !== undefined ? { volumeUSD: volumeUSD.value } : {}),
-        ...(timestamp.value !== undefined ? { timestamp: timestamp.value } : {}),
-        ...(startTime.value !== undefined ? { startTime: startTime.value } : {}),
-        ...(endTime.value !== undefined ? { endTime: endTime.value } : {}),
-    };
-}
-
-export function normalizeInstrumentStreamData(data: GenericStreamData): InstrumentStreamData | null {
-    const chainId = readRequiredField(data, 'chainId', normalizeOptionalNumber);
-    const instrument = readRequiredField(data, 'instrument', normalizeAddress);
-    const expiry = readRequiredField(data, 'expiry', normalizeNumberOrString);
-    const symbol = readOptionalField(data, 'symbol', normalizeOptionalString);
-    const markPrice = readOptionalField(data, 'markPrice', normalizeOptionalString);
-    const fairPrice = readOptionalField(data, 'fairPrice', normalizeOptionalString);
-    if (!chainId.ok || !instrument.ok || !expiry.ok || !symbol.ok || !markPrice.ok || !fairPrice.ok) return null;
-
-    return {
-        chainId: chainId.value,
-        instrument: instrument.value,
-        expiry: expiry.value,
-        ...(symbol.value !== undefined ? { symbol: symbol.value } : {}),
-        ...(markPrice.value !== undefined ? { markPrice: markPrice.value } : {}),
-        ...(fairPrice.value !== undefined ? { fairPrice: fairPrice.value } : {}),
-    };
-}
-
-export function normalizeInstrumentBasicInfoStreamData(data: GenericStreamData): InstrumentBasicInfoStreamData | null {
-    const chainId = readRequiredField(data, 'chainId', normalizeOptionalNumber);
-    const instrument = readRequiredField(data, 'instrument', normalizeAddress);
-    const expiry = readRequiredField(data, 'expiry', normalizeNumberOrString);
-    const symbol = readOptionalField(data, 'symbol', normalizeOptionalString);
-    if (!chainId.ok || !instrument.ok || !expiry.ok || !symbol.ok) return null;
-
-    return {
-        chainId: chainId.value,
-        instrument: instrument.value,
-        expiry: expiry.value,
-        ...(symbol.value !== undefined ? { symbol: symbol.value } : {}),
-    };
 }
 
 export function mergeStreamMetadata(message: { data?: unknown } & PublicWsStreamMetadata): GenericStreamData {
@@ -215,327 +70,225 @@ export function mergeStreamMetadata(message: { data?: unknown } & PublicWsStream
     return base;
 }
 
-export function normalizeOrderBookStream(data: GenericStreamData): OrderBookStreamData | null {
-    const raw = data;
+/** Drops absent optional fields so typed payloads only carry keys the server sent. */
+function compact<T extends object>(value: T): T {
+    return Object.fromEntries(Object.entries(value).filter(([, field]) => field !== undefined)) as T;
+}
 
-    if (isRecord(raw.depths)) {
-        const depths = normalizeOrderBookDepths(raw.depths);
-        if (!depths) return null;
-        const chainId = normalizeOptionalNumber(raw.chainId);
-        const instrument = normalizeAddress(raw.instrument);
-        const expiry = normalizeOptionalNumber(raw.expiry) ?? normalizeOptionalString(raw.expiry);
-        if (chainId === undefined || !instrument || expiry === undefined) return null;
-        return { chainId, instrument, expiry, depths };
+/** Expiry is numeric on most streams but may arrive as a non-numeric string label. */
+function requireExpiry(record: UnknownRecord, key: string, label = key): number | string {
+    return parseOptionalNumber(record[key]) ?? requireString(record, key, label);
+}
+
+function optionalExpiry(record: UnknownRecord, key: string): number | string | undefined {
+    return record[key] === undefined ? undefined : requireExpiry(record, key);
+}
+
+const PORTFOLIO_STREAM_TYPES: readonly PortfolioStreamType[] = ['order', 'range', 'position', 'gate'];
+
+function requirePortfolioStreamType(value: unknown): PortfolioStreamType {
+    const type = PORTFOLIO_STREAM_TYPES.find((candidate) => candidate === value);
+    if (type === undefined) {
+        throw new Error(`Invalid type: unsupported portfolio stream type ${String(value)}`);
+    }
+    return type;
+}
+
+function decodePortfolioOrderInfo(value: unknown): PortfolioOrderInfo | undefined {
+    if (value === undefined) return undefined;
+    const record = requireRecord(value, 'orderInfo');
+    const orderInfo = compact({
+        oid: optionalString(record, 'oid', 'orderInfo.oid'),
+        orderId: optionalString(record, 'orderId', 'orderInfo.orderId'),
+        type: optionalString(record, 'type', 'orderInfo.type'),
+    });
+    return Object.keys(orderInfo).length > 0 ? orderInfo : undefined;
+}
+
+export function decodePortfolioStreamData(data: GenericStreamData): PortfolioStreamData {
+    return compact({
+        chainId: optionalNumber(data, 'chainId'),
+        userAddress: requireAddress(data, 'userAddress'),
+        instrument: optionalAddress(data, 'instrument'),
+        expiry: optionalExpiry(data, 'expiry'),
+        type: requirePortfolioStreamType(data.type),
+        orderInfo: decodePortfolioOrderInfo(data.orderInfo),
+    });
+}
+
+export function decodeKlineStreamData(data: GenericStreamData): KlineStreamData {
+    return compact({
+        chainId: requireNumber(data, 'chainId'),
+        instrument: requireAddress(data, 'instrument'),
+        expiry: requireExpiry(data, 'expiry'),
+        interval: requireString(data, 'interval'),
+        open: optionalNumber(data, 'open'),
+        high: optionalNumber(data, 'high'),
+        low: optionalNumber(data, 'low'),
+        close: optionalNumber(data, 'close'),
+        baseVolume: optionalNumber(data, 'baseVolume'),
+        quoteVolume: optionalNumber(data, 'quoteVolume'),
+        volumeUSD: optionalNumber(data, 'volumeUSD'),
+        timestamp: optionalNumber(data, 'timestamp'),
+        startTime: optionalNumber(data, 'startTime'),
+        endTime: optionalNumber(data, 'endTime'),
+    });
+}
+
+export function decodeInstrumentStreamData(data: GenericStreamData): InstrumentStreamData {
+    return compact({
+        chainId: requireNumber(data, 'chainId'),
+        instrument: requireAddress(data, 'instrument'),
+        expiry: requireExpiry(data, 'expiry'),
+        symbol: optionalString(data, 'symbol'),
+        markPrice: optionalString(data, 'markPrice'),
+        fairPrice: optionalString(data, 'fairPrice'),
+    });
+}
+
+export function decodeInstrumentBasicInfoStreamData(data: GenericStreamData): InstrumentBasicInfoStreamData {
+    return compact({
+        chainId: requireNumber(data, 'chainId'),
+        instrument: requireAddress(data, 'instrument'),
+        expiry: requireExpiry(data, 'expiry'),
+        symbol: optionalString(data, 'symbol'),
+    });
+}
+
+export function decodeOrderBookStream(data: GenericStreamData): OrderBookStreamData {
+    // Depths are keyed by ratio next to the merged wrapper metadata.
+    const ratioKeys = Object.keys(data).filter((key) => !Number.isNaN(Number(key)));
+    if (ratioKeys.length === 0) {
+        throw new Error('Invalid orderBook: expected depths');
     }
 
-    const ratioKeys = Object.keys(raw).filter((k) => !Number.isNaN(Number(k)));
-    if (ratioKeys.length > 0) {
-        const depths: Record<string, OrderBookDepth> = {};
-        const firstDepth = raw[ratioKeys[0]];
-        const primaryDepth = isRecord(firstDepth) ? firstDepth : undefined;
+    return {
+        chainId: requireNumber(data, 'chainId'),
+        instrument: requireAddress(data, 'instrument'),
+        expiry: requireExpiry(data, 'expiry'),
+        depths: Object.fromEntries(ratioKeys.map((key) => [key, decodeOrderBookDepth(data[key], `depths.${key}`)])),
+    };
+}
 
-        for (const key of ratioKeys) {
-            const depth = raw[key];
-            const normalizedDepth = normalizeOrderBookDepth(depth);
-            if (!normalizedDepth) return null;
-            depths[key] = normalizedDepth;
-        }
+function decodeOrderBookDepth(value: unknown, label: string): OrderBookDepth {
+    const record = requireRecord(value, label);
+    return compact({
+        blockInfo: decodeBlockInfo(record.blockInfo, `${label}.blockInfo`),
+        bids: decodeOrderBookLevels(record.bids, `${label}.bids`),
+        asks: decodeOrderBookLevels(record.asks, `${label}.asks`),
+    });
+}
 
-        const chainId = normalizeOptionalNumber(raw.chainId ?? primaryDepth?.chainId);
-        const instrument = normalizeAddress(raw.instrument ?? primaryDepth?.instrument);
-        const expiry =
-            normalizeOptionalNumber(raw.expiry ?? primaryDepth?.expiry) ??
-            normalizeOptionalString(raw.expiry ?? primaryDepth?.expiry);
-        if (chainId === undefined || !instrument || expiry === undefined) return null;
+function decodeBlockInfo(value: unknown, label: string): BlockInfo | undefined {
+    if (value === undefined || value === null) return undefined;
+    const record = requireRecord(value, label);
+    return {
+        timestamp: requireNumber(record, 'timestamp', `${label}.timestamp`),
+        height: requireNumber(record, 'height', `${label}.height`),
+    };
+}
 
+function decodeOrderBookLevels(value: unknown, label: string): OrderBookLevel[] {
+    // The server sends `null` for an empty side (observed on mainnet for unpopulated ratios).
+    if (value === null) return [];
+    return requireArray(value, label).map((item, index) => {
+        const itemLabel = `${label}[${index}]`;
+        const record = requireRecord(item, itemLabel);
         return {
-            depths,
-            chainId,
-            instrument,
-            expiry,
+            tick: requireNumber(record, 'tick', `${itemLabel}.tick`),
+            price: requireString(record, 'price', `${itemLabel}.price`),
+            baseSize: requireString(record, 'baseSize', `${itemLabel}.baseSize`),
+            quoteSize: requireString(record, 'quoteSize', `${itemLabel}.quoteSize`),
+            baseSum: requireString(record, 'baseSum', `${itemLabel}.baseSum`),
+            quoteSum: requireString(record, 'quoteSum', `${itemLabel}.quoteSum`),
         };
-    }
-
-    return null;
+    });
 }
 
-function normalizeOrderBookDepths(value: Record<string, unknown>): Record<string, OrderBookDepth> | null {
-    const depths: Record<string, OrderBookDepth> = {};
-
-    for (const [key, depth] of Object.entries(value)) {
-        const normalizedDepth = normalizeOrderBookDepth(depth);
-        if (!normalizedDepth) return null;
-        depths[key] = normalizedDepth;
-    }
-
-    return depths;
-}
-
-function normalizeOrderBookDepth(value: unknown): OrderBookDepth | null {
-    if (!isRecord(value)) return null;
-    const bids = normalizeOrderBookLevels(value.bids);
-    const asks = normalizeOrderBookLevels(value.asks);
-    if (!bids || !asks) return null;
-
-    const blockInfo = normalizeBlockInfo(value.blockInfo);
-
-    return {
-        ...(blockInfo ? { blockInfo } : {}),
-        bids,
-        asks,
-    };
-}
-
-function normalizeBlockInfo(value: unknown): BlockInfo | undefined {
-    if (!isRecord(value)) return undefined;
-
-    const timestamp = normalizeOptionalNumber(value.timestamp);
-    const height = normalizeOptionalNumber(value.height);
-    if (timestamp === undefined || height === undefined) return undefined;
-
-    return { timestamp, height };
-}
-
-function normalizeOrderBookLevels(value: unknown): OrderBookLevel[] | null {
-    if (!Array.isArray(value)) return null;
-
-    const levels: OrderBookLevel[] = [];
-    for (const item of value) {
-        const level = normalizeOrderBookLevel(item);
-        if (!level) return null;
-        levels.push(level);
-    }
-
-    return levels;
-}
-
-function normalizeOrderBookLevel(value: unknown): OrderBookLevel | null {
-    if (!isRecord(value)) return null;
-
-    const tick = normalizeOptionalNumber(value.tick);
-    const { price, baseSize, quoteSize, baseSum, quoteSum } = value;
-    if (
-        tick === undefined ||
-        typeof price !== 'string' ||
-        typeof baseSize !== 'string' ||
-        typeof quoteSize !== 'string' ||
-        typeof baseSum !== 'string' ||
-        typeof quoteSum !== 'string'
-    ) {
-        return null;
-    }
-
-    return {
-        tick,
-        price,
-        baseSize,
-        quoteSize,
-        baseSum,
-        quoteSum,
-    };
-}
-
-export function normalizeTradesStreamData(data: GenericStreamData): TradesStreamData | null {
-    if (!data || typeof data !== 'object') return null;
-    const record = data;
-
-    const chainId = normalizeOptionalNumber(record.chainId);
-    const expiry = normalizeOptionalNumber(record.expiry);
-    const instrument =
-        typeof record.instrument === 'string'
-            ? record.instrument
-            : typeof record.instrumentAddress === 'string'
-              ? record.instrumentAddress
-              : undefined;
-
-    if (chainId === undefined || expiry === undefined || typeof instrument !== 'string') return null;
-
-    const rawItems = record.data;
-    if (!Array.isArray(rawItems)) return null;
-
-    const defaults: { chainId?: number; expiry?: number; instrument?: string } = {
-        chainId,
-        expiry,
-        instrument,
-    };
-
-    const normalized: TradeItem[] = [];
-    for (const rawItem of rawItems) {
-        const item = normalizeTradeItem(rawItem, defaults);
-        if (item) normalized.push(item);
-    }
-
-    if (normalized.length === 0) return null;
-
-    return {
-        chainId,
-        instrument: instrument.toLowerCase() as Address,
-        expiry,
-        data: normalized,
-    };
-}
-
-export function normalizeCommonStreamData(
+export function decodeCommonStreamData(
     data: GenericStreamData,
     stream: string,
     params: CommonSubscribeParams
-): MarketListChangedData | BlockNumChangedData | null {
-    const chainId = normalizeOptionalNumber(data.chainId) ?? params.chainId;
+): MarketListChangedData | BlockNumChangedData {
+    const chainId = optionalNumber(data, 'chainId') ?? params.chainId;
 
     if (stream === 'marketListChanged') {
-        const items = data.data;
-        if (!Array.isArray(items)) return null;
-        const normalizedItems = normalizeMarketListItems(items);
-        if (!normalizedItems) return null;
-        return { chainId, data: normalizedItems };
+        const items = requireArray(data.data, 'marketListChanged.data').map(
+            (item, index) => requireRecord(item, `marketListChanged.data[${index}]`) as MarketListItem
+        );
+        return { chainId, data: items };
     }
 
     if (stream === 'blockNumChanged') {
-        const blockNum = normalizeOptionalNumber(data.blockNum);
-        if (blockNum === undefined) return null;
-
-        const blockTime = normalizeOptionalNumber(data.blockTime);
-        return {
+        return compact({
             chainId,
-            blockNum,
-            ...(blockTime !== undefined ? { blockTime } : {}),
-        };
+            blockNum: requireNumber(data, 'blockNum'),
+            blockTime: optionalNumber(data, 'blockTime'),
+        });
     }
 
-    return null;
+    throw new Error(`Invalid stream: unsupported common stream ${stream}`);
 }
 
-function normalizeMarketListItems(items: readonly unknown[]): MarketListItem[] | null {
-    const normalized: MarketListItem[] = [];
+export function decodeTradesStreamData(data: GenericStreamData): TradesStreamData {
+    const chainId = requireNumber(data, 'chainId');
+    const instrument = requireAddress(data, 'instrument').toLowerCase() as Address;
+    const expiry = requireNumber(data, 'expiry');
 
-    for (const item of items) {
-        if (!isRecord(item)) return null;
-        normalized.push(item as MarketListItem);
-    }
+    // Subscribers are matched on the wrapper pair, so every item must belong to it.
+    const trades = requireArray(data.data, 'trades.data').map((item, index) => {
+        const label = `trades.data[${index}]`;
+        const trade = decodeTradeItem(item, label);
+        if (trade.chainId !== chainId || trade.instrumentAddress !== instrument || trade.expiry !== expiry) {
+            throw new Error(`Invalid ${label}: trade does not belong to the message chain and pair`);
+        }
+        return trade;
+    });
 
-    return normalized;
+    return { chainId, instrument, expiry, data: trades };
 }
 
-function normalizeTradeItem(
-    data: unknown,
-    defaults: { chainId?: number; expiry?: number; instrument?: string }
-): TradeItem | null {
-    if (!isRecord(data)) return null;
-    const record = data;
-
-    const id = record.id;
-    const chainId = normalizeOptionalNumber(record.chainId) ?? defaults.chainId;
-    const expiry = normalizeOptionalNumber(record.expiry) ?? defaults.expiry;
-    if (chainId === undefined || expiry === undefined) return null;
-
-    const instrument =
-        typeof record.instrument === 'string'
-            ? record.instrument
-            : typeof record.instrumentAddress === 'string'
-              ? record.instrumentAddress
-              : defaults.instrument;
-
-    const instrumentAddress =
-        typeof record.instrumentAddress === 'string'
-            ? record.instrumentAddress
-            : typeof record.instrument === 'string'
-              ? record.instrument
-              : defaults.instrument;
-    if (!instrument || !instrumentAddress) return null;
-
-    const normalizedInstrument = instrument.toLowerCase();
-    const normalizedInstrumentAddress = instrumentAddress.toLowerCase();
-
-    const size = record.size;
-    const balance = record.balance;
-    const price = record.price;
-    const tradeFee = record.tradeFee;
-    const protocolFee = record.protocolFee;
-    const timestamp = normalizeOptionalNumber(record.timestamp);
-    const txHash = record.txHash;
-    const type = record.type;
-    const symbol = record.symbol;
-    const typeString = record.typeString;
-    const side = record.side;
-    const event = record.event;
-    const markPrice = record.markPrice;
-    const fairPrice = record.fairPrice;
-
-    const baseToken = normalizeTokenInfo(record.baseToken);
-    const quoteToken = normalizeTokenInfo(record.quoteToken);
-
-    if (
-        typeof id !== 'string' ||
-        typeof size !== 'string' ||
-        typeof balance !== 'string' ||
-        typeof price !== 'string' ||
-        typeof tradeFee !== 'string' ||
-        typeof protocolFee !== 'string' ||
-        timestamp === undefined ||
-        typeof txHash !== 'string' ||
-        typeof type !== 'string' ||
-        typeof symbol !== 'string' ||
-        !baseToken ||
-        !quoteToken ||
-        typeof typeString !== 'string' ||
-        typeof side !== 'string' ||
-        typeof event !== 'string' ||
-        typeof markPrice !== 'string' ||
-        typeof fairPrice !== 'string'
-    ) {
-        return null;
-    }
+function decodeTradeItem(value: unknown, label: string): TradeItem {
+    const record = requireRecord(value, label);
+    const string = (key: string) => requireString(record, key, `${label}.${key}`);
+    const number = (key: string) => requireNumber(record, key, `${label}.${key}`);
 
     return {
-        id,
-        chainId,
-        instrument: normalizedInstrument as Address,
-        instrumentAddress: normalizedInstrumentAddress as Address,
-        expiry,
-        size,
-        balance,
-        price,
-        tradeFee,
-        protocolFee,
-        timestamp,
-        txHash,
-        type,
-        symbol,
-        baseToken,
-        quoteToken,
-        typeString,
-        side,
-        event,
-        markPrice,
-        fairPrice,
+        id: string('id'),
+        chainId: number('chainId'),
+        instrumentAddress: requireAddress(
+            record,
+            'instrumentAddress',
+            `${label}.instrumentAddress`
+        ).toLowerCase() as Address,
+        expiry: number('expiry'),
+        trader: requireAddress(record, 'trader', `${label}.trader`),
+        size: string('size'),
+        balance: string('balance'),
+        price: string('price'),
+        tradeFee: string('tradeFee'),
+        protocolFee: string('protocolFee'),
+        timestamp: number('timestamp'),
+        txHash: string('txHash'),
+        type: string('type'),
+        symbol: string('symbol'),
+        baseToken: decodeTokenInfo(record.baseToken, `${label}.baseToken`),
+        quoteToken: decodeTokenInfo(record.quoteToken, `${label}.quoteToken`),
+        typeString: string('typeString'),
+        side: string('side'),
+        event: string('event'),
+        markPrice: string('markPrice'),
+        fairPrice: string('fairPrice'),
     };
 }
 
-function normalizeTokenInfo(value: unknown): TradesTokenInfo | null {
-    if (!isRecord(value)) return null;
-
-    const token = value;
-    const address = token.address;
-    const symbol = token.symbol;
-    const decimals = normalizeOptionalNumber(token.decimals);
-    const image = token.image;
-    const price = normalizeOptionalNumber(token.price);
-
-    if (
-        typeof address !== 'string' ||
-        typeof symbol !== 'string' ||
-        decimals === undefined ||
-        typeof image !== 'string' ||
-        price === undefined
-    ) {
-        return null;
-    }
-
+function decodeTokenInfo(value: unknown, label: string): TradesTokenInfo {
+    const record = requireRecord(value, label);
     return {
-        address,
-        symbol,
-        decimals,
-        image,
-        price,
+        address: requireString(record, 'address', `${label}.address`),
+        symbol: requireString(record, 'symbol', `${label}.symbol`),
+        decimals: requireNumber(record, 'decimals', `${label}.decimals`),
+        image: requireString(record, 'image', `${label}.image`),
+        price: requireNumber(record, 'price', `${label}.price`),
     };
 }

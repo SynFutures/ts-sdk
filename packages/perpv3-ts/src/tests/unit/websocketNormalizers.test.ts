@@ -1,13 +1,12 @@
 import type { Address } from 'viem';
 import {
     mergeStreamMetadata,
-    normalizeCommonStreamData,
-    normalizeInstrumentStreamData,
-    normalizeKlineStreamData,
-    normalizeOrderBookStream,
-    normalizePortfolioStreamData,
+    decodeCommonStreamData,
+    decodeInstrumentStreamData,
+    decodeKlineStreamData,
+    decodeOrderBookStream,
+    decodePortfolioStreamData,
     normalizeStreamPayload,
-    normalizeTradesStreamData,
 } from '../../apis/websocket/normalizers';
 
 describe('WebSocket stream normalizers', () => {
@@ -30,7 +29,7 @@ describe('WebSocket stream normalizers', () => {
         expect(
             mergeStreamMetadata({
                 chainId: 143,
-                instrument: '0xAbCdEf000000000000000000000000000000000000' as Address,
+                instrument: '0xAbCdEf0000000000000000000000000000000000' as Address,
                 expiry: 123,
                 data: {
                     depth: 10,
@@ -38,7 +37,7 @@ describe('WebSocket stream normalizers', () => {
             })
         ).toEqual({
             chainId: 143,
-            instrument: '0xAbCdEf000000000000000000000000000000000000',
+            instrument: '0xAbCdEf0000000000000000000000000000000000',
             expiry: 123,
             depth: 10,
         });
@@ -46,7 +45,7 @@ describe('WebSocket stream normalizers', () => {
 
     it('normalizes blockNumChanged numeric fields', () => {
         expect(
-            normalizeCommonStreamData(
+            decodeCommonStreamData(
                 {
                     chainId: '143',
                     blockNum: '123456',
@@ -64,9 +63,9 @@ describe('WebSocket stream normalizers', () => {
 
     it('validates portfolio stream payload schema', () => {
         expect(
-            normalizePortfolioStreamData({
+            decodePortfolioStreamData({
                 chainId: '143',
-                userAddress: '0xAbCdEf000000000000000000000000000000000000',
+                userAddress: '0xAbCdEf0000000000000000000000000000000000',
                 type: 'order',
                 orderInfo: {
                     oid: '1',
@@ -74,20 +73,20 @@ describe('WebSocket stream normalizers', () => {
             })
         ).toEqual({
             chainId: 143,
-            userAddress: '0xAbCdEf000000000000000000000000000000000000',
+            userAddress: '0xAbCdEf0000000000000000000000000000000000',
             type: 'order',
             orderInfo: {
                 oid: '1',
             },
         });
-        expect(normalizePortfolioStreamData({ userAddress: '0xabc', type: 'unknown' })).toBeNull();
+        expect(() => decodePortfolioStreamData({ userAddress: '0xabc', type: 'unknown' })).toThrow();
     });
 
     it('validates kline and instrument stream payload schemas', () => {
         expect(
-            normalizeKlineStreamData({
+            decodeKlineStreamData({
                 chainId: '143',
-                instrument: '0xAbCdEf000000000000000000000000000000000000',
+                instrument: '0xAbCdEf0000000000000000000000000000000000',
                 expiry: '4294967295',
                 interval: '1m',
                 open: '1',
@@ -95,131 +94,131 @@ describe('WebSocket stream normalizers', () => {
             })
         ).toMatchObject({
             chainId: 143,
-            instrument: '0xAbCdEf000000000000000000000000000000000000',
+            instrument: '0xAbCdEf0000000000000000000000000000000000',
             expiry: 4294967295,
             interval: '1m',
             open: 1,
             close: 2,
         });
-        expect(normalizeKlineStreamData({ chainId: 143, instrument: '0xabc', expiry: 1 })).toBeNull();
+        expect(() => decodeKlineStreamData({ chainId: 143, instrument: '0xabc', expiry: 1 })).toThrow();
 
         expect(
-            normalizeInstrumentStreamData({
+            decodeInstrumentStreamData({
                 chainId: '143',
-                instrument: '0xAbCdEf000000000000000000000000000000000000',
+                instrument: '0xAbCdEf0000000000000000000000000000000000',
                 expiry: '4294967295',
                 symbol: 'TEST',
                 markPrice: '1',
             })
         ).toEqual({
             chainId: 143,
-            instrument: '0xAbCdEf000000000000000000000000000000000000',
+            instrument: '0xAbCdEf0000000000000000000000000000000000',
             expiry: 4294967295,
             symbol: 'TEST',
             markPrice: '1',
         });
-        expect(normalizeInstrumentStreamData({ chainId: 143, expiry: 1 })).toBeNull();
+        expect(() => decodeInstrumentStreamData({ chainId: 143, expiry: 1 })).toThrow();
     });
 
     it('rejects present numeric fields that cannot be normalized', () => {
-        expect(
-            normalizeKlineStreamData({
+        expect(() =>
+            decodeKlineStreamData({
                 chainId: 143,
-                instrument: '0xAbCdEf000000000000000000000000000000000000',
+                instrument: '0xAbCdEf0000000000000000000000000000000000',
                 expiry: 1,
                 interval: '1m',
                 open: 'not-a-number',
             })
-        ).toBeNull();
+        ).toThrow();
     });
 
     it('does not leak unvalidated fields into typed payloads', () => {
         expect(
-            normalizeInstrumentStreamData({
+            decodeInstrumentStreamData({
                 chainId: 143,
-                instrument: '0xAbCdEf000000000000000000000000000000000000',
+                instrument: '0xAbCdEf0000000000000000000000000000000000',
                 expiry: 1,
                 symbol: 'BTC/USDC',
                 untrusted: { nested: true },
             })
         ).toEqual({
             chainId: 143,
-            instrument: '0xAbCdEf000000000000000000000000000000000000',
+            instrument: '0xAbCdEf0000000000000000000000000000000000',
             expiry: 1,
             symbol: 'BTC/USDC',
         });
     });
 
+    it('rejects instrument values that are not 20-byte addresses', () => {
+        expect(() =>
+            decodeInstrumentStreamData({
+                chainId: 143,
+                instrument: '0xAbCdEf000000000000000000000000000000000000',
+                expiry: 1,
+            })
+        ).toThrow('Invalid instrument: expected address');
+    });
+
+    it('rejects empty numeric strings instead of reading them as zero', () => {
+        expect(() =>
+            decodeKlineStreamData({
+                chainId: '',
+                instrument: '0xAbCdEf0000000000000000000000000000000000',
+                expiry: 1,
+                interval: '1m',
+            })
+        ).toThrow('Invalid chainId: expected number');
+    });
+
     it('rejects invalid optional portfolio fields when they are present', () => {
-        expect(
-            normalizePortfolioStreamData({
+        expect(() =>
+            decodePortfolioStreamData({
                 chainId: 'invalid',
-                userAddress: '0xAbCdEf000000000000000000000000000000000000',
+                userAddress: '0xAbCdEf0000000000000000000000000000000000',
                 type: 'order',
             })
-        ).toBeNull();
-        expect(
-            normalizePortfolioStreamData({
-                userAddress: '0xAbCdEf000000000000000000000000000000000000',
+        ).toThrow();
+        expect(() =>
+            decodePortfolioStreamData({
+                userAddress: '0xAbCdEf0000000000000000000000000000000000',
                 type: 'order',
                 orderInfo: { oid: 1 },
             })
-        ).toBeNull();
+        ).toThrow();
     });
 
-    it('normalizes trades stream items with wrapper defaults', () => {
-        const tokenInfo = {
-            address: '0xToken',
-            symbol: 'TKN',
-            decimals: 18,
-            image: '',
-            price: 1,
+    it('decodes null order book sides from the server as empty levels', () => {
+        // Shape captured from the mainnet public WebSocket: unpopulated ratios carry `null` sides.
+        const blockInfo = { height: 73479712, timestamp: 1778338580 };
+        const level = {
+            tick: 75819,
+            price: '1961610169998866376860',
+            baseSize: '3072202670522331156',
+            quoteSize: '6026464002794281287679',
+            baseSum: '3072202670522331156',
+            quoteSum: '6026464002794281287679',
         };
-
-        const normalized = normalizeTradesStreamData({
-            chainId: '1',
-            instrument: '0xABC',
-            expiry: '123',
-            data: [
-                {
-                    id: 't1',
-                    size: '1',
-                    balance: '0',
-                    price: '1',
-                    tradeFee: '0',
-                    protocolFee: '0',
-                    timestamp: '10',
-                    txHash: '0xTX1',
-                    type: 'Market',
-                    symbol: 'AAA/BBB',
-                    baseToken: tokenInfo,
-                    quoteToken: tokenInfo,
-                    typeString: 'Market',
-                    side: 'long',
-                    event: 'trade',
-                    markPrice: '1',
-                    fairPrice: '1',
-                },
-            ],
+        const merged = mergeStreamMetadata({
+            chainId: 143,
+            instrument: '0x44b60b6af9b615a5cf2d366e2143582557cff711',
+            expiry: 4294967295,
+            data: {
+                '1': { blockInfo, bids: null, asks: null },
+                '200': { blockInfo, bids: [level], asks: [] },
+            },
         });
 
-        expect(normalized?.chainId).toBe(1);
-        expect(normalized?.expiry).toBe(123);
-        expect(normalized?.instrument).toBe('0xabc');
-        expect(normalized?.data[0]).toMatchObject({
-            chainId: 1,
-            expiry: 123,
-            instrument: '0xabc',
-            instrumentAddress: '0xabc',
-            timestamp: 10,
+        expect(decodeOrderBookStream(merged).depths).toEqual({
+            '1': { blockInfo, bids: [], asks: [] },
+            '200': { blockInfo, bids: [level], asks: [] },
         });
     });
 
     it('rejects order book depths with invalid level items', () => {
-        expect(
-            normalizeOrderBookStream({
+        expect(() =>
+            decodeOrderBookStream({
                 chainId: 1,
-                instrument: '0xAbC',
+                instrument: '0xAbCdEf0000000000000000000000000000000000',
                 expiry: 123,
                 '1': {
                     bids: [
@@ -235,6 +234,6 @@ describe('WebSocket stream normalizers', () => {
                     asks: ['bad'],
                 },
             })
-        ).toBeNull();
+        ).toThrow('Invalid depths.1.asks[0]: expected object');
     });
 });

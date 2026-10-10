@@ -12,7 +12,7 @@ describe('PublicWebsocketClient stream schema validation', () => {
         const sockets: FakeWebSocket[] = [];
         const handler = jest.fn<void, [KlineStreamData]>();
         const invalid = jest.fn<void, [InvalidStreamDataEvent]>();
-        const instrument = '0xAbCdEf000000000000000000000000000000000000' as Address;
+        const instrument = '0xAbCdEf0000000000000000000000000000000000' as Address;
 
         const client = new PublicWebsocketClient({
             url: 'ws://localhost',
@@ -93,7 +93,7 @@ describe('PublicWebsocketClient stream schema validation', () => {
         const handler = jest.fn<void, [KlineStreamData]>();
         const raw = jest.fn<void, [Record<string, unknown>]>();
         const invalid = jest.fn<void, [InvalidStreamDataEvent]>();
-        const instrument = '0xAbCdEf000000000000000000000000000000000000' as Address;
+        const instrument = '0xAbCdEf0000000000000000000000000000000000' as Address;
 
         const client = new PublicWebsocketClient({
             url: 'ws://localhost',
@@ -124,6 +124,7 @@ describe('PublicWebsocketClient stream schema validation', () => {
 
         expect(handler).not.toHaveBeenCalled();
         expect(invalid).toHaveBeenCalledTimes(1);
+        expect(invalid.mock.calls[0][0].error).toEqual(new Error('Invalid open: expected number'));
         expect(raw).toHaveBeenCalledTimes(1);
 
         client.close();
