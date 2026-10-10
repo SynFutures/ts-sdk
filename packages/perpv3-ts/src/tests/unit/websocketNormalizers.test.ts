@@ -79,7 +79,9 @@ describe('WebSocket stream normalizers', () => {
                 oid: '1',
             },
         });
-        expect(() => decodePortfolioStreamData({ userAddress: '0xabc', type: 'unknown' })).toThrow();
+        expect(() =>
+            decodePortfolioStreamData({ userAddress: '0xAbCdEf0000000000000000000000000000000000', type: 'unknown' })
+        ).toThrow('Invalid type: unsupported portfolio stream type unknown');
     });
 
     it('validates kline and instrument stream payload schemas', () => {
@@ -100,7 +102,9 @@ describe('WebSocket stream normalizers', () => {
             open: 1,
             close: 2,
         });
-        expect(() => decodeKlineStreamData({ chainId: 143, instrument: '0xabc', expiry: 1 })).toThrow();
+        expect(() =>
+            decodeKlineStreamData({ chainId: 143, instrument: '0xAbCdEf0000000000000000000000000000000000', expiry: 1 })
+        ).toThrow('Invalid interval: expected string');
 
         expect(
             decodeInstrumentStreamData({
@@ -117,7 +121,9 @@ describe('WebSocket stream normalizers', () => {
             symbol: 'TEST',
             markPrice: '1',
         });
-        expect(() => decodeInstrumentStreamData({ chainId: 143, expiry: 1 })).toThrow();
+        expect(() => decodeInstrumentStreamData({ chainId: 143, expiry: 1 })).toThrow(
+            'Invalid instrument: expected string'
+        );
     });
 
     it('rejects present numeric fields that cannot be normalized', () => {
@@ -129,7 +135,7 @@ describe('WebSocket stream normalizers', () => {
                 interval: '1m',
                 open: 'not-a-number',
             })
-        ).toThrow();
+        ).toThrow('Invalid open: expected number');
     });
 
     it('does not leak unvalidated fields into typed payloads', () => {
@@ -177,14 +183,14 @@ describe('WebSocket stream normalizers', () => {
                 userAddress: '0xAbCdEf0000000000000000000000000000000000',
                 type: 'order',
             })
-        ).toThrow();
+        ).toThrow('Invalid chainId: expected number');
         expect(() =>
             decodePortfolioStreamData({
                 userAddress: '0xAbCdEf0000000000000000000000000000000000',
                 type: 'order',
                 orderInfo: { oid: 1 },
             })
-        ).toThrow();
+        ).toThrow('Invalid orderInfo.oid: expected string');
     });
 
     it('decodes null order book sides from the server as empty levels', () => {

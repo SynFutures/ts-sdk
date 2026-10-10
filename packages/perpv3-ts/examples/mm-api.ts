@@ -20,7 +20,6 @@ const SYMBOL = 'BTC/USDC';
 const TRADER_ADDRESS = '0xB0B81c2c7686c63acAE28F9778ca8Fa80f0C004b' as Address;
 const INSTRUMENT = '0x73ada1ea346cc3908f41cf67a040f0acd7808be0' as Address;
 const DURATION_MS = 30_000;
-const DEPTH = 20;
 
 const toTradesPair = (instrumentAddress: Address, expiry: number): string =>
     `${instrumentAddress.toLowerCase()}_${expiry}`;
@@ -134,11 +133,7 @@ async function main(): Promise<void> {
     }
 
     try {
-        const orderBook = await mm.fetchOrderBook({
-            chainId: CHAIN_ID,
-            symbol: SYMBOL,
-            ...(Number.isFinite(DEPTH) ? { depth: DEPTH } : {}),
-        });
+        const orderBook = await mm.fetchOrderBook({ chainId: CHAIN_ID, symbol: SYMBOL });
         if (orderBook) {
             const ratios = Object.keys(orderBook);
             const first = ratios[0];

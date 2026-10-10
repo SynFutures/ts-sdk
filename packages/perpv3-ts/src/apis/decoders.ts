@@ -31,6 +31,7 @@ import {
     optionalString,
     requireAddress,
     requireArray,
+    requireNullableArray,
     requireBigInt,
     requireBoolean,
     requireEnumMember,
@@ -41,7 +42,7 @@ import {
     type UnknownRecord,
 } from './codecs';
 import { normalizeMinimalPearlTuple } from './utils';
-import { Condition, Side, type BlockInfo, type MinimalPearl } from '../types';
+import { Condition, QuoteType, Side, Status, type BlockInfo, type MinimalPearl } from '../types';
 
 function decodeCondition(record: UnknownRecord, key: string, label: string): Condition {
     return requireEnumMember<Condition>(Condition, requireNumber(record, key, label), label);
@@ -83,7 +84,11 @@ function decodeSetting(value: unknown, label: string): SettingFromApi {
             minMarginAmount: requireBigInt(quoteParam, 'minMarginAmount', `${label}.quoteParam.minMarginAmount`),
             tradingFeeRatio: requireNumber(quoteParam, 'tradingFeeRatio', `${label}.quoteParam.tradingFeeRatio`),
             protocolFeeRatio: requireNumber(quoteParam, 'protocolFeeRatio', `${label}.quoteParam.protocolFeeRatio`),
-            qtype: requireNumber(quoteParam, 'qtype', `${label}.quoteParam.qtype`),
+            qtype: requireEnumMember<QuoteType>(
+                QuoteType,
+                requireNumber(quoteParam, 'qtype', `${label}.quoteParam.qtype`),
+                `${label}.quoteParam.qtype`
+            ),
             tip: requireBigInt(quoteParam, 'tip', `${label}.quoteParam.tip`),
         },
     };
@@ -134,7 +139,8 @@ function decodeMarket(value: unknown, label: string): MarketFromApi {
         feeder,
         info: {
             addr: requireAddress(info, 'addr', `${label}.info.addr`),
-            beacon: requireAddress(info, 'beacon', `${label}.info.beacon`),
+            // The server sends an empty string for markets without a beacon.
+            ...(info.beacon !== '' && { beacon: requireAddress(info, 'beacon', `${label}.info.beacon`) }),
             type: requireString(info, 'type', `${label}.info.type`),
         },
     };
@@ -145,7 +151,11 @@ function decodeAmm(value: unknown, label: string): AmmFromApi {
     return {
         expiry: requireNumber(record, 'expiry', `${label}.expiry`),
         timestamp: requireNumber(record, 'timestamp', `${label}.timestamp`),
-        status: requireNumber(record, 'status', `${label}.status`),
+        status: requireEnumMember<Status>(
+            Status,
+            requireNumber(record, 'status', `${label}.status`),
+            `${label}.status`
+        ),
         tick: requireNumber(record, 'tick', `${label}.tick`),
         sqrtPX96: requireBigInt(record, 'sqrtPX96', `${label}.sqrtPX96`),
         liquidity: requireBigInt(record, 'liquidity', `${label}.liquidity`),
@@ -247,6 +257,12 @@ function decodeRange(value: unknown, label: string): RangeFromApi {
     };
 }
 
+function decodePortfolioPosition(value: unknown, label: string): PositionFromApi | undefined {
+    const record = requireRecord(value, label);
+    // Without a position the server sends its zero-valued struct, whose numeric strings are empty.
+    return record.balance === '' && record.size === '' ? undefined : decodePosition(record, label);
+}
+
 function decodePortfolio(value: unknown, label: string): PortfolioFromApi {
     const record = requireRecord(value, label);
     return {
@@ -254,9 +270,7 @@ function decodePortfolio(value: unknown, label: string): PortfolioFromApi {
         instrumentAddr: requireAddress(record, 'instrumentAddr', `${label}.instrumentAddr`),
         traderAddr: requireAddress(record, 'traderAddr', `${label}.traderAddr`),
         expiry: requireNumber(record, 'expiry', `${label}.expiry`),
-        position: requireArray(record.position, `${label}.position`).map((position, index) =>
-            decodePosition(position, `${label}.position[${index}]`)
-        ),
+        position: decodePortfolioPosition(record.position, `${label}.position`),
         orders: requireArray(record.orders, `${label}.orders`).map((order, index) =>
             decodeOrder(order, `${label}.orders[${index}]`)
         ),
@@ -271,10 +285,10 @@ export function decodePortfolioList(value: unknown): FetchPortfolioListFromApiRe
     const record = requireRecord(value, label);
     return {
         address: requireAddress(record, 'address', `${label}.address`),
-        instruments: requireArray(record.instruments, `${label}.instruments`).map((instrument, index) =>
+        instruments: requireNullableArray(record.instruments, `${label}.instruments`).map((instrument, index) =>
             decodeInstrument(instrument, `${label}.instruments[${index}]`)
         ),
-        portfolios: requireArray(record.portfolios, `${label}.portfolios`).map((portfolio, index) =>
+        portfolios: requireNullableArray(record.portfolios, `${label}.portfolios`).map((portfolio, index) =>
             decodePortfolio(portfolio, `${label}.portfolios[${index}]`)
         ),
     };
@@ -359,28 +373,28 @@ export function decodeOrderBookSteps(value: unknown): IFuturesOrderBookAllSteps 
     return Object.entries(record).reduce<IFuturesOrderBookAllSteps>((acc, [key, depthValue]) => {
         const label = `order book ${key}`;
         const depth = requireRecord(depthValue, label);
-        const bids = requireArray(depth.bids, `${label}.bids`)
-            .map(decodeOrderBookEntry)
-            .sort((a, b) => b.tick - a.tick);
-        const asks = requireArray(depth.asks, `${label}.asks`)
-            .map(decodeOrderBookEntry)
-            .sort((a, b) => a.tick - b.tick);
+        const bids = decodeOrderBookSide(depth.bids, `${label}.bids`).sort((a, b) => b.tick - a.tick);
+        const asks = decodeOrderBookSide(depth.asks, `${label}.asks`).sort((a, b) => a.tick - b.tick);
 
         acc[key] = { asks, bids };
         return acc;
     }, {});
 }
 
-function decodeOrderBookEntry(value: unknown): OrderDataFromApi {
-    const record = requireRecord(value, 'order book entry');
-    return {
-        baseQuantity: requireBigInt(record, 'baseQuantity'),
-        baseSum: requireBigInt(record, 'baseSum'),
-        price: requireBigInt(record, 'price'),
-        quoteSize: requireBigInt(record, 'quoteSize'),
-        quoteSum: requireBigInt(record, 'quoteSum'),
-        tick: requireNumber(record, 'tick'),
-    };
+function decodeOrderBookSide(value: unknown, label: string): OrderDataFromApi[] {
+    return requireNullableArray(value, label).map((item, index) => {
+        const itemLabel = `${label}[${index}]`;
+        const record = requireRecord(item, itemLabel);
+        return {
+            // The wire field is `baseSize`; the domain level shares `baseQuantity` with the RPC depth path.
+            baseQuantity: requireBigInt(record, 'baseSize', `${itemLabel}.baseSize`),
+            baseSum: requireBigInt(record, 'baseSum', `${itemLabel}.baseSum`),
+            price: requireBigInt(record, 'price', `${itemLabel}.price`),
+            quoteSize: requireBigInt(record, 'quoteSize', `${itemLabel}.quoteSize`),
+            quoteSum: requireBigInt(record, 'quoteSum', `${itemLabel}.quoteSum`),
+            tick: requireNumber(record, 'tick', `${itemLabel}.tick`),
+        };
+    });
 }
 
 export function decodeMmWalletBalance(value: unknown): FetchMmWalletBalanceResponse {

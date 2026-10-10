@@ -46,9 +46,8 @@ export interface FetchFuturesInstrumentInput {
     address: string;
 }
 
-// AmmFromApi extends Amm with API-specific fields and overrides status to be number instead of Status enum
-export type AmmFromApi = Omit<Amm, 'status'> & {
-    status: number; // API returns number, not Status enum
+// AmmFromApi extends Amm with API-specific fields
+export type AmmFromApi = Amm & {
     blockInfo: BlockInfo;
     fairPrice: bigint;
     instrumentAddr: Address;
@@ -58,9 +57,7 @@ export type AmmFromApi = Omit<Amm, 'status'> & {
 export interface SettingFromApi {
     initialMarginRatio: number;
     maintenanceMarginRatio: number;
-    quoteParam: Omit<QuoteParam, 'qtype'> & {
-        qtype: number; // API returns number, not QuoteType enum
-    };
+    quoteParam: QuoteParam;
 }
 export interface MarketFromApi {
     config: {
@@ -86,7 +83,8 @@ export interface MarketFromApi {
     } | null;
     info: {
         addr: Address;
-        beacon: Address;
+        /** Absent for markets without a beacon. */
+        beacon?: Address;
         type: string;
     };
 }
@@ -390,7 +388,8 @@ export interface PortfolioFromApi {
     instrumentAddr: Address;
     traderAddr: Address;
     expiry: number;
-    position: PositionFromApi[];
+    /** Absent when the trader holds no position in this market. */
+    position?: PositionFromApi;
     orders: OrderFromApi[];
     ranges: RangeFromApi[];
 }
@@ -606,7 +605,8 @@ export type FetchMmInstrumentInfoResponse = FetchMmInstrumentInfoItem[];
 export interface FetchMmKlineInput {
     chainId: number;
     symbol: string;
-    interval?: KlineInterval;
+    /** Required by the server. */
+    interval: KlineInterval;
     start?: number;
     end?: number;
     limit?: number;
@@ -776,7 +776,6 @@ export type FetchMmLiquidityListResponse = FetchMmLiquidityListItem[];
 export interface FetchMmOrderBookInput {
     chainId: number;
     symbol: string;
-    depth?: number;
 }
 export type FetchMmOrderBookResponse = IFuturesOrderBookAllSteps | null;
 
@@ -889,7 +888,9 @@ export interface FetchFuturesPairKlineChartInput {
     instrument: Address;
     expiry: number;
     interval: KlineInterval;
-    endTime?: number;
+    /** Required by the server: the latest candle open time to return, in seconds. */
+    endTime: number;
+    /** 1 to 1000; defaults to 1000. */
     limit?: number;
 }
 export interface KlineDataFromApi {
@@ -957,8 +958,7 @@ export interface TradeHistory extends InstrumentHistoryBasicInfo {
     price: string;
     tradeFee: string;
     protocolFee: string;
-    // Current history API exposes the display type string, not the numeric type code.
-    typeString: 'market' | 'fill' | 'range' | 'take_over' | 'liquidation';
+    typeString: 'Market' | 'Limit' | 'Liquidity' | 'Liquidation' | 'Taker Over';
     side: 'long' | 'short';
     // missing for now
     isRangeLiquidated?: boolean;
@@ -976,7 +976,7 @@ export interface OrderHistory extends Omit<InstrumentHistoryBasicInfo, 'txHash' 
     cancelTimestamp: number;
     tradeValue: string;
 
-    typeString: 'filled' | 'cancelled' | 'partial_filled';
+    typeString: 'place' | 'filled' | 'cancelled';
     side: 'long' | 'short';
 
     //  missing fields

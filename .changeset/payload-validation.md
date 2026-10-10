@@ -13,7 +13,8 @@ Reject malformed data instead of substituting defaults.
   reported through `onInvalidStreamData`, whose event now includes the decoding `error`; raw
   subscribers still receive it.
 - A trades message is rejected as a whole when any item is malformed or belongs to a different
-  chain, instrument or expiry than the message, instead of silently dropping that item.
+  chain, instrument or expiry than the message, instead of silently dropping that item. An
+  item whose `trader` the server sends as `""` is delivered without `trader`.
 - Order-book depths whose `bids` or `asks` are `null` decode as empty sides. The server sends
   `null` for empty ratios, so typed order-book subscribers previously received no updates.
 - WebSocket clients ignore events from obsolete sockets and keep a wire subscription until
@@ -24,3 +25,16 @@ Reject malformed data instead of substituting defaults.
 - RPC order books and frontend depth charts share exact bigint depth traversal. Empty
   liquidity yields empty chart sides, and invalid chart pagination is rejected.
 - Automatic HTTP retries apply only to read-only requests.
+- HTTP responses with a non-zero `code` throw a `SynfError` carrying the server `msg`
+  instead of resolving to empty data, and HTTP error messages read the server `msg` field.
+- HTTP order books read the server's `baseSize` into `baseQuantity`, which was previously
+  always undefined, and decode `null` sides as empty. The on-chain context query keeps raw
+  integers that the server sends as JSON numbers exact instead of rounding them. A market
+  without a beacon no longer fails instrument decoding. Market pair info sends the
+  `instrument` parameter, and the portfolio list uses `/v4/public/market/portfolio`. Portfolio
+  lists decode the server's single position object, treat its empty struct as no position and
+  read `null` lists as empty, so the on-chain context no longer fails for a trader without
+  portfolios.
+- History responses reject unknown `typeString` and `side` values.
+- A topic whose WebSocket SUBSCRIBE the server rejects is subscribed again by the next
+  subscribe call or reconnect.

@@ -92,7 +92,6 @@ export class MarketMakerModule {
         const requestParams = {
             chainId: params.chainId,
             symbol: params.symbol,
-            ...(params.depth ? { depth: params.depth } : {}),
         };
         const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
         const rawData = getApiData(res);
@@ -230,7 +229,7 @@ export class MarketMakerModule {
         const requestParams = {
             chainId: params.chainId,
             symbol: params.symbol,
-            ...(params.interval !== undefined && { interval: params.interval }),
+            interval: params.interval,
             ...(params.start !== undefined && { start: params.start }),
             ...(params.end !== undefined && { end: params.end }),
             ...(params.limit !== undefined && { limit: params.limit }),

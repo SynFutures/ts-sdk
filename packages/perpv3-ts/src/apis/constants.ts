@@ -25,7 +25,7 @@ export const DEFAULT_HISTORY_PAGE_SIZE_LOCAL = 30;
 // api request paths, v4 endpoints
 export const API_URLS = {
     PUBLIC: {
-        PORTFOLIO: '/v4/public/portfolio',
+        PORTFOLIO: '/v4/public/market/portfolio',
     },
     MARKET: {
         PAIR_INFO: '/v4/public/market/marketPairInfo',
