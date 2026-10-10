@@ -1,96 +1,182 @@
-import { decodeFunctionData } from 'viem';
+import { decodeFunctionData, type Hex } from 'viem';
 import {
     CURRENT_GATE_ABI,
     CURRENT_GELATO_RELAY_ROUTER_ABI,
     CURRENT_INSTRUMENT_ABI,
     ERC20_WITH_PERMIT_ABI,
 } from '../../abis';
-import {
-    createGateWriteRequest,
-    createInstrumentWriteRequest,
-    createRouterWriteRequest,
-    createTokenWriteRequest,
-    encodeGateWriteRequest,
-    encodeInstrumentWriteRequest,
-    encodeRouterWriteRequest,
-    encodeTokenWriteRequest,
-    contractCallEncoder,
-} from '../../frontend/calldata';
-import { encodeDepositTransaction, encodeWithdrawTransaction } from '../../frontend/calldata/account';
-import {
-    encodeCancelOrderTransaction,
-    encodeMarketOrderTransaction,
-    encodeSettleTransaction,
-} from '../../frontend/calldata/instrument';
-import { createInstrumentWriteRequest as createInstrumentWriteRequestFromModule } from '../../frontend/calldata/requests';
-import { encodeApproveTransaction } from '../../frontend/calldata/token';
-import { INSTRUMENT_OPERATION_METADATA } from '../../operations/instrument';
-import type { TransactionParam as ModuleTransactionParam } from '../../frontend/calldata/types';
+import { contractCallEncoder } from '../../frontend/calldata';
 import { Side, UserSetting } from '../../types';
-import { encodeDepositParam, encodeTradeParam, encodeWithdrawParam } from '../../utils/encode';
+import {
+    encodeCancelParam,
+    encodeDepositParam,
+    encodePlaceParam,
+    encodeRemoveParam,
+    encodeTradeParam,
+    encodeWithdrawParam,
+} from '../../utils/encode';
 
-describe('frontend calldata typed requests', () => {
-    it('encodes instrument calldata from a typed write request', () => {
-        const instrumentAddress = '0x0000000000000000000000000000000000000011' as const;
-        const traderAddress = '0x0000000000000000000000000000000000000022';
-        const args = encodeTradeParam({
-            expiry: 1_700_000_000,
-            size: 1_000_000_000_000_000_000n,
-            amount: 500_000_000_000_000_000n,
-            limitTick: 100,
-            deadline: 1_700_000_600,
-        });
+const instrumentAddress = '0x0000000000000000000000000000000000000011' as const;
+const traderAddress = '0x0000000000000000000000000000000000000022' as const;
+const routerAddress = '0x0000000000000000000000000000000000000099' as const;
+const subAccountAddress = '0x0000000000000000000000000000000000000100' as const;
+const now = 1_700_000_000;
+const userSetting = new UserSetting(3600, 100, 3_000_000_000_000_000_000n);
+const deadline = now + 3600;
+const decodeInstrument = (data: Hex) => decodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, data });
+const decodeRouter = (data: Hex) => decodeFunctionData({ abi: CURRENT_GELATO_RELAY_ROUTER_ABI, data });
 
-        const request = createInstrumentWriteRequest(instrumentAddress, 'tradeFor', [traderAddress, args]);
-        const data = encodeInstrumentWriteRequest(request);
-        const decoded = decodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, data });
+beforeEach(() => {
+    jest.spyOn(Date, 'now').mockReturnValue(now * 1000);
+});
 
-        expect(request.address).toBe(instrumentAddress);
-        expect(request.functionName).toBe('tradeFor');
-        expect(decoded.functionName).toBe('tradeFor');
-        expect(decoded.args).toEqual([traderAddress, args]);
+afterEach(() => {
+    jest.restoreAllMocks();
+});
+
+describe('frontend calldata encoding', () => {
+    const marketParam = {
+        instrumentAddress,
+        expiry: 1_700_000_000,
+        side: Side.SHORT,
+        baseQuantity: 1_000_000_000_000_000_000n,
+        margin: 500_000_000_000_000_000n,
+        limitTick: 100,
+        userSetting,
+    } as const;
+    const tradeArgs = encodeTradeParam({
+        expiry: marketParam.expiry,
+        size: -marketParam.baseQuantity,
+        amount: marketParam.margin,
+        limitTick: marketParam.limitTick,
+        deadline,
     });
 
-    it('exposes typed request helpers from the calldata requests module', () => {
-        const instrumentAddress = '0x0000000000000000000000000000000000000011' as const;
-        const args = encodeTradeParam({
-            expiry: 1_700_000_000,
-            size: 1_000_000_000_000_000_000n,
-            amount: 500_000_000_000_000_000n,
-            limitTick: 100,
-            deadline: 1_700_000_600,
-        });
+    it('encodes a direct market order as a signed trade', () => {
+        const tx = contractCallEncoder.encodeMarketOrder(marketParam);
 
-        const request = createInstrumentWriteRequestFromModule(instrumentAddress, 'trade', [args]);
-
-        expect(request.address).toBe(instrumentAddress);
-        expect(request.functionName).toBe('trade');
+        expect(tx).toMatchObject({ to: instrumentAddress, value: 0n });
+        expect(decodeInstrument(tx.data)).toEqual({ functionName: 'trade', args: [tradeArgs] });
     });
 
-    it('exposes transaction types from the calldata types module', () => {
-        const tx: ModuleTransactionParam = {
-            to: '0x0000000000000000000000000000000000000011',
-            data: '0x',
-            value: 0n,
+    it('routes a tradeFor call through the router batch when a sub-account is configured', () => {
+        const tx = contractCallEncoder.encodeMarketOrder(marketParam, {
+            useTradeFor: true,
+            traderAddress,
+            subAccountAddress,
+            routerAddress,
+        });
+        const routed = decodeRouter(tx.data);
+
+        expect(tx.to).toBe(routerAddress);
+        expect(routed.functionName).toBe('batchMulticall');
+        const [account, trader, targets, callDatas, revertOnFailure] = routed.args as readonly [
+            string,
+            string,
+            readonly string[],
+            readonly Hex[],
+            boolean,
+        ];
+        expect([account, trader, targets, revertOnFailure]).toEqual([
+            subAccountAddress,
+            traderAddress,
+            [instrumentAddress],
+            false,
+        ]);
+        expect(decodeInstrument(callDatas[0])).toEqual({ functionName: 'tradeFor', args: [traderAddress, tradeArgs] });
+    });
+
+    it('requires a trader address for for-calls', () => {
+        expect(() => contractCallEncoder.encodeMarketOrder(marketParam, { useTradeFor: true })).toThrow(
+            'traderAddress for tradeFor is required'
+        );
+    });
+
+    it('encodes removeFor with the packed param only', () => {
+        const removeParam = {
+            instrumentAddress,
+            expiry: 1_700_000_000,
+            traderAddress,
+            tickLower: -100,
+            tickUpper: 100,
+            limitTicks: 0,
+            userSetting,
         };
+        const tx = contractCallEncoder.encodeRemoveLiquidity(removeParam, { useRemoveFor: true });
 
-        expect(tx.value).toBe(0n);
+        expect(tx.to).toBe(instrumentAddress);
+        expect(decodeInstrument(tx.data)).toEqual({
+            functionName: 'removeFor',
+            args: [
+                encodeRemoveParam({
+                    expiry: removeParam.expiry,
+                    target: traderAddress,
+                    tickLower: removeParam.tickLower,
+                    tickUpper: removeParam.tickUpper,
+                    limitTicks: removeParam.limitTicks,
+                    deadline,
+                }),
+            ],
+        });
     });
 
-    it('encodes gate calldata from a typed write request', () => {
-        const gateAddress = '0x0000000000000000000000000000000000000033';
-        const tokenAddress = '0x0000000000000000000000000000000000000044';
-        const traderAddress = '0x0000000000000000000000000000000000000055';
-        const args = encodeDepositParam(tokenAddress, 100n);
+    it('splits cancellations above the batch size into an instrument multicall', () => {
+        const ticks = [1, 2, 3];
+        const tx = contractCallEncoder.encodeCancelOrder(
+            { instrumentAddress, expiry: 1, ticks, userSetting },
+            { maxCancelCount: 2 }
+        );
+        const multicall = decodeInstrument(tx.data);
 
-        const request = createGateWriteRequest(gateAddress, 'depositFor', [traderAddress, args]);
-        const data = encodeGateWriteRequest(request);
-        const decoded = decodeFunctionData({ abi: CURRENT_GATE_ABI, data });
+        expect(multicall.functionName).toBe('multicall');
+        const [callDatas] = multicall.args as readonly [readonly Hex[]];
+        expect(callDatas.map(decodeInstrument)).toEqual([
+            { functionName: 'cancel', args: [encodeCancelParam({ expiry: 1, ticks: [1, 2], deadline })] },
+            { functionName: 'cancel', args: [encodeCancelParam({ expiry: 1, ticks: [3], deadline })] },
+        ]);
+    });
 
-        expect(request.address).toBe(gateAddress);
-        expect(request.functionName).toBe('depositFor');
-        expect(decoded.functionName).toBe('depositFor');
-        expect(decoded.args).toEqual([traderAddress, args]);
+    it('requires router addresses for batched cancelFor calls', () => {
+        expect(() =>
+            contractCallEncoder.encodeCancelOrder(
+                { instrumentAddress, expiry: 1, ticks: [1, 2, 3], userSetting },
+                { maxCancelCount: 2, useCancelFor: true, traderAddress }
+            )
+        ).toThrow('Agent and router addresses required');
+    });
+
+    it('encodes a direct cross limit order as trade then place in one multicall', () => {
+        const tx = contractCallEncoder.encodeCrossLimitOrder({
+            instrumentAddress,
+            expiry: 1_700_000_000,
+            side: Side.LONG,
+            tradeSize: 1n,
+            tradeMargin: 2n,
+            tradeLimitTick: 10,
+            orderSize: 3n,
+            orderMargin: 4n,
+            orderTick: 20,
+            userSetting,
+        });
+        const [callDatas] = decodeInstrument(tx.data).args as readonly [readonly Hex[]];
+
+        expect(callDatas.map(decodeInstrument)).toEqual([
+            {
+                functionName: 'trade',
+                args: [encodeTradeParam({ expiry: 1_700_000_000, size: 1n, amount: 2n, limitTick: 10, deadline })],
+            },
+            {
+                functionName: 'place',
+                args: [encodePlaceParam({ expiry: 1_700_000_000, size: 3n, amount: 4n, tick: 20, deadline })],
+            },
+        ]);
+    });
+
+    it('encodes settle arguments in ABI order', () => {
+        const targetAddress = '0x0000000000000000000000000000000000000122';
+        const tx = contractCallEncoder.encodeSettle({ instrumentAddress, expiry: 1_700_000_000, targetAddress });
+
+        expect(decodeInstrument(tx.data)).toEqual({ functionName: 'settle', args: [1_700_000_000, targetAddress] });
     });
 
     it('uses ABI order for gate for-call encoding', () => {
@@ -117,23 +203,6 @@ describe('frontend calldata typed requests', () => {
         expect(withdrawDecoded.args).toEqual([traderAddress, encodeWithdrawParam(tokenAddress, amount)]);
     });
 
-    it('exposes account and token calldata intent encoders as direct modules', () => {
-        const gateAddress = '0x0000000000000000000000000000000000000066';
-        const tokenAddress = '0x0000000000000000000000000000000000000077';
-        const spenderAddress = '0x0000000000000000000000000000000000000144';
-        const amount = 100n;
-
-        expect(encodeDepositTransaction({ tokenAddress, amount }, gateAddress)).toEqual(
-            contractCallEncoder.encodeDeposit({ tokenAddress, amount }, gateAddress)
-        );
-        expect(encodeWithdrawTransaction({ tokenAddress, amount }, gateAddress)).toEqual(
-            contractCallEncoder.encodeWithdraw({ tokenAddress, amount }, gateAddress)
-        );
-        expect(encodeApproveTransaction({ tokenAddress, spenderAddress, amount })).toEqual(
-            contractCallEncoder.encodeApprove({ tokenAddress, spenderAddress, amount })
-        );
-    });
-
     describe('ERC-20 permit signatures', () => {
         const tokenAddress = '0x0000000000000000000000000000000000000077';
         const spenderAddress = '0x0000000000000000000000000000000000000144';
@@ -150,7 +219,7 @@ describe('frontend calldata typed requests', () => {
             ['1c', 28],
         ] as const)('encodes signature suffix %s as contract recovery value %i', (suffix, expectedV) => {
             const signature = `${r}${s.slice(2)}${suffix}` as const;
-            const tx = encodeApproveTransaction(params, { ...options, signature });
+            const tx = contractCallEncoder.encodeApprove(params, { ...options, signature });
             const decoded = decodeFunctionData({ abi: ERC20_WITH_PERMIT_ABI, data: tx.data });
 
             expect(tx.to).toBe(tokenAddress);
@@ -161,129 +230,23 @@ describe('frontend calldata typed requests', () => {
 
         it.each(['02', '1d', 'ff'])('rejects unsupported recovery value %s before encoding', (suffix) => {
             const signature = `${r}${s.slice(2)}${suffix}` as const;
-            expect(() => encodeApproveTransaction(params, { ...options, signature })).toThrow();
+            expect(() => contractCallEncoder.encodeApprove(params, { ...options, signature })).toThrow();
         });
 
         it.each(['0x1234', `0x${'00'.repeat(32)}${s.slice(2)}1b`] as const)(
             'rejects malformed or invalid signature %s before encoding',
             (signature) => {
-                expect(() => encodeApproveTransaction(params, { ...options, signature })).toThrow();
+                expect(() => contractCallEncoder.encodeApprove(params, { ...options, signature })).toThrow();
             }
         );
-    });
-
-    it('exposes instrument calldata intent encoders as direct modules', () => {
-        const instrumentAddress = '0x0000000000000000000000000000000000000011' as const;
-        const targetAddress = '0x0000000000000000000000000000000000000122';
-        const userSetting = new UserSetting(3600, 100, 3_000_000_000_000_000_000n);
-
-        const marketParam = {
-            instrumentAddress,
-            expiry: 1_700_000_000,
-            side: Side.LONG,
-            baseQuantity: 1_000_000_000_000_000_000n,
-            margin: 500_000_000_000_000_000n,
-            limitTick: 100,
-            userSetting,
-        };
-
-        expect(encodeMarketOrderTransaction(marketParam)).toEqual(contractCallEncoder.encodeMarketOrder(marketParam));
-        expect(encodeSettleTransaction({ instrumentAddress, expiry: 1_700_000_000, targetAddress })).toEqual(
-            contractCallEncoder.encodeSettle({ instrumentAddress, expiry: 1_700_000_000, targetAddress })
-        );
-    });
-
-    it('centralizes instrument operation contract method metadata', () => {
-        expect(INSTRUMENT_OPERATION_METADATA.marketOrder.write.direct.functionName).toBe('trade');
-        expect(INSTRUMENT_OPERATION_METADATA.marketOrder.write.direct.label).toBe('trade');
-        expect(INSTRUMENT_OPERATION_METADATA.marketOrder.param).toEqual({
-            kind: 'packedTuple',
-            codec: 'trade',
-            tupleSize: 2,
-            parserArgLabel: 'args',
-        });
-        expect(INSTRUMENT_OPERATION_METADATA.marketOrder.write.forCall).toEqual({
-            functionName: 'tradeFor',
-            label: 'tradeFor',
-            argumentLayout: 'traderThenParam',
-        });
-        expect(INSTRUMENT_OPERATION_METADATA.marketOrder.write.routerBatch.functionName).toBe('batchMulticall');
-        expect(INSTRUMENT_OPERATION_METADATA.marketOrder.write.routerBatch.label).toBe('batchMulticall');
-        expect(INSTRUMENT_OPERATION_METADATA.limitOrder.write.direct.functionName).toBe('place');
-        expect(INSTRUMENT_OPERATION_METADATA.limitOrder.write.direct.label).toBe('place');
-        expect(INSTRUMENT_OPERATION_METADATA.limitOrder.write.forCall.functionName).toBe('placeFor');
-        expect(INSTRUMENT_OPERATION_METADATA.limitOrder.write.forCall.label).toBe('placeFor');
-        expect(INSTRUMENT_OPERATION_METADATA.cancelOrder.write.direct.functionName).toBe('cancel');
-        expect(INSTRUMENT_OPERATION_METADATA.cancelOrder.write.direct.label).toBe('cancel');
-        expect(INSTRUMENT_OPERATION_METADATA.cancelOrder.param).toEqual({
-            kind: 'packedArg',
-            codec: 'cancel',
-            parserArgLabel: 'arg',
-        });
-        expect(INSTRUMENT_OPERATION_METADATA.cancelOrder.write.forCall.functionName).toBe('cancelFor');
-        expect(INSTRUMENT_OPERATION_METADATA.cancelOrder.write.forCall.label).toBe('cancelFor');
-        expect(INSTRUMENT_OPERATION_METADATA.cancelOrder.write.multicall.functionName).toBe('multicall');
-        expect(INSTRUMENT_OPERATION_METADATA.cancelOrder.write.multicall.label).toBe('multicall');
-        expect(INSTRUMENT_OPERATION_METADATA.fillLimitOrder.param).toEqual({
-            kind: 'packedArg',
-            codec: 'fill',
-            parserArgLabel: 'arg',
-        });
-        expect(INSTRUMENT_OPERATION_METADATA.removeLiquidity.write.forCall).toEqual({
-            functionName: 'removeFor',
-            label: 'removeFor',
-            argumentLayout: 'paramOnly',
-        });
-        expect(INSTRUMENT_OPERATION_METADATA.settle.param).toEqual({
-            kind: 'structuredArgs',
-            parserArgLabel: 'args',
-        });
-    });
-
-    it('encodes router calldata from a typed write request', () => {
-        const routerAddress = '0x0000000000000000000000000000000000000099';
-        const subAccountAddress = '0x0000000000000000000000000000000000000100';
-        const traderAddress = '0x0000000000000000000000000000000000000111';
-        const targetAddress = '0x0000000000000000000000000000000000000122';
-        const data = '0x1234';
-
-        const request = createRouterWriteRequest(routerAddress, 'batchMulticall', [
-            subAccountAddress,
-            traderAddress,
-            [targetAddress],
-            [data],
-            false,
-        ]);
-        const encoded = encodeRouterWriteRequest(request);
-        const decoded = decodeFunctionData({ abi: CURRENT_GELATO_RELAY_ROUTER_ABI, data: encoded });
-
-        expect(request.address).toBe(routerAddress);
-        expect(request.functionName).toBe('batchMulticall');
-        expect(decoded.functionName).toBe('batchMulticall');
-        expect(decoded.args).toEqual([subAccountAddress, traderAddress, [targetAddress], [data], false]);
-    });
-
-    it('encodes token calldata from a typed write request', () => {
-        const tokenAddress = '0x0000000000000000000000000000000000000133';
-        const spenderAddress = '0x0000000000000000000000000000000000000144';
-        const amount = 100n;
-
-        const request = createTokenWriteRequest(tokenAddress, 'approve', [spenderAddress, amount]);
-        const data = encodeTokenWriteRequest(request);
-        const decoded = decodeFunctionData({ abi: ERC20_WITH_PERMIT_ABI, data });
-
-        expect(request.address).toBe(tokenAddress);
-        expect(request.functionName).toBe('approve');
-        expect(decoded.functionName).toBe('approve');
-        expect(decoded.args).toEqual([spenderAddress, amount]);
     });
 });
 
 test.each([0, -1, 1.5, 9, NaN, Infinity])('rejects invalid cancel batch size %s before grouping', (maxCancelCount) => {
     expect(() =>
-        encodeCancelOrderTransaction(
+        contractCallEncoder.encodeCancelOrder(
             {
-                instrumentAddress: '0x0000000000000000000000000000000000000011',
+                instrumentAddress,
                 expiry: 1,
                 ticks: [1],
                 userSetting: new UserSetting(60, 50, 3n * 10n ** 18n),

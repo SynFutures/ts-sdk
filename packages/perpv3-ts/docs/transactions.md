@@ -8,26 +8,26 @@ imported from `@derivation-tech/viem-kit/node`.
 
 ## Execute a typed request
 
-The request builder preserves the gate ABI argument tuple. `payload` is the
-packed deposit parameter returned by the relevant PerpV3 encoder. The context
-supplies a configured wallet, public client and effective chain.
-
-Request builders return the ABI call fields they construct. Add fee, value or
-nonce options with object spread when submitting the request; these options and
-the wait policy belong to the caller.
+The request carries the gate ABI, so the function name and argument tuple are
+type-checked. `payload` is the packed deposit parameter returned by the relevant
+PerpV3 encoder. The context supplies a configured wallet, public client and
+effective chain. Fee, value or nonce options and the wait policy belong to the
+caller.
 
 ```typescript
 import type { Address, Hex } from 'viem';
 import { assertTransactionSuccess, sendContractTransaction, type TxContext } from '@derivation-tech/viem-kit';
-import { createGateWriteRequest } from '@synfutures/perpv3-ts/frontend';
+import { CURRENT_GATE_ABI } from '@synfutures/perpv3-ts/abis';
 import { createGateParser } from '@synfutures/perpv3-ts/parsers';
 
 export async function submitDeposit(context: TxContext, gate: Address, payload: Hex) {
-    const request = createGateWriteRequest(gate, 'deposit', [payload]);
     const sent = await sendContractTransaction(
         context,
         {
-            ...request,
+            address: gate,
+            abi: CURRENT_GATE_ABI,
+            functionName: 'deposit',
+            args: [payload],
             parser: createGateParser(),
         },
         { diagnostics: { timeout: 1_000 } }

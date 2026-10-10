@@ -7,7 +7,3 @@ export const requireAddress = (value: Address | undefined, label: string): Addre
     }
     return value;
 };
-
-export function assertNever(value: never, label: string): never {
-    throw Errors.encoding(`Unsupported ${label}`, { value });
-}
