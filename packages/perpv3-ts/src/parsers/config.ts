@@ -2,7 +2,6 @@ import type { Address, ContractParser } from '@derivation-tech/viem-kit';
 import { formatAddress, formatRatio, formatTokenAmount } from '../utils/format';
 import { formatQuoteType } from './enums';
 import type { ParserDeps } from './types';
-import { defaultParseError } from './errors';
 import { CURRENT_CONFIG_ABI } from '../abis';
 
 interface QuoteParamTuple {
@@ -162,10 +161,6 @@ export function createConfigParser(deps?: ParserDeps): ContractParser<typeof CUR
                 default:
                     return `${eventName}(...)`;
             }
-        },
-
-        async parseError(error) {
-            return defaultParseError(error, 'Config error');
         },
     };
 }

@@ -1,4 +1,4 @@
-import { encodeAddParam, encodeCancelParam, encodeDepositParam } from '../../utils/encode';
+import { encodeAddParam, encodeCancelParam, encodeDepositParam, encodeRemoveParam } from '../../utils/encode';
 import {
     createCexMarketParser,
     createConfigParser,
@@ -11,7 +11,6 @@ import { createInstrumentEventParsers, createInstrumentTransactionParsers } from
 import { createFrontendInstrumentEventParsers, createFrontendInstrumentParser } from '../../frontend/parsers';
 import type { ContractParser, DecodedContractError } from '@derivation-tech/viem-kit';
 import { CURRENT_INSTRUMENT_ABI } from '../../abis';
-import { INSTRUMENT_OPERATION_METADATA } from '../../operations/instrument';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 type InstrumentParser = ContractParser<typeof CURRENT_INSTRUMENT_ABI>;
@@ -32,45 +31,6 @@ describe('SynFutures parser integration', () => {
                 'claimProtocolFee',
             ])
         );
-    });
-
-    it('keeps instrument operation parser labels in metadata', () => {
-        const metadata = INSTRUMENT_OPERATION_METADATA;
-        const calls = [
-            metadata.marketOrder.write.direct,
-            metadata.marketOrder.write.forCall,
-            metadata.marketOrder.write.routerBatch,
-            metadata.limitOrder.write.direct,
-            metadata.limitOrder.write.forCall,
-            metadata.cancelOrder.write.direct,
-            metadata.cancelOrder.write.forCall,
-            metadata.cancelOrder.write.multicall,
-            metadata.cancelOrder.write.routerBatch,
-            metadata.adjustMargin.write.direct,
-            metadata.adjustMargin.write.forCall,
-            metadata.adjustMargin.write.routerBatch,
-            metadata.batchPlaceScaledLimitOrder.write.direct,
-            metadata.batchPlaceScaledLimitOrder.write.forCall,
-            metadata.batchPlaceScaledLimitOrder.write.routerBatch,
-            metadata.crossLimitOrder.write.trade.direct,
-            metadata.crossLimitOrder.write.trade.forCall,
-            metadata.crossLimitOrder.write.place.direct,
-            metadata.crossLimitOrder.write.place.forCall,
-            metadata.crossLimitOrder.write.multicall,
-            metadata.crossLimitOrder.write.routerBatch,
-            metadata.fillLimitOrder.write.direct,
-            metadata.addLiquidity.write.direct,
-            metadata.addLiquidity.write.forCall,
-            metadata.addLiquidity.write.routerBatch,
-            metadata.removeLiquidity.write.direct,
-            metadata.removeLiquidity.write.forCall,
-            metadata.removeLiquidity.write.routerBatch,
-            metadata.settle.write.direct,
-        ] satisfies ReadonlyArray<{ functionName: string; label?: string }>;
-
-        for (const call of calls) {
-            expect(call.label).toBe(call.functionName);
-        }
     });
 
     it('builds instrument event handlers as a table', () => {
@@ -112,42 +72,20 @@ describe('SynFutures parser integration', () => {
         expect(formatted).toContain('amount: 1');
     });
 
-    it('formats operation calls with labels from metadata', async () => {
-        const operation = INSTRUMENT_OPERATION_METADATA.addLiquidity.write.direct as {
-            functionName: 'add';
-            label?: string;
-        };
-        const previousLabel = operation.label;
-        operation.label = 'metadataAdd';
+    it('formats removeFor without a trader argument', async () => {
+        const parser: InstrumentParser = createInstrumentParser();
+        const encodedArgs = encodeRemoveParam({
+            limitTicks: 0,
+            tickLower: -100,
+            tickUpper: 100,
+            target: ZERO_ADDRESS,
+            expiry: 1_700_000_000,
+            deadline: 1_700_000_600,
+        });
 
-        try {
-            const parser: InstrumentParser = createInstrumentParser();
-            const parseTransaction = parser.parseTransaction;
-            if (!parseTransaction) {
-                throw new Error('parseTransaction is not implemented');
-            }
-            const encodedArgs = encodeAddParam({
-                limitTicks: 0,
-                amount: 1_000_000_000_000_000_000n,
-                tickDeltaLower: 5,
-                tickDeltaUpper: 10,
-                expiry: 1_700_000_000,
-                deadline: 1_700_000_600,
-            });
+        const formatted = await parser.parseTransaction?.({ functionName: 'removeFor', args: [encodedArgs] });
 
-            const formatted = await parseTransaction({
-                functionName: operation.functionName,
-                args: [encodedArgs],
-            });
-
-            expect(formatted).toContain('metadataAdd(');
-        } finally {
-            if (previousLabel === undefined) {
-                delete operation.label;
-            } else {
-                operation.label = previousLabel;
-            }
-        }
+        expect(formatted).toMatch(/^removeFor\(args: \{ expiry: 20231114.*target: 0x0{40}/);
     });
 
     it('formats instrument cancelFor transactions with beneficiary address', async () => {

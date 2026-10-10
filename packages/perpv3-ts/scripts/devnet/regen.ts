@@ -470,7 +470,7 @@ async function main(): Promise<void> {
                 artifact: artifactPath,
                 constructorArgs: [...constructorArgs],
                 linkReferenceMap,
-                confirmations: 1,
+                wait: { confirmations: 1 },
             });
             return parseAddress(contractAddress, `deployment:${label}`);
         };

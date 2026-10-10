@@ -2,7 +2,6 @@ import type { Address, ContractParser } from '@derivation-tech/viem-kit';
 import { formatAddress, formatExpiry, formatTimestamp, formatWad } from '../utils/format';
 import { formatFeederType } from './enums';
 import type { ParserDeps } from './types';
-import { defaultParseError } from './errors';
 import { CEX_MARKET_ABI } from '../abis';
 
 interface CexPriceFeederTuple {
@@ -111,10 +110,6 @@ export function createCexMarketParser(deps?: ParserDeps): ContractParser<typeof 
                 default:
                     return `${eventName}(...)`;
             }
-        },
-
-        async parseError(error) {
-            return defaultParseError(error, 'CexMarket error');
         },
     };
 }
