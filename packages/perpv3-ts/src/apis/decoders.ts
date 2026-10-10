@@ -1,17 +1,3 @@
-import {
-    DEPTH_CHART_BIGINT_KEYS,
-    GATE_BALANCE_BIGINT_KEYS,
-    INQUIRE_BIGINT_KEYS,
-    INQUIRE_BY_TICK_BIGINT_KEYS,
-    INSTRUMENT_BIGINT_KEYS,
-    MM_INSTRUMENT_INFO_BIGINT_KEYS,
-    MM_POSITION_BIGINT_KEYS,
-    MM_WALLET_PORTFOLIO_BIGINT_KEYS,
-    ORDER_DATA_BIGINT_KEYS,
-    PORTFOLIO_BIG_INT_KEYS,
-    PRICE_DATA_BIGINT_KEYS,
-    QUOTE_STATE_BIGINT_KEYS,
-} from './constants';
 import type {
     AmmFromApi,
     ChartLiquidityDetailsFromApi,
@@ -47,6 +33,7 @@ import {
     requireArray,
     requireBigInt,
     requireBoolean,
+    requireEnumMember,
     requireNumber,
     requireNumberValue,
     requireRecord,
@@ -54,35 +41,14 @@ import {
     type UnknownRecord,
 } from './codecs';
 import { normalizeMinimalPearlTuple } from './utils';
-import { normalizeBigIntFields } from '../utils/convert';
 import { Condition, Side, type BlockInfo, type MinimalPearl } from '../types';
 
 function decodeCondition(record: UnknownRecord, key: string, label: string): Condition {
-    const value = requireNumber(record, key, label);
-    switch (value) {
-        case Condition.NORMAL:
-            return Condition.NORMAL;
-        case Condition.FROZEN:
-            return Condition.FROZEN;
-        case Condition.RESOLVED:
-            return Condition.RESOLVED;
-        default:
-            throw new Error(`Invalid ${label}: unsupported condition ${value}`);
-    }
+    return requireEnumMember<Condition>(Condition, requireNumber(record, key, label), label);
 }
 
 function decodeSide(record: UnknownRecord, key: string, label: string): Side {
-    const value = requireNumber(record, key, label);
-    switch (value) {
-        case Side.FLAT:
-            return Side.FLAT;
-        case Side.SHORT:
-            return Side.SHORT;
-        case Side.LONG:
-            return Side.LONG;
-        default:
-            throw new Error(`Invalid ${label}: unsupported side ${value}`);
-    }
+    return requireEnumMember<Side>(Side, requireNumber(record, key, label), label);
 }
 
 function decodeBlockInfo(value: unknown, label: string): BlockInfo {
@@ -204,32 +170,30 @@ function decodeAmm(value: unknown, label: string): AmmFromApi {
 }
 
 function decodeInstrument(value: unknown, label: string): InstrumentFromApi {
-    const normalized = normalizeBigIntFields(requireRecord(value, label), INSTRUMENT_BIGINT_KEYS);
-    const instrumentAddr = requireAddress(normalized, 'instrumentAddr', `${label}.instrumentAddr`);
+    const record = requireRecord(value, label);
+    const instrumentAddr = requireAddress(record, 'instrumentAddr', `${label}.instrumentAddr`);
     return {
-        amms: requireArray(normalized.amms, `${label}.amms`).map((amm, index) =>
-            decodeAmm(amm, `${label}.amms[${index}]`)
-        ),
-        base: decodeTokenInfo(normalized.base, `${label}.base`),
-        blockInfo: decodeBlockInfo(normalized.blockInfo, `${label}.blockInfo`),
-        condition: decodeCondition(normalized, 'condition', `${label}.condition`),
-        disableOrderRebate: requireBoolean(normalized, 'disableOrderRebate', `${label}.disableOrderRebate`),
-        displayBase: decodeTokenInfo(normalized.displayBase, `${label}.displayBase`),
-        displayQuote: decodeTokenInfo(normalized.displayQuote, `${label}.displayQuote`),
-        fundingHour: requireNumber(normalized, 'fundingHour', `${label}.fundingHour`),
+        amms: requireArray(record.amms, `${label}.amms`).map((amm, index) => decodeAmm(amm, `${label}.amms[${index}]`)),
+        base: decodeTokenInfo(record.base, `${label}.base`),
+        blockInfo: decodeBlockInfo(record.blockInfo, `${label}.blockInfo`),
+        condition: decodeCondition(record, 'condition', `${label}.condition`),
+        disableOrderRebate: requireBoolean(record, 'disableOrderRebate', `${label}.disableOrderRebate`),
+        displayBase: decodeTokenInfo(record.displayBase, `${label}.displayBase`),
+        displayQuote: decodeTokenInfo(record.displayQuote, `${label}.displayQuote`),
+        fundingHour: requireNumber(record, 'fundingHour', `${label}.fundingHour`),
         instrumentAddr,
-        instrumentType: requireNumber(normalized, 'instrumentType', `${label}.instrumentType`),
-        market: decodeMarket(normalized.market, `${label}.market`),
-        marketType: requireString(normalized, 'marketType', `${label}.marketType`),
-        minOrderValue: requireBigInt(normalized, 'minOrderValue', `${label}.minOrderValue`),
-        minRangeValue: requireBigInt(normalized, 'minRangeValue', `${label}.minRangeValue`),
-        minTickDelta: requireNumber(normalized, 'minTickDelta', `${label}.minTickDelta`),
-        minTradeValue: requireBigInt(normalized, 'minTradeValue', `${label}.minTradeValue`),
-        placePaused: requireBoolean(normalized, 'placePaused', `${label}.placePaused`),
-        quote: decodeTokenInfo(normalized.quote, `${label}.quote`),
-        setting: decodeSetting(normalized.setting, `${label}.setting`),
-        spotPrice: requireBigInt(normalized, 'spotPrice', `${label}.spotPrice`),
-        symbol: requireString(normalized, 'symbol', `${label}.symbol`),
+        instrumentType: requireNumber(record, 'instrumentType', `${label}.instrumentType`),
+        market: decodeMarket(record.market, `${label}.market`),
+        marketType: requireString(record, 'marketType', `${label}.marketType`),
+        minOrderValue: requireBigInt(record, 'minOrderValue', `${label}.minOrderValue`),
+        minRangeValue: requireBigInt(record, 'minRangeValue', `${label}.minRangeValue`),
+        minTickDelta: requireNumber(record, 'minTickDelta', `${label}.minTickDelta`),
+        minTradeValue: requireBigInt(record, 'minTradeValue', `${label}.minTradeValue`),
+        placePaused: requireBoolean(record, 'placePaused', `${label}.placePaused`),
+        quote: decodeTokenInfo(record.quote, `${label}.quote`),
+        setting: decodeSetting(record.setting, `${label}.setting`),
+        spotPrice: requireBigInt(record, 'spotPrice', `${label}.spotPrice`),
+        symbol: requireString(record, 'symbol', `${label}.symbol`),
     };
 }
 
@@ -304,13 +268,13 @@ function decodePortfolio(value: unknown, label: string): PortfolioFromApi {
 
 export function decodePortfolioList(value: unknown): FetchPortfolioListFromApiResponse {
     const label = 'portfolio list';
-    const normalized = normalizeBigIntFields(requireRecord(value, label), PORTFOLIO_BIG_INT_KEYS);
+    const record = requireRecord(value, label);
     return {
-        address: requireAddress(normalized, 'address', `${label}.address`),
-        instruments: requireArray(normalized.instruments, `${label}.instruments`).map((instrument, index) =>
+        address: requireAddress(record, 'address', `${label}.address`),
+        instruments: requireArray(record.instruments, `${label}.instruments`).map((instrument, index) =>
             decodeInstrument(instrument, `${label}.instruments[${index}]`)
         ),
-        portfolios: requireArray(normalized.portfolios, `${label}.portfolios`).map((portfolio, index) =>
+        portfolios: requireArray(record.portfolios, `${label}.portfolios`).map((portfolio, index) =>
             decodePortfolio(portfolio, `${label}.portfolios[${index}]`)
         ),
     };
@@ -318,34 +282,34 @@ export function decodePortfolioList(value: unknown): FetchPortfolioListFromApiRe
 
 export function decodePriceData(value: unknown): PriceDataFromApi {
     const label = 'price data';
-    const normalized = normalizeBigIntFields(requireRecord(value, label), PRICE_DATA_BIGINT_KEYS);
+    const record = requireRecord(value, label);
     return {
-        instrumentAddr: requireAddress(normalized, 'instrumentAddr', `${label}.instrumentAddr`),
-        expiry: requireNumber(normalized, 'expiry', `${label}.expiry`),
-        markPrice: requireBigInt(normalized, 'markPrice', `${label}.markPrice`),
-        spotPrice: requireBigInt(normalized, 'spotPrice', `${label}.spotPrice`),
-        benchmarkPrice: requireBigInt(normalized, 'benchmarkPrice', `${label}.benchmarkPrice`),
-        feeder0: requireAddress(normalized, 'feeder0', `${label}.feeder0`),
-        feeder1: requireAddress(normalized, 'feeder1', `${label}.feeder1`),
-        feeder0UpdatedAt: requireBigInt(normalized, 'feeder0UpdatedAt', `${label}.feeder0UpdatedAt`),
-        feeder1UpdatedAt: requireBigInt(normalized, 'feeder1UpdatedAt', `${label}.feeder1UpdatedAt`),
-        blockInfo: decodeBlockInfo(normalized.blockInfo, `${label}.blockInfo`),
+        instrumentAddr: requireAddress(record, 'instrumentAddr', `${label}.instrumentAddr`),
+        expiry: requireNumber(record, 'expiry', `${label}.expiry`),
+        markPrice: requireBigInt(record, 'markPrice', `${label}.markPrice`),
+        spotPrice: requireBigInt(record, 'spotPrice', `${label}.spotPrice`),
+        benchmarkPrice: requireBigInt(record, 'benchmarkPrice', `${label}.benchmarkPrice`),
+        feeder0: requireAddress(record, 'feeder0', `${label}.feeder0`),
+        feeder1: requireAddress(record, 'feeder1', `${label}.feeder1`),
+        feeder0UpdatedAt: requireBigInt(record, 'feeder0UpdatedAt', `${label}.feeder0UpdatedAt`),
+        feeder1UpdatedAt: requireBigInt(record, 'feeder1UpdatedAt', `${label}.feeder1UpdatedAt`),
+        blockInfo: decodeBlockInfo(record.blockInfo, `${label}.blockInfo`),
     };
 }
 
 export function decodeQuoteState(value: unknown): QuoteStateFromApi {
     const label = 'quote state';
-    const normalized = normalizeBigIntFields(requireRecord(value, label), QUOTE_STATE_BIGINT_KEYS);
-    const fundFlow = requireRecord(normalized.fundFlow, `${label}.fundFlow`);
-    const pending = requireRecord(normalized.pending, `${label}.pending`);
+    const record = requireRecord(value, label);
+    const fundFlow = requireRecord(record.fundFlow, `${label}.fundFlow`);
+    const pending = requireRecord(record.pending, `${label}.pending`);
     return {
-        address: requireAddress(normalized, 'address', `${label}.address`),
-        decimals: requireNumber(normalized, 'decimals', `${label}.decimals`),
-        symbol: requireString(normalized, 'symbol', `${label}.symbol`),
-        threshold: requireBigInt(normalized, 'threshold', `${label}.threshold`),
-        reserve: requireBigInt(normalized, 'reserve', `${label}.reserve`),
-        balance: requireBigInt(normalized, 'balance', `${label}.balance`),
-        allowance: requireBigInt(normalized, 'allowance', `${label}.allowance`),
+        address: requireAddress(record, 'address', `${label}.address`),
+        decimals: requireNumber(record, 'decimals', `${label}.decimals`),
+        symbol: requireString(record, 'symbol', `${label}.symbol`),
+        threshold: requireBigInt(record, 'threshold', `${label}.threshold`),
+        reserve: requireBigInt(record, 'reserve', `${label}.reserve`),
+        balance: requireBigInt(record, 'balance', `${label}.balance`),
+        allowance: requireBigInt(record, 'allowance', `${label}.allowance`),
         fundFlow: {
             totalIn: requireBigInt(fundFlow, 'totalIn', `${label}.fundFlow.totalIn`),
             totalOut: requireBigInt(fundFlow, 'totalOut', `${label}.fundFlow.totalOut`),
@@ -360,33 +324,33 @@ export function decodeQuoteState(value: unknown): QuoteStateFromApi {
 }
 
 export function decodeQuotation(value: unknown): QuotationFromApi {
-    const normalized = normalizeBigIntFields(requireRecord(value, 'quotation'), INQUIRE_BIGINT_KEYS);
+    const record = requireRecord(value, 'quotation');
     return {
-        benchmark: requireBigInt(normalized, 'benchmark'),
-        sqrtFairPX96: requireBigInt(normalized, 'sqrtFairPX96'),
-        tick: requireNumber(normalized, 'tick'),
-        mark: requireBigInt(normalized, 'mark'),
-        entryNotional: requireBigInt(normalized, 'entryNotional'),
-        fee: requireBigInt(normalized, 'fee'),
-        minAmount: requireBigInt(normalized, 'minAmount'),
-        sqrtPostFairPX96: requireBigInt(normalized, 'sqrtPostFairPX96'),
-        postTick: requireNumber(normalized, 'postTick'),
+        benchmark: requireBigInt(record, 'benchmark'),
+        sqrtFairPX96: requireBigInt(record, 'sqrtFairPX96'),
+        tick: requireNumber(record, 'tick'),
+        mark: requireBigInt(record, 'mark'),
+        entryNotional: requireBigInt(record, 'entryNotional'),
+        fee: requireBigInt(record, 'fee'),
+        minAmount: requireBigInt(record, 'minAmount'),
+        sqrtPostFairPX96: requireBigInt(record, 'sqrtPostFairPX96'),
+        postTick: requireNumber(record, 'postTick'),
     };
 }
 
 export function decodeQuotationWithSize(value: unknown): QuotationFromApi {
-    const normalized = normalizeBigIntFields(requireRecord(value, 'quotation'), INQUIRE_BY_TICK_BIGINT_KEYS);
+    const record = requireRecord(value, 'quotation');
     return {
-        benchmark: requireBigInt(normalized, 'benchmark'),
-        sqrtFairPX96: requireBigInt(normalized, 'sqrtFairPX96'),
-        tick: requireNumber(normalized, 'tick'),
-        mark: requireBigInt(normalized, 'mark'),
-        entryNotional: requireBigInt(normalized, 'entryNotional'),
-        fee: requireBigInt(normalized, 'fee'),
-        size: requireBigInt(normalized, 'size'),
-        minAmount: requireBigInt(normalized, 'minAmount'),
-        sqrtPostFairPX96: requireBigInt(normalized, 'sqrtPostFairPX96'),
-        postTick: requireNumber(normalized, 'postTick'),
+        benchmark: requireBigInt(record, 'benchmark'),
+        sqrtFairPX96: requireBigInt(record, 'sqrtFairPX96'),
+        tick: requireNumber(record, 'tick'),
+        mark: requireBigInt(record, 'mark'),
+        entryNotional: requireBigInt(record, 'entryNotional'),
+        fee: requireBigInt(record, 'fee'),
+        size: requireBigInt(record, 'size'),
+        minAmount: requireBigInt(record, 'minAmount'),
+        sqrtPostFairPX96: requireBigInt(record, 'sqrtPostFairPX96'),
+        postTick: requireNumber(record, 'postTick'),
     };
 }
 
@@ -408,25 +372,25 @@ export function decodeOrderBookSteps(value: unknown): IFuturesOrderBookAllSteps 
 }
 
 function decodeOrderBookEntry(value: unknown): OrderDataFromApi {
-    const normalized = normalizeBigIntFields(requireRecord(value, 'order book entry'), ORDER_DATA_BIGINT_KEYS);
+    const record = requireRecord(value, 'order book entry');
     return {
-        baseQuantity: requireBigInt(normalized, 'baseQuantity'),
-        baseSum: requireBigInt(normalized, 'baseSum'),
-        price: requireBigInt(normalized, 'price'),
-        quoteSize: requireBigInt(normalized, 'quoteSize'),
-        quoteSum: requireBigInt(normalized, 'quoteSum'),
-        tick: requireNumber(normalized, 'tick'),
+        baseQuantity: requireBigInt(record, 'baseQuantity'),
+        baseSum: requireBigInt(record, 'baseSum'),
+        price: requireBigInt(record, 'price'),
+        quoteSize: requireBigInt(record, 'quoteSize'),
+        quoteSum: requireBigInt(record, 'quoteSum'),
+        tick: requireNumber(record, 'tick'),
     };
 }
 
 export function decodeMmWalletBalance(value: unknown): FetchMmWalletBalanceResponse {
     const label = 'MM wallet balance';
-    const normalized = normalizeBigIntFields(requireRecord(value, label), ['pendingDuration']);
+    const record = requireRecord(value, label);
     return {
-        address: requireAddress(normalized, 'address', `${label}.address`),
-        portfolios: decodeMmWalletPortfolios(normalized.portfolios),
-        isBlacklisted: requireBoolean(normalized, 'isBlacklisted', `${label}.isBlacklisted`),
-        pendingDuration: requireBigInt(normalized, 'pendingDuration', `${label}.pendingDuration`),
+        address: requireAddress(record, 'address', `${label}.address`),
+        portfolios: decodeMmWalletPortfolios(record.portfolios),
+        isBlacklisted: requireBoolean(record, 'isBlacklisted', `${label}.isBlacklisted`),
+        pendingDuration: requireBigInt(record, 'pendingDuration', `${label}.pendingDuration`),
     };
 }
 
@@ -436,24 +400,24 @@ function decodeMmWalletPortfolios(value: unknown): MmWalletPortfolio[] {
 
 function decodeMmWalletPortfolio(value: unknown): MmWalletPortfolio {
     const label = 'MM wallet portfolio';
-    const normalized = normalizeBigIntFields(requireRecord(value, label), MM_WALLET_PORTFOLIO_BIGINT_KEYS);
+    const record = requireRecord(value, label);
     const portfolio: MmWalletPortfolio = {
-        quote: requireAddress(normalized, 'quote', `${label}.quote`),
-        decimals: requireNumber(normalized, 'decimals', `${label}.decimals`),
-        balance: requireBigInt(normalized, 'balance', `${label}.balance`),
-        pendingBalance: decodeMmPendingBalance(normalized.pendingBalance),
-        totalInBalance: requireBigInt(normalized, 'totalInBalance', `${label}.totalInBalance`),
-        totalOutBalance: requireBigInt(normalized, 'totalOutBalance', `${label}.totalOutBalance`),
-        reservedBalance: requireBigInt(normalized, 'reservedBalance', `${label}.reservedBalance`),
-        thresholdBalance: requireBigInt(normalized, 'thresholdBalance', `${label}.thresholdBalance`),
-        maxWithdrawable: requireBigInt(normalized, 'maxWithdrawable', `${label}.maxWithdrawable`),
-        symbol: requireString(normalized, 'symbol', `${label}.symbol`),
+        quote: requireAddress(record, 'quote', `${label}.quote`),
+        decimals: requireNumber(record, 'decimals', `${label}.decimals`),
+        balance: requireBigInt(record, 'balance', `${label}.balance`),
+        pendingBalance: decodeMmPendingBalance(record.pendingBalance),
+        totalInBalance: requireBigInt(record, 'totalInBalance', `${label}.totalInBalance`),
+        totalOutBalance: requireBigInt(record, 'totalOutBalance', `${label}.totalOutBalance`),
+        reservedBalance: requireBigInt(record, 'reservedBalance', `${label}.reservedBalance`),
+        thresholdBalance: requireBigInt(record, 'thresholdBalance', `${label}.thresholdBalance`),
+        maxWithdrawable: requireBigInt(record, 'maxWithdrawable', `${label}.maxWithdrawable`),
+        symbol: requireString(record, 'symbol', `${label}.symbol`),
     };
-    const imageUrl = optionalString(normalized, 'imageUrl', `${label}.imageUrl`);
+    const imageUrl = optionalString(record, 'imageUrl', `${label}.imageUrl`);
     if (imageUrl !== undefined) {
         portfolio.imageUrl = imageUrl;
     }
-    const currentPrice = optionalNumber(normalized, 'currentPrice', `${label}.currentPrice`);
+    const currentPrice = optionalNumber(record, 'currentPrice', `${label}.currentPrice`);
     if (currentPrice !== undefined) {
         portfolio.currentPrice = currentPrice;
     }
@@ -462,12 +426,12 @@ function decodeMmWalletPortfolio(value: unknown): MmWalletPortfolio {
 
 function decodeMmPendingBalance(value: unknown): MmPendingBalance {
     const label = 'MM pending balance';
-    const normalized = normalizeBigIntFields(requireRecord(value, label), MM_WALLET_PORTFOLIO_BIGINT_KEYS);
+    const record = requireRecord(value, label);
     return {
-        timestamp: requireNumber(normalized, 'timestamp', `${label}.timestamp`),
-        native: requireBoolean(normalized, 'native', `${label}.native`),
-        amount: requireBigInt(normalized, 'amount', `${label}.amount`),
-        exemption: requireBigInt(normalized, 'exemption', `${label}.exemption`),
+        timestamp: requireNumber(record, 'timestamp', `${label}.timestamp`),
+        native: requireBoolean(record, 'native', `${label}.native`),
+        amount: requireBigInt(record, 'amount', `${label}.amount`),
+        exemption: requireBigInt(record, 'exemption', `${label}.exemption`),
     };
 }
 
@@ -477,20 +441,20 @@ export function decodeMmPositionList(value: unknown): FetchMmPositionListRespons
 
 function decodeMmPosition(value: unknown): MmPositionFromApi {
     const label = 'MM position';
-    const normalized = normalizeBigIntFields(requireRecord(value, label), MM_POSITION_BIGINT_KEYS);
+    const record = requireRecord(value, label);
     return {
-        balance: requireBigInt(normalized, 'balance', `${label}.balance`),
-        size: requireBigInt(normalized, 'size', `${label}.size`),
-        entryNotional: requireBigInt(normalized, 'entryNotional', `${label}.entryNotional`),
-        entrySocialLossIndex: requireBigInt(normalized, 'entrySocialLossIndex', `${label}.entrySocialLossIndex`),
-        entryFundingIndex: requireBigInt(normalized, 'entryFundingIndex', `${label}.entryFundingIndex`),
-        side: requireNumber(normalized, 'side', `${label}.side`),
-        entryPrice: requireBigInt(normalized, 'entryPrice', `${label}.entryPrice`),
-        lastUpdateTime: requireNumber(normalized, 'lastUpdateTime', `${label}.lastUpdateTime`),
-        lastUpdateTxHash: requireString(normalized, 'lastUpdateTxHash', `${label}.lastUpdateTxHash`),
-        instrumentAddr: requireAddress(normalized, 'instrumentAddr', `${label}.instrumentAddr`),
-        expiry: requireNumber(normalized, 'expiry', `${label}.expiry`),
-        symbol: requireString(normalized, 'symbol', `${label}.symbol`),
+        balance: requireBigInt(record, 'balance', `${label}.balance`),
+        size: requireBigInt(record, 'size', `${label}.size`),
+        entryNotional: requireBigInt(record, 'entryNotional', `${label}.entryNotional`),
+        entrySocialLossIndex: requireBigInt(record, 'entrySocialLossIndex', `${label}.entrySocialLossIndex`),
+        entryFundingIndex: requireBigInt(record, 'entryFundingIndex', `${label}.entryFundingIndex`),
+        side: requireNumber(record, 'side', `${label}.side`),
+        entryPrice: requireBigInt(record, 'entryPrice', `${label}.entryPrice`),
+        lastUpdateTime: requireNumber(record, 'lastUpdateTime', `${label}.lastUpdateTime`),
+        lastUpdateTxHash: requireString(record, 'lastUpdateTxHash', `${label}.lastUpdateTxHash`),
+        instrumentAddr: requireAddress(record, 'instrumentAddr', `${label}.instrumentAddr`),
+        expiry: requireNumber(record, 'expiry', `${label}.expiry`),
+        symbol: requireString(record, 'symbol', `${label}.symbol`),
     };
 }
 
@@ -501,18 +465,18 @@ export function decodeGateBalances(value: unknown): FetchGateBalanceResponse {
 }
 
 function decodeGateBalance(value: unknown, label: string): GateBalanceInfoFromApi {
-    const normalized = normalizeBigIntFields(requireRecord(value, label), GATE_BALANCE_BIGINT_KEYS);
-    const pendingBalance = requireRecord(normalized.pendingBalance, `${label}.pendingBalance`);
+    const record = requireRecord(value, label);
+    const pendingBalance = requireRecord(record.pendingBalance, `${label}.pendingBalance`);
     return {
-        quote: requireAddress(normalized, 'quote', `${label}.quote`),
-        decimals: requireNumber(normalized, 'decimals', `${label}.decimals`),
-        balance: requireBigInt(normalized, 'balance', `${label}.balance`),
+        quote: requireAddress(record, 'quote', `${label}.quote`),
+        decimals: requireNumber(record, 'decimals', `${label}.decimals`),
+        balance: requireBigInt(record, 'balance', `${label}.balance`),
         pendingBalance: {
             amount: requireBigInt(pendingBalance, 'amount', `${label}.pendingBalance.amount`),
             exemption: requireBigInt(pendingBalance, 'exemption', `${label}.pendingBalance.exemption`),
         },
-        totalInBalance: requireBigInt(normalized, 'totalInBalance', `${label}.totalInBalance`),
-        totalOutBalance: requireBigInt(normalized, 'totalOutBalance', `${label}.totalOutBalance`),
+        totalInBalance: requireBigInt(record, 'totalInBalance', `${label}.totalInBalance`),
+        totalOutBalance: requireBigInt(record, 'totalOutBalance', `${label}.totalOutBalance`),
     };
 }
 
@@ -527,9 +491,9 @@ function decodeMinimalPearl(value: unknown, label: string): MinimalPearl {
 
 export function decodeDepthChartLiquidityDetails(value: unknown): ChartLiquidityDetailsFromApi {
     const label = 'depth chart liquidity details';
-    const normalized = normalizeBigIntFields(requireRecord(value, label), DEPTH_CHART_BIGINT_KEYS);
-    const amm = requireRecord(normalized.amm, `${label}.amm`);
-    const tick2Pearl = Object.entries(requireRecord(normalized.tick2Pearl, `${label}.tick2Pearl`)).reduce(
+    const record = requireRecord(value, label);
+    const amm = requireRecord(record.amm, `${label}.amm`);
+    const tick2Pearl = Object.entries(requireRecord(record.tick2Pearl, `${label}.tick2Pearl`)).reduce(
         (acc, [key, entry]) => {
             acc.set(
                 requireNumberValue(key, `${label}.tick2Pearl key`),
@@ -546,16 +510,16 @@ export function decodeDepthChartLiquidityDetails(value: unknown): ChartLiquidity
             sqrtPX96: requireBigInt(amm, 'sqrtPX96', `${label}.amm.sqrtPX96`),
             tick: requireNumber(amm, 'tick', `${label}.amm.tick`),
         },
-        blockInfo: decodeBlockInfo(normalized.blockInfo, `${label}.blockInfo`),
-        length: requireNumber(normalized, 'length', `${label}.length`),
-        pearls: requireArray(normalized.pearls, `${label}.pearls`).map((pearl, index) =>
+        blockInfo: decodeBlockInfo(record.blockInfo, `${label}.blockInfo`),
+        length: requireNumber(record, 'length', `${label}.length`),
+        pearls: requireArray(record.pearls, `${label}.pearls`).map((pearl, index) =>
             decodeMinimalPearl(pearl, `${label}.pearls[${index}]`)
         ),
-        size: requireNumber(normalized, 'size', `${label}.size`),
-        stepRatio: requireNumber(normalized, 'stepRatio', `${label}.stepRatio`),
+        size: requireNumber(record, 'size', `${label}.size`),
+        stepRatio: requireNumber(record, 'stepRatio', `${label}.stepRatio`),
         tick2Pearl,
-        tickDelta: requireNumber(normalized, 'tickDelta', `${label}.tickDelta`),
-        tids: requireArray(normalized.tids, `${label}.tids`).map((tid, index) =>
+        tickDelta: requireNumber(record, 'tickDelta', `${label}.tickDelta`),
+        tids: requireArray(record.tids, `${label}.tids`).map((tid, index) =>
             requireNumberValue(tid, `${label}.tids[${index}]`)
         ),
     };
@@ -568,33 +532,29 @@ export function decodeMmInstrumentInfoList(value: unknown): FetchMmInstrumentInf
 }
 
 function decodeMmInstrumentInfo(value: unknown, label: string): FetchMmInstrumentInfoItem {
-    const normalized = normalizeBigIntFields(requireRecord(value, label), MM_INSTRUMENT_INFO_BIGINT_KEYS);
-    const base = requireRecord(normalized.base, `${label}.base`);
-    const market = requireRecord(normalized.market, `${label}.market`);
+    const record = requireRecord(value, label);
+    const base = requireRecord(record.base, `${label}.base`);
+    const market = requireRecord(record.market, `${label}.market`);
     return {
         base: {
             symbol: requireString(base, 'symbol', `${label}.base.symbol`),
         },
-        disableMakerOrderRebate: requireBoolean(
-            normalized,
-            'disableMakerOrderRebate',
-            `${label}.disableMakerOrderRebate`
-        ),
-        fundingIntervalHour: requireNumber(normalized, 'fundingIntervalHour', `${label}.fundingIntervalHour`),
-        initialMarginRatio: requireNumber(normalized, 'initialMarginRatio', `${label}.initialMarginRatio`),
-        instrumentAddress: requireAddress(normalized, 'instrumentAddress', `${label}.instrumentAddress`),
-        instrumentCondition: requireString(normalized, 'instrumentCondition', `${label}.instrumentCondition`),
-        maintenanceMarginRatio: requireNumber(normalized, 'maintenanceMarginRatio', `${label}.maintenanceMarginRatio`),
+        disableMakerOrderRebate: requireBoolean(record, 'disableMakerOrderRebate', `${label}.disableMakerOrderRebate`),
+        fundingIntervalHour: requireNumber(record, 'fundingIntervalHour', `${label}.fundingIntervalHour`),
+        initialMarginRatio: requireNumber(record, 'initialMarginRatio', `${label}.initialMarginRatio`),
+        instrumentAddress: requireAddress(record, 'instrumentAddress', `${label}.instrumentAddress`),
+        instrumentCondition: requireString(record, 'instrumentCondition', `${label}.instrumentCondition`),
+        maintenanceMarginRatio: requireNumber(record, 'maintenanceMarginRatio', `${label}.maintenanceMarginRatio`),
         market: {
             address: requireAddress(market, 'address', `${label}.market.address`),
             type: requireString(market, 'type', `${label}.market.type`),
         },
-        minMarginAmount: requireBigInt(normalized, 'minMarginAmount', `${label}.minMarginAmount`),
-        protocolFeeRatio: requireNumber(normalized, 'protocolFeeRatio', `${label}.protocolFeeRatio`),
-        quote: decodeTokenInfo(normalized.quote, `${label}.quote`),
-        quoteType: requireString(normalized, 'quoteType', `${label}.quoteType`),
-        symbol: requireString(normalized, 'symbol', `${label}.symbol`),
-        tip: requireBigInt(normalized, 'tip', `${label}.tip`),
-        tradingFeeRatio: requireNumber(normalized, 'tradingFeeRatio', `${label}.tradingFeeRatio`),
+        minMarginAmount: requireBigInt(record, 'minMarginAmount', `${label}.minMarginAmount`),
+        protocolFeeRatio: requireNumber(record, 'protocolFeeRatio', `${label}.protocolFeeRatio`),
+        quote: decodeTokenInfo(record.quote, `${label}.quote`),
+        quoteType: requireString(record, 'quoteType', `${label}.quoteType`),
+        symbol: requireString(record, 'symbol', `${label}.symbol`),
+        tip: requireBigInt(record, 'tip', `${label}.tip`),
+        tradingFeeRatio: requireNumber(record, 'tradingFeeRatio', `${label}.tradingFeeRatio`),
     };
 }

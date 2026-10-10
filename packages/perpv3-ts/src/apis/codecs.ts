@@ -33,10 +33,18 @@ export function requireStringValue(value: unknown, label: string): string {
 
 export function requireAddress(record: UnknownRecord, key: string, label = key): Address {
     const value = requireString(record, key, label);
-    if (isAddress(value)) {
+    // Backend payloads are not guaranteed to use EIP-55 casing, so only the address format is checked.
+    if (isAddress(value, { strict: false })) {
         return value;
     }
     throw new Error(`Invalid ${label}: expected address`);
+}
+
+export function optionalAddress(record: UnknownRecord, key: string, label = key): Address | undefined {
+    if (record[key] === undefined) {
+        return undefined;
+    }
+    return requireAddress(record, key, label);
 }
 
 export function requireNumber(record: UnknownRecord, key: string, label = key): number {
@@ -44,16 +52,17 @@ export function requireNumber(record: UnknownRecord, key: string, label = key): 
 }
 
 export function requireNumberValue(value: unknown, label: string): number {
-    if (typeof value === 'number' && Number.isFinite(value)) {
-        return value;
-    }
-    if (typeof value === 'string' && value.trim() !== '') {
-        const parsed = Number(value);
-        if (Number.isFinite(parsed)) {
-            return parsed;
-        }
+    const parsed = parseOptionalNumber(value);
+    if (parsed !== undefined) {
+        return parsed;
     }
     throw new Error(`Invalid ${label}: expected number`);
+}
+
+/** Reads a finite number or a non-blank numeric string; anything else, including `''`, yields undefined. */
+export function parseOptionalNumber(value: unknown): number | undefined {
+    const parsed = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+    return typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : undefined;
 }
 
 export function requireBoolean(record: UnknownRecord, key: string, label = key): boolean {
@@ -64,15 +73,51 @@ export function requireBoolean(record: UnknownRecord, key: string, label = key):
     throw new Error(`Invalid ${label}: expected boolean`);
 }
 
-export function requireBigInt(record: UnknownRecord, key: string, label?: string): bigint {
-    const value = record[key];
-    if (typeof value === 'bigint') {
-        return value;
+export function requireBigInt(record: UnknownRecord, key: string, label = key): bigint {
+    return toBigIntValue(record[key], label);
+}
+
+/**
+ * Converts an API integer to bigint without losing precision. Accepts bigint, safe-integer numbers and
+ * integer strings, including exponent forms such as `1e18` whose value is a whole number.
+ */
+export function toBigIntValue(value: unknown, label = 'bigint'): bigint {
+    if (typeof value === 'bigint') return value;
+    if (typeof value === 'number') {
+        if (Number.isSafeInteger(value)) return BigInt(value);
+        throw new Error(`Invalid ${label}: expected safe integer`);
     }
-    if (label === undefined) {
-        throw new Error(`Missing required bigint field "${key}"`);
+    if (typeof value !== 'string' || !value.trim() || value.length > 1000) {
+        throw new Error(`Invalid ${label}: expected integer string`);
     }
-    throw new Error(`Invalid ${label}: expected bigint`);
+    const match = /^([+-]?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(value.trim());
+    if (!match) throw new Error(`Invalid ${label}: expected integer string`);
+    const [, sign, whole, fraction = '', power = '0'] = match;
+    const shift = Number(power) - fraction.length;
+    if (!Number.isSafeInteger(shift) || Math.abs(shift) > 1000)
+        throw new Error(`Invalid ${label}: exponent out of range`);
+    let digits = whole + fraction;
+    if (shift < 0) {
+        const retained = digits.length + shift;
+        if (/[1-9]/.test(digits.slice(Math.max(0, retained)))) throw new Error(`Invalid ${label}: fractional value`);
+        digits = retained > 0 ? digits.slice(0, retained) : '0';
+    } else {
+        digits += '0'.repeat(shift);
+    }
+    return BigInt(`${sign}${digits}`);
+}
+
+/** Accepts only declared members of a numeric enum; unknown backend values fail instead of being coerced. */
+export function requireEnumMember<T extends number>(
+    enumObject: Record<string, string | number>,
+    value: number,
+    label: string
+): T {
+    // Numeric enums map each member value back to its name.
+    if (typeof enumObject[value] === 'string') {
+        return value as T;
+    }
+    throw new Error(`Invalid ${label}: unsupported value ${value}`);
 }
 
 export function optionalString(record: UnknownRecord, key: string, label = key): string | undefined {

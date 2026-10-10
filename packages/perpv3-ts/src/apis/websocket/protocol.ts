@@ -1,4 +1,5 @@
 import type { Address } from 'viem';
+import { isRecord } from '../codecs';
 
 export type PublicWsStreamMetadata = {
     chainId?: number;
@@ -42,10 +43,6 @@ export type PublicWsRequestEnvelope = {
     method: PublicWsRequestMethod;
     params: Record<string, unknown>;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return !!value && typeof value === 'object' && !Array.isArray(value);
-}
 
 export function isPublicWsAckMessage(value: unknown): value is PublicWsAckMessage {
     if (!isRecord(value)) return false;

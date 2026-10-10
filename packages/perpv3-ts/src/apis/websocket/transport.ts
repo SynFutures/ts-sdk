@@ -1,3 +1,5 @@
+import { isRecord, parseOptionalNumber } from '../codecs';
+
 export type WebSocketFactory = (url: string, options?: { headers?: Record<string, string> }) => WebSocketLike;
 export type WebSocketCtor = new (
     url: string,
@@ -24,16 +26,6 @@ export const WS_READY_STATE = {
     CONNECTING: 0,
     OPEN: 1,
 } as const;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return !!value && typeof value === 'object' && !Array.isArray(value);
-}
-
-function normalizeOptionalNumber(value: unknown): number | undefined {
-    if (value === undefined || value === null) return undefined;
-    const num = typeof value === 'string' ? Number(value) : (value as number);
-    return Number.isFinite(num) ? num : undefined;
-}
 
 export function buildWebSocketHeaders(url: string, overrides?: Record<string, string>): Record<string, string> {
     const urlObj = new URL(url);
@@ -104,7 +96,7 @@ export function extractWebSocketMessageText(event: unknown): string | null {
 export function normalizeWebSocketCloseEvent(event: unknown): { code?: number; reason?: string } | undefined {
     if (!isRecord(event)) return undefined;
 
-    const code = normalizeOptionalNumber(event.code);
+    const code = parseOptionalNumber(event.code);
     const reason = typeof event.reason === 'string' ? event.reason : undefined;
 
     return {

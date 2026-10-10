@@ -1,8 +1,9 @@
 import {
     Condition,
     PairSnapshot,
+    QuoteType,
+    Status,
     type Setting,
-    type QuoteParam,
     type Amm,
     type PriceData,
     type Portfolio,
@@ -21,6 +22,8 @@ import {
     requireAddress,
     requireNumberValue,
     requireBoolean,
+    requireEnumMember,
+    toBigIntValue,
 } from './codecs';
 
 export type MinimalPearlTuple = readonly [bigint, bigint];
@@ -47,32 +50,6 @@ export function normalizeMinimalPearlTuple(value: unknown): MinimalPearlTuple | 
     return null;
 }
 
-export function toBigIntValue(value: unknown): bigint {
-    if (typeof value === 'bigint') return value;
-    if (typeof value === 'number') {
-        if (Number.isSafeInteger(value)) return BigInt(value);
-        throw new Error('Invalid bigint: expected safe integer');
-    }
-    if (typeof value !== 'string' || !value.trim() || value.length > 1000) {
-        throw new Error('Invalid bigint: expected integer string');
-    }
-    const text = value.trim();
-    const match = /^([+-]?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(text);
-    if (!match) throw new Error('Invalid bigint: expected integer string');
-    const [, sign, whole, fraction = '', power = '0'] = match;
-    const shift = Number(power) - fraction.length;
-    if (!Number.isSafeInteger(shift) || Math.abs(shift) > 1000) throw new Error('Invalid bigint exponent');
-    let digits = whole + fraction;
-    if (shift < 0) {
-        const retained = digits.length + shift;
-        if (/[1-9]/.test(digits.slice(Math.max(0, retained)))) throw new Error('Invalid bigint: fractional value');
-        digits = retained > 0 ? digits.slice(0, retained) : '0';
-    } else {
-        digits += '0'.repeat(shift);
-    }
-    return BigInt(`${sign}${digits}`);
-}
-
 function integer(value: unknown, label: string): number {
     const result = requireNumberValue(value, label);
     if (!Number.isSafeInteger(result)) throw new Error(`Invalid ${label}: expected safe integer`);
@@ -88,7 +65,7 @@ export function buildOnChainContextFromQuery(value: unknown): PairSnapshot {
     const setting = normalizeSettingFromQuery(data.Setting);
     return new PairSnapshot({
         setting,
-        condition: integer(data.Condition, 'Condition') as Condition,
+        condition: requireEnumMember<Condition>(Condition, integer(data.Condition, 'Condition'), 'Condition'),
         amm: normalizeAmmFromQuery(data.Amm),
         priceData: normalizePriceDataFromQuery(data.PriceData),
         spacing: normalizeSpacingFromQuery(data.Spacing),
@@ -122,7 +99,7 @@ function normalizeSettingFromQuery(value: unknown): Setting {
             minMarginAmount: toBigIntValue(param.MinMarginAmount),
             tradingFeeRatio: integer(param.TradingFeeRatio, 'TradingFeeRatio'),
             protocolFeeRatio: integer(param.ProtocolFeeRatio, 'ProtocolFeeRatio'),
-            qtype: integer(param.Qtype, 'Qtype') as QuoteParam['qtype'],
+            qtype: requireEnumMember<QuoteType>(QuoteType, integer(param.Qtype, 'Qtype'), 'Qtype'),
             tip: toBigIntValue(param.Tip),
         },
     };
@@ -133,7 +110,7 @@ function normalizeAmmFromQuery(value: unknown): Amm {
     return {
         expiry: integer(raw.Expiry, 'Expiry'),
         timestamp: integer(raw.Timestamp, 'Timestamp'),
-        status: integer(raw.Status, 'Status'),
+        status: requireEnumMember<Status>(Status, integer(raw.Status, 'Status'), 'Status'),
         tick: integer(raw.Tick, 'Tick'),
         sqrtPX96: toBigIntValue(raw.SqrtPX96),
         liquidity: toBigIntValue(raw.Liquidity),
@@ -191,7 +168,9 @@ function normalizePortfolioFromQuery(value: unknown): Portfolio {
         const { tickLower, tickUpper } = Range.unpackKey(rid);
         return normalizeRangeFromQuery(range, tickLower, tickUpper);
     });
-    const ordersTaken = optionalArray(raw.OrdersTaken, 'OrdersTaken').map(toBigIntValue);
+    const ordersTaken = optionalArray(raw.OrdersTaken, 'OrdersTaken').map((taken, index) =>
+        toBigIntValue(taken, `OrdersTaken[${index}]`)
+    );
     if (oids.length !== orders.length || rids.length !== ranges.length || ordersTaken.length !== orders.length)
         throw new Error('Portfolio array lengths do not match');
 

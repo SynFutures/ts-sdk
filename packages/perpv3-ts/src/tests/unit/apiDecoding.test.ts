@@ -12,7 +12,8 @@ import {
     decodeQuotationWithSize,
 } from '../../apis/decoders';
 import { getPerpInfo } from '../../info';
-import { buildOnChainContextFromQuery, toBigIntValue } from '../../apis/utils';
+import { toBigIntValue } from '../../apis/codecs';
+import { buildOnChainContextFromQuery } from '../../apis/utils';
 import fixture from '../fixtures/simulation-context.json';
 import { MarketModule } from '../../apis/market';
 import type { ApiSigner } from '../../apis/interfaces';
@@ -149,7 +150,7 @@ describe('API decoding', () => {
                 expiry: 1,
                 tick: 1,
             })
-        ).rejects.toThrow('Missing required bigint field "size"');
+        ).rejects.toThrow('Invalid size: expected integer string');
     });
 
     it('does not silently default missing inquire-by-notional size to zero', async () => {
@@ -163,7 +164,7 @@ describe('API decoding', () => {
                 notional: '100',
                 long: true,
             })
-        ).rejects.toThrow('Missing required bigint field "size"');
+        ).rejects.toThrow('Invalid size: expected integer string');
     });
 
     it('keeps explicit zero inquire size', async () => {
@@ -307,7 +308,7 @@ describe('API decoding', () => {
     });
 
     it('requires size for by-tick quotation decoding', () => {
-        expect(() => decodeQuotationWithSize(createInquirePayload())).toThrow('Missing required bigint field "size"');
+        expect(() => decodeQuotationWithSize(createInquirePayload())).toThrow('Invalid size: expected integer string');
     });
 
     it('decodes and sorts order book steps', () => {
