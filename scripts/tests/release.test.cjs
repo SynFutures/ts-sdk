@@ -58,7 +58,7 @@ function fixture(t) {
         TMPDIR: process.env.TMPDIR,
         HOME: cwd,
         CI: 'true',
-        pnpm_config_userconfig: '/dev/null',
+        pnpm_config_npmrc_auth_file: '/dev/null',
         pnpm_config_offline: 'true',
         pnpm_config_ignore_scripts: 'true',
         pnpm_config_verify_deps_before_run: 'false',

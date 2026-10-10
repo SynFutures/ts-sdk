@@ -37,7 +37,7 @@ jobs:
               run: node scripts/configure-registry.cjs
             - name: Install Dependencies
               env:
-                  PNPM_CONFIG_USERCONFIG: ${{ runner.temp }}/perpv3-registry.npmrc
+                  PNPM_CONFIG_NPMRC_AUTH_FILE: ${{ runner.temp }}/perpv3-registry.npmrc
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
               run: pnpm install --frozen-lockfile
             - name: Check Formatting

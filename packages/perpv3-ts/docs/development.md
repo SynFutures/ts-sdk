@@ -136,9 +136,10 @@ Changesets 3 and `changesets/action@v2` share the root release commands:
 The workflow uses the v2 inputs `version-script`, `publish-script` and `github-token`.
 Workflows use `scripts/configure-registry.cjs` to create a temporary npm
 config preserving both private registry scopes (`@synfutures` and
-`@derivation-tech`). Its token is supplied through `NODE_AUTH_TOKEN` only to the
-install, release and dependency-report steps, because installing the private contract artifacts also
-requires authentication. Verification steps do not receive the registry token.
+`@derivation-tech`). pnpm reads it through `PNPM_CONFIG_NPMRC_AUTH_FILE`. Its token is
+supplied through `NODE_AUTH_TOKEN` only to the install and release steps, because installing
+the private contract artifacts also requires authentication. Verification steps do not
+receive the registry token.
 
 Changesets 3 skips private-package versioning by default and defaults peer-dependent
 bumps to patch. Describe incompatible public changes with an explicit changeset;
@@ -155,27 +156,18 @@ the checkout's pending changesets or publish packages. Both CI workflows run the
 The pnpm 12 workspace keeps overrides and dependency build permissions in
 `pnpm-workspace.yaml`. Platform binaries are installed through optional dependencies;
 package build hooks are explicitly disabled for Anvil, esbuild, unrs-resolver and
-Parcel's watcher. Use `pnpm_config_*` for pnpm settings. The release step also keeps
+Parcel's watcher. Use `pnpm_config_*` for pnpm settings. The publish step also sets
 `NPM_CONFIG_USERCONFIG` for tools that invoke npm. The local viem-kit publication
 guard reads the effective pnpm override, so moving configuration cannot bypass it.
 
-Installs are explicit (`verifyDepsBeforeRun: false`): lint, tests and builds must not
-start a dependency installation after CI has removed registry credentials. The
+Installs are explicit. `verifyDepsBeforeRun: error` makes lint, tests and builds fail
+when `node_modules` does not match the lockfile, instead of starting an installation
+after CI has removed registry credentials. Run `pnpm install` again after changing
+dependencies or the local viem-kit override. The
 release-age exceptions are pinned to the reviewed Prettier and ts-jest versions,
 not entire package families.
 
 ## Dependency updates
-
-Run `pnpm run deps:outdated` with the same private registry configuration as installation.
-The dependency-report workflow runs weekly and on manual dispatch, writing candidates
-into the Actions job summary. It reads registry and official Node release metadata;
-it does not install dependencies, run package hooks or create update PRs.
-`pnpm outdated --recursive --include-github-actions` covers workspace packages and
-workflow actions. The report separately includes the pinned package manager, pnpm
-registry tags, `.nvmrc`, the latest patch in that Node major and current/LTS releases.
-Updates do not fail the job; malformed reports and registry/network errors do.
-Registry tags may lag a pinned release and must not trigger automatic downgrades.
-The schedule becomes active only after this workflow reaches the default branch.
 
 Review major upgrades against these current compatibility constraints:
 
