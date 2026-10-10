@@ -1,4 +1,5 @@
-import type { Address, Hex } from 'viem';
+import { encodeFunctionData, type Address, type Hex } from 'viem';
+import { CURRENT_GELATO_RELAY_ROUTER_ABI, CURRENT_INSTRUMENT_ABI } from '../../abis';
 import {
     Errors,
     ErrorCode,
@@ -22,18 +23,13 @@ import {
     encodeRemoveParam,
     encodeTradeParam,
 } from '../../utils/encode';
-import {
-    INSTRUMENT_OPERATION_METADATA,
-    type InstrumentOperationCallMetadata,
-    type InstrumentOperationForCallMetadata,
-} from '../../operations/instrument';
-import { encodeInstrumentCall, encodeRouterCall } from './requests';
-import { assertNever, requireAddress } from './shared';
+import { requireAddress } from './shared';
 import type {
     AddLiquidityEncodingOptions,
     AddLiquidityEncodingParam,
     AdjustMarginEncodingOptions,
     AdjustMarginEncodingParam,
+    BaseEncodingOptions,
     BatchPlaceScaledLimitOrderEncodingOptions,
     BatchPlaceScaledLimitOrderEncodingParam,
     CancelOrderEncodingOptions,
@@ -51,24 +47,6 @@ import type {
     TransactionParam,
 } from './types';
 
-type RouterBatchOperation = {
-    routerBatch: {
-        functionName: 'batchMulticall';
-    };
-};
-type TupleCallFunctionName = 'trade' | 'place' | 'add' | 'remove' | 'batchPlace';
-type TupleCallArgs<TFunctionName extends TupleCallFunctionName> = TFunctionName extends 'batchPlace'
-    ? readonly [Hex, Hex, Hex]
-    : readonly [Hex, Hex];
-type TraderThenParamForCallFunctionName = 'tradeFor' | 'placeFor' | 'cancelFor' | 'batchPlaceFor' | 'addFor';
-type TraderThenParamForCallArgs<TFunctionName extends TraderThenParamForCallFunctionName> =
-    TFunctionName extends 'batchPlaceFor'
-        ? readonly [Hex, Hex, Hex]
-        : TFunctionName extends 'cancelFor'
-          ? Hex
-          : readonly [Hex, Hex];
-type DirectPackedArgFunctionName = 'fill' | 'cancel';
-
 function toTransactionParam(to: Address, data: Hex): TransactionParam {
     return {
         to,
@@ -77,115 +55,15 @@ function toTransactionParam(to: Address, data: Hex): TransactionParam {
     };
 }
 
-function encodeDirectTupleTransaction<const TFunctionName extends TupleCallFunctionName>(
-    instrumentAddress: Address,
-    call: InstrumentOperationCallMetadata<TFunctionName>,
-    txArgs: TupleCallArgs<TFunctionName>
-): TransactionParam {
-    return toTransactionParam(instrumentAddress, encodeDirectTupleCallData(instrumentAddress, call, txArgs));
-}
-
-function encodeDirectTupleCallData<const TFunctionName extends TupleCallFunctionName>(
-    instrumentAddress: Address,
-    call: InstrumentOperationCallMetadata<TFunctionName>,
-    txArgs: TupleCallArgs<TFunctionName>
-): Hex {
-    switch (call.functionName) {
-        case 'trade':
-            return encodeInstrumentCall(instrumentAddress, 'trade', [readHexTuple2(txArgs)]);
-        case 'place':
-            return encodeInstrumentCall(instrumentAddress, 'place', [readHexTuple2(txArgs)]);
-        case 'add':
-            return encodeInstrumentCall(instrumentAddress, 'add', [readHexTuple2(txArgs)]);
-        case 'remove':
-            return encodeInstrumentCall(instrumentAddress, 'remove', [readHexTuple2(txArgs)]);
-        case 'batchPlace':
-            return encodeInstrumentCall(instrumentAddress, 'batchPlace', [readHexTuple3(txArgs)]);
-        default:
-            return assertNever(call.functionName, 'instrument function');
-    }
-}
-
-function encodeDirectPackedArgTransaction<const TFunctionName extends DirectPackedArgFunctionName>(
-    instrumentAddress: Address,
-    call: InstrumentOperationCallMetadata<TFunctionName>,
-    txArg: Hex
-): TransactionParam {
-    return toTransactionParam(instrumentAddress, encodeDirectPackedArgCallData(instrumentAddress, call, txArg));
-}
-
-function encodeDirectPackedArgCallData<const TFunctionName extends DirectPackedArgFunctionName>(
-    instrumentAddress: Address,
-    call: InstrumentOperationCallMetadata<TFunctionName>,
-    txArg: Hex
-): Hex {
-    switch (call.functionName) {
-        case 'fill':
-            return encodeInstrumentCall(instrumentAddress, 'fill', [txArg]);
-        case 'cancel':
-            return encodeInstrumentCall(instrumentAddress, 'cancel', [txArg]);
-        default:
-            return assertNever(call.functionName, 'instrument function');
-    }
-}
-
-function encodeTraderThenParamForCall<const TFunctionName extends TraderThenParamForCallFunctionName>(
-    instrumentAddress: Address,
-    call: InstrumentOperationForCallMetadata<TFunctionName>,
-    traderAddress: Address,
-    txArgs: TraderThenParamForCallArgs<TFunctionName>
-): Hex {
-    switch (call.functionName) {
-        case 'tradeFor':
-            return encodeInstrumentCall(instrumentAddress, 'tradeFor', [traderAddress, readHexTuple2(txArgs)]);
-        case 'placeFor':
-            return encodeInstrumentCall(instrumentAddress, 'placeFor', [traderAddress, readHexTuple2(txArgs)]);
-        case 'cancelFor':
-            return encodeInstrumentCall(instrumentAddress, 'cancelFor', [traderAddress, readHexArg(txArgs)]);
-        case 'batchPlaceFor':
-            return encodeInstrumentCall(instrumentAddress, 'batchPlaceFor', [traderAddress, readHexTuple3(txArgs)]);
-        case 'addFor':
-            return encodeInstrumentCall(instrumentAddress, 'addFor', [traderAddress, readHexTuple2(txArgs)]);
-        default:
-            return assertNever(call.functionName, 'instrument function');
-    }
-}
-
-function encodeParamOnlyForCall(
-    instrumentAddress: Address,
-    call: InstrumentOperationForCallMetadata<'removeFor'>,
-    txArgs: readonly [Hex, Hex]
-): Hex {
-    return encodeInstrumentCall(instrumentAddress, call.functionName, [txArgs]);
-}
-
-function readHexTuple2(value: readonly Hex[] | Hex): readonly [Hex, Hex] {
-    if (!Array.isArray(value) || value.length !== 2) {
-        throw Errors.encoding('expected two packed calldata args', { value });
-    }
-
-    return [value[0], value[1]];
-}
-
-function readHexTuple3(value: readonly Hex[] | Hex): readonly [Hex, Hex, Hex] {
-    if (!Array.isArray(value) || value.length !== 3) {
-        throw Errors.encoding('expected three packed calldata args', { value });
-    }
-
-    return [value[0], value[1], value[2]];
-}
-
-function readHexArg(value: readonly Hex[] | Hex): Hex {
-    if (typeof value !== 'string') {
-        throw Errors.encoding('expected one packed calldata arg', { value });
-    }
-
-    return value;
+function encodeInstrumentMulticall(instrumentAddress: Address, callDatas: readonly Hex[]): TransactionParam {
+    return toTransactionParam(
+        instrumentAddress,
+        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'multicall', args: [callDatas] })
+    );
 }
 
 function encodeRouterBatchTransaction(
     routerAddress: Address,
-    operation: RouterBatchOperation,
     subAccountAddress: Address,
     traderAddress: Address,
     instrumentAddresses: readonly Address[],
@@ -193,39 +71,38 @@ function encodeRouterBatchTransaction(
 ): TransactionParam {
     return toTransactionParam(
         routerAddress,
-        encodeRouterCall(routerAddress, operation.routerBatch.functionName, [
-            subAccountAddress,
-            traderAddress,
-            instrumentAddresses,
-            callDatas,
-            false,
-        ])
+        encodeFunctionData({
+            abi: CURRENT_GELATO_RELAY_ROUTER_ABI,
+            functionName: 'batchMulticall',
+            args: [subAccountAddress, traderAddress, instrumentAddresses, callDatas, false],
+        })
     );
 }
 
-function encodeSingleInstrumentRouterBatchTransaction(
-    routerAddress: Address,
-    operation: RouterBatchOperation,
-    subAccountAddress: Address,
-    traderAddress: Address,
+/** Sends a `*For` instrument call directly, or through the router when a sub-account and router are configured. */
+function encodeForCallTransaction(
     instrumentAddress: Address,
-    callData: Hex
+    traderAddress: Address,
+    calldata: Hex,
+    { subAccountAddress, routerAddress }: BaseEncodingOptions
 ): TransactionParam {
-    return encodeRouterBatchTransaction(
-        routerAddress,
-        operation,
-        subAccountAddress,
-        traderAddress,
-        [instrumentAddress],
-        [callData]
-    );
+    if (subAccountAddress && routerAddress) {
+        return encodeRouterBatchTransaction(
+            routerAddress,
+            subAccountAddress,
+            traderAddress,
+            [instrumentAddress],
+            [calldata]
+        );
+    }
+
+    return toTransactionParam(instrumentAddress, calldata);
 }
 
 export function encodeMarketOrderTransaction(
     param: MarketOrderEncodingParam,
     options?: MarketOrderEncodingOptions
 ): TransactionParam {
-    const { useTradeFor = false, subAccountAddress, routerAddress } = options || {};
     const sideSign = param.side === Side.LONG ? 1n : -1n;
     const signedSize = param.baseQuantity * sideSign;
     const deadline = param.userSetting.getDeadline();
@@ -237,39 +114,27 @@ export function encodeMarketOrderTransaction(
         deadline,
     };
     const txArgs = encodeTradeParam(tradeParam);
-    const operation = INSTRUMENT_OPERATION_METADATA.marketOrder.write;
 
-    if (useTradeFor) {
-        const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for tradeFor');
-        const calldata = encodeTraderThenParamForCall(
-            param.instrumentAddress,
-            operation.forCall,
-            traderAddress,
-            txArgs
-        );
-
-        if (subAccountAddress && routerAddress) {
-            return encodeSingleInstrumentRouterBatchTransaction(
-                routerAddress,
-                operation,
-                subAccountAddress,
-                traderAddress,
-                param.instrumentAddress,
-                calldata
-            );
-        }
-
-        return toTransactionParam(param.instrumentAddress, calldata);
+    if (options?.useTradeFor) {
+        const traderAddress = requireAddress(options.traderAddress, 'traderAddress for tradeFor');
+        const calldata = encodeFunctionData({
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'tradeFor',
+            args: [traderAddress, txArgs],
+        });
+        return encodeForCallTransaction(param.instrumentAddress, traderAddress, calldata, options);
     }
 
-    return encodeDirectTupleTransaction(param.instrumentAddress, operation.direct, txArgs);
+    return toTransactionParam(
+        param.instrumentAddress,
+        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'trade', args: [txArgs] })
+    );
 }
 
 export function encodeLimitOrderTransaction(
     param: LimitOrderEncodingParam,
     options?: LimitOrderEncodingOptions
 ): TransactionParam {
-    const { usePlaceFor = false } = options || {};
     const sideSign = param.side === Side.LONG ? 1n : -1n;
     const signedSize = param.baseQuantity * sideSign;
     const deadline = param.userSetting.getDeadline();
@@ -281,21 +146,19 @@ export function encodeLimitOrderTransaction(
         deadline,
     };
     const txArgs = encodePlaceParam(placeParam);
-    const operation = INSTRUMENT_OPERATION_METADATA.limitOrder.write;
 
-    if (usePlaceFor) {
-        const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for placeFor');
-        const calldata = encodeTraderThenParamForCall(
+    if (options?.usePlaceFor) {
+        const traderAddress = requireAddress(options.traderAddress, 'traderAddress for placeFor');
+        return toTransactionParam(
             param.instrumentAddress,
-            operation.forCall,
-            traderAddress,
-            txArgs
+            encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'placeFor', args: [traderAddress, txArgs] })
         );
-
-        return toTransactionParam(param.instrumentAddress, calldata);
     }
 
-    return encodeDirectTupleTransaction(param.instrumentAddress, operation.direct, txArgs);
+    return toTransactionParam(
+        param.instrumentAddress,
+        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'place', args: [txArgs] })
+    );
 }
 
 export function encodeCancelOrderTransaction(
@@ -311,30 +174,24 @@ export function encodeCancelOrderTransaction(
     if (!Number.isInteger(maxCancelCount) || maxCancelCount < 1 || maxCancelCount > MAX_CANCEL_ORDER_COUNT) {
         throw Errors.encoding(`maxCancelCount must be an integer between 1 and ${MAX_CANCEL_ORDER_COUNT}`);
     }
-    const operation = INSTRUMENT_OPERATION_METADATA.cancelOrder.write;
-    const needBatch = param.ticks.length > maxCancelCount;
-
-    if (!needBatch) {
-        const deadline = param.userSetting.getDeadline();
-        const txArgs = encodeCancelParam({
-            expiry: param.expiry,
-            ticks: param.ticks,
-            deadline,
+    const deadline = param.userSetting.getDeadline();
+    const encodeCancel = (ticks: number[]) => encodeCancelParam({ expiry: param.expiry, ticks, deadline });
+    const encodeCancelFor = (traderAddress: Address, ticks: number[]) =>
+        encodeFunctionData({
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'cancelFor',
+            args: [traderAddress, encodeCancel(ticks)],
         });
+    const encodeDirectCancel = (ticks: number[]) =>
+        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'cancel', args: [encodeCancel(ticks)] });
 
+    if (param.ticks.length <= maxCancelCount) {
         if (useCancelFor) {
             const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for cancelFor');
-            const calldata = encodeTraderThenParamForCall(
-                param.instrumentAddress,
-                operation.forCall,
-                traderAddress,
-                txArgs
-            );
-
-            return toTransactionParam(param.instrumentAddress, calldata);
+            return toTransactionParam(param.instrumentAddress, encodeCancelFor(traderAddress, param.ticks));
         }
 
-        return encodeDirectPackedArgTransaction(param.instrumentAddress, operation.direct, txArgs);
+        return toTransactionParam(param.instrumentAddress, encodeDirectCancel(param.ticks));
     }
 
     const tickGroups: number[][] = [];
@@ -343,26 +200,7 @@ export function encodeCancelOrderTransaction(
     }
 
     if (!useCancelFor) {
-        const deadline = param.userSetting.getDeadline();
-        const callDatas: Hex[] = tickGroups.map((ticks) => {
-            const txArgs = encodeCancelParam({
-                expiry: param.expiry,
-                ticks,
-                deadline,
-            });
-
-            return encodeDirectPackedArgCallData(param.instrumentAddress, operation.direct, txArgs);
-        });
-
-        const multicallData = encodeInstrumentCall(param.instrumentAddress, operation.multicall.functionName, [
-            callDatas,
-        ]);
-
-        return {
-            to: param.instrumentAddress,
-            data: multicallData,
-            value: 0n,
-        };
+        return encodeInstrumentMulticall(param.instrumentAddress, tickGroups.map(encodeDirectCancel));
     }
 
     if (!subAccountAddress || !routerAddress) {
@@ -373,24 +211,12 @@ export function encodeCancelOrderTransaction(
         );
     }
     const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for cancelFor');
-    const deadline = param.userSetting.getDeadline();
-    const callDatas: Hex[] = tickGroups.map((ticks) => {
-        const txArgs = encodeCancelParam({
-            expiry: param.expiry,
-            ticks,
-            deadline,
-        });
-
-        return encodeTraderThenParamForCall(param.instrumentAddress, operation.forCall, traderAddress, txArgs);
-    });
-    const instrumentAddrs = tickGroups.map(() => param.instrumentAddress);
     return encodeRouterBatchTransaction(
         routerAddress,
-        operation,
         subAccountAddress,
         traderAddress,
-        instrumentAddrs,
-        callDatas
+        tickGroups.map(() => param.instrumentAddress),
+        tickGroups.map((ticks) => encodeCancelFor(traderAddress, ticks))
     );
 }
 
@@ -398,7 +224,6 @@ export function encodeAdjustMarginTransaction(
     param: AdjustMarginEncodingParam,
     options?: AdjustMarginEncodingOptions
 ): TransactionParam {
-    const { useAdjustFor = false, subAccountAddress, routerAddress } = options || {};
     const sideSign = param.transferIn ? 1n : -1n;
     const deadline = param.userSetting.getDeadline();
     const adjustParam: AdjustParam = {
@@ -407,39 +232,27 @@ export function encodeAdjustMarginTransaction(
         deadline,
     };
     const txArgs = encodeAdjustParam(adjustParam);
-    const operation = INSTRUMENT_OPERATION_METADATA.adjustMargin.write;
 
-    if (useAdjustFor) {
-        const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for adjustFor');
-        const tradeForData = encodeTraderThenParamForCall(
-            param.instrumentAddress,
-            operation.forCall,
-            traderAddress,
-            txArgs
-        );
-
-        if (subAccountAddress && routerAddress) {
-            return encodeSingleInstrumentRouterBatchTransaction(
-                routerAddress,
-                operation,
-                subAccountAddress,
-                traderAddress,
-                param.instrumentAddress,
-                tradeForData
-            );
-        }
-
-        return toTransactionParam(param.instrumentAddress, tradeForData);
+    if (options?.useAdjustFor) {
+        const traderAddress = requireAddress(options.traderAddress, 'traderAddress for adjustFor');
+        const calldata = encodeFunctionData({
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'tradeFor',
+            args: [traderAddress, txArgs],
+        });
+        return encodeForCallTransaction(param.instrumentAddress, traderAddress, calldata, options);
     }
 
-    return encodeDirectTupleTransaction(param.instrumentAddress, operation.direct, txArgs);
+    return toTransactionParam(
+        param.instrumentAddress,
+        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'trade', args: [txArgs] })
+    );
 }
 
 export function encodeBatchPlaceScaledLimitOrderTransaction(
     param: BatchPlaceScaledLimitOrderEncodingParam,
     options?: BatchPlaceScaledLimitOrderEncodingOptions
 ): TransactionParam {
-    const { usePlaceFor = false, subAccountAddress, routerAddress } = options || {};
     const sideSign = param.side === Side.LONG ? 1n : -1n;
     const signedTotalSize = param.baseQuantity * sideSign;
     const deadline = param.userSetting.getDeadline();
@@ -459,32 +272,21 @@ export function encodeBatchPlaceScaledLimitOrderTransaction(
         ratios: batchPlaceParam.ratios,
         deadline: batchPlaceParam.deadline,
     });
-    const operation = INSTRUMENT_OPERATION_METADATA.batchPlaceScaledLimitOrder.write;
 
-    if (usePlaceFor) {
-        const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for batchPlaceFor');
-        const calldata = encodeTraderThenParamForCall(
-            param.instrumentAddress,
-            operation.forCall,
-            traderAddress,
-            txArgs
-        );
-
-        if (subAccountAddress && routerAddress) {
-            return encodeSingleInstrumentRouterBatchTransaction(
-                routerAddress,
-                operation,
-                subAccountAddress,
-                traderAddress,
-                param.instrumentAddress,
-                calldata
-            );
-        }
-
-        return toTransactionParam(param.instrumentAddress, calldata);
+    if (options?.usePlaceFor) {
+        const traderAddress = requireAddress(options.traderAddress, 'traderAddress for batchPlaceFor');
+        const calldata = encodeFunctionData({
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'batchPlaceFor',
+            args: [traderAddress, txArgs],
+        });
+        return encodeForCallTransaction(param.instrumentAddress, traderAddress, calldata, options);
     }
 
-    return encodeDirectTupleTransaction(param.instrumentAddress, operation.direct, txArgs);
+    return toTransactionParam(
+        param.instrumentAddress,
+        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'batchPlace', args: [txArgs] })
+    );
 }
 
 export function encodeCrossLimitOrderTransaction(
@@ -492,7 +294,6 @@ export function encodeCrossLimitOrderTransaction(
     options?: CrossLimitOrderEncodingOptions
 ): TransactionParam {
     const { useFor = false, subAccountAddress, routerAddress } = options || {};
-    const operation = INSTRUMENT_OPERATION_METADATA.crossLimitOrder.write;
     const sideSign = param.side === Side.LONG ? 1n : -1n;
     const signedTradeSize = param.tradeSize * sideSign;
     const signedOrderSize = param.orderSize * sideSign;
@@ -514,45 +315,36 @@ export function encodeCrossLimitOrderTransaction(
 
     if (useFor) {
         const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for crossLimit useFor');
-        const callDatas: Hex[] = [
-            encodeTraderThenParamForCall(param.instrumentAddress, operation.trade.forCall, traderAddress, tradeArgs),
-            encodeTraderThenParamForCall(param.instrumentAddress, operation.place.forCall, traderAddress, placeArgs),
+        const callDatas = [
+            encodeFunctionData({
+                abi: CURRENT_INSTRUMENT_ABI,
+                functionName: 'tradeFor',
+                args: [traderAddress, tradeArgs],
+            }),
+            encodeFunctionData({
+                abi: CURRENT_INSTRUMENT_ABI,
+                functionName: 'placeFor',
+                args: [traderAddress, placeArgs],
+            }),
         ];
 
         if (subAccountAddress && routerAddress) {
-            const instrumentAddrs = [param.instrumentAddress, param.instrumentAddress];
             return encodeRouterBatchTransaction(
                 routerAddress,
-                operation,
                 subAccountAddress,
                 traderAddress,
-                instrumentAddrs,
+                [param.instrumentAddress, param.instrumentAddress],
                 callDatas
             );
         }
 
-        const multicallData = encodeInstrumentCall(param.instrumentAddress, operation.multicall.functionName, [
-            callDatas,
-        ]);
-
-        return {
-            to: param.instrumentAddress,
-            data: multicallData,
-            value: 0n,
-        };
+        return encodeInstrumentMulticall(param.instrumentAddress, callDatas);
     }
 
-    const callDatas: Hex[] = [
-        encodeDirectTupleCallData(param.instrumentAddress, operation.trade.direct, tradeArgs),
-        encodeDirectTupleCallData(param.instrumentAddress, operation.place.direct, placeArgs),
-    ];
-    const multicallData = encodeInstrumentCall(param.instrumentAddress, operation.multicall.functionName, [callDatas]);
-
-    return {
-        to: param.instrumentAddress,
-        data: multicallData,
-        value: 0n,
-    };
+    return encodeInstrumentMulticall(param.instrumentAddress, [
+        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'trade', args: [tradeArgs] }),
+        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'place', args: [placeArgs] }),
+    ]);
 }
 
 export function encodeFillLimitOrderTransaction(param: FillLimitOrderEncodingParam): TransactionParam {
@@ -562,16 +354,16 @@ export function encodeFillLimitOrderTransaction(param: FillLimitOrderEncodingPar
         tick: param.tick,
         target: param.target,
     };
-    const txArgs = encodeFillParam(fillParam);
-    const operation = INSTRUMENT_OPERATION_METADATA.fillLimitOrder.write;
-    return encodeDirectPackedArgTransaction(param.instrumentAddress, operation.direct, txArgs);
+    return toTransactionParam(
+        param.instrumentAddress,
+        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'fill', args: [encodeFillParam(fillParam)] })
+    );
 }
 
 export function encodeAddLiquidityTransaction(
     param: AddLiquidityEncodingParam,
     options: AddLiquidityEncodingOptions = {}
 ): TransactionParam {
-    const { useAddFor = false, subAccountAddress, routerAddress } = options;
     const deadline = param.userSetting.getDeadline();
     const addParam: AddParam = {
         expiry: param.expiry,
@@ -582,39 +374,27 @@ export function encodeAddLiquidityTransaction(
         deadline,
     };
     const txArgs = encodeAddParam(addParam);
-    const operation = INSTRUMENT_OPERATION_METADATA.addLiquidity.write;
 
-    if (useAddFor) {
-        const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for addFor');
-        const addForCalldata = encodeTraderThenParamForCall(
-            param.instrumentAddress,
-            operation.forCall,
-            traderAddress,
-            txArgs
-        );
-
-        if (subAccountAddress && routerAddress) {
-            return encodeSingleInstrumentRouterBatchTransaction(
-                routerAddress,
-                operation,
-                subAccountAddress,
-                traderAddress,
-                param.instrumentAddress,
-                addForCalldata
-            );
-        }
-
-        return toTransactionParam(param.instrumentAddress, addForCalldata);
+    if (options.useAddFor) {
+        const traderAddress = requireAddress(options.traderAddress, 'traderAddress for addFor');
+        const calldata = encodeFunctionData({
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'addFor',
+            args: [traderAddress, txArgs],
+        });
+        return encodeForCallTransaction(param.instrumentAddress, traderAddress, calldata, options);
     }
 
-    return encodeDirectTupleTransaction(param.instrumentAddress, operation.direct, txArgs);
+    return toTransactionParam(
+        param.instrumentAddress,
+        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'add', args: [txArgs] })
+    );
 }
 
 export function encodeRemoveLiquidityTransaction(
     param: RemoveLiquidityEncodingParam,
     options: RemoveLiquidityEncodingOptions = {}
 ): TransactionParam {
-    const { useRemoveFor = false, subAccountAddress, routerAddress } = options;
     const deadline = param.userSetting.getDeadline();
     const removeParam: RemoveParam = {
         expiry: param.expiry,
@@ -625,38 +405,26 @@ export function encodeRemoveLiquidityTransaction(
         deadline,
     };
     const txArgs = encodeRemoveParam(removeParam);
-    const operation = INSTRUMENT_OPERATION_METADATA.removeLiquidity.write;
 
-    if (useRemoveFor) {
-        const removeForCalldata = encodeParamOnlyForCall(param.instrumentAddress, operation.forCall, txArgs);
-
-        if (subAccountAddress && routerAddress) {
-            return encodeSingleInstrumentRouterBatchTransaction(
-                routerAddress,
-                operation,
-                subAccountAddress,
-                param.traderAddress,
-                param.instrumentAddress,
-                removeForCalldata
-            );
-        }
-
-        return toTransactionParam(param.instrumentAddress, removeForCalldata);
+    if (options.useRemoveFor) {
+        // removeFor takes no trader argument: the packed param already names the target.
+        const calldata = encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'removeFor', args: [txArgs] });
+        return encodeForCallTransaction(param.instrumentAddress, param.traderAddress, calldata, options);
     }
 
-    return encodeDirectTupleTransaction(param.instrumentAddress, operation.direct, txArgs);
+    return toTransactionParam(
+        param.instrumentAddress,
+        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'remove', args: [txArgs] })
+    );
 }
 
 export function encodeSettleTransaction(param: SettleEncodingParam): TransactionParam {
-    const operation = INSTRUMENT_OPERATION_METADATA.settle.write;
-    const calldata = encodeInstrumentCall(param.instrumentAddress, operation.direct.functionName, [
-        param.expiry,
-        param.targetAddress,
-    ]);
-
-    return {
-        to: param.instrumentAddress,
-        data: calldata,
-        value: 0n,
-    };
+    return toTransactionParam(
+        param.instrumentAddress,
+        encodeFunctionData({
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'settle',
+            args: [param.expiry, param.targetAddress],
+        })
+    );
 }

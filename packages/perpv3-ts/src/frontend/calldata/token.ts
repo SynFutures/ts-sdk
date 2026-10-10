@@ -1,6 +1,6 @@
-import { parseSignature, type Hex } from 'viem';
+import { encodeFunctionData, parseSignature, type Hex } from 'viem';
+import { ERC20_WITH_PERMIT_ABI } from '../../abis';
 import { Errors, ErrorCode } from '../../types';
-import { encodeTokenCall } from './requests';
 import { requireAddress } from './shared';
 import type { ApproveEncodingOptions, ApproveEncodingParam, TransactionParam } from './types';
 
@@ -21,17 +21,17 @@ export function encodeApproveTransaction(
 
         const { r, s, yParity } = parseSignature(options.signature);
 
-        calldata = encodeTokenCall(params.tokenAddress, 'permit', [
-            ownerAddress,
-            params.spenderAddress,
-            params.amount,
-            BigInt(options.deadline),
-            yParity + 27,
-            r,
-            s,
-        ]);
+        calldata = encodeFunctionData({
+            abi: ERC20_WITH_PERMIT_ABI,
+            functionName: 'permit',
+            args: [ownerAddress, params.spenderAddress, params.amount, BigInt(options.deadline), yParity + 27, r, s],
+        });
     } else {
-        calldata = encodeTokenCall(params.tokenAddress, 'approve', [params.spenderAddress, params.amount]);
+        calldata = encodeFunctionData({
+            abi: ERC20_WITH_PERMIT_ABI,
+            functionName: 'approve',
+            args: [params.spenderAddress, params.amount],
+        });
     }
 
     return {

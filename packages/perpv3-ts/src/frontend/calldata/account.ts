@@ -1,6 +1,6 @@
-import { ethAddress, zeroAddress, type Address } from 'viem';
+import { encodeFunctionData, ethAddress, zeroAddress, type Address } from 'viem';
+import { CURRENT_GATE_ABI, CURRENT_GELATO_RELAY_ROUTER_ABI } from '../../abis';
 import { encodeDepositParam, encodeWithdrawParam } from '../../utils/encode';
-import { encodeGateCall, encodeRouterCall } from './requests';
 import { requireAddress } from './shared';
 import type {
     DepositEncodingOptions,
@@ -26,16 +26,18 @@ export function encodeDepositTransaction(
 
     if (useDepositFor) {
         const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for depositFor');
-        const depositForCalldata = encodeGateCall(gateAddr, 'depositFor', [traderAddress, depositArg]);
+        const depositForCalldata = encodeFunctionData({
+            abi: CURRENT_GATE_ABI,
+            functionName: 'depositFor',
+            args: [traderAddress, depositArg],
+        });
 
         if (subAccountAddress && routerAddress) {
-            const batchData = encodeRouterCall(routerAddress, 'batch', [
-                subAccountAddress,
-                traderAddress,
-                gateAddr,
-                depositForCalldata,
-                false,
-            ]);
+            const batchData = encodeFunctionData({
+                abi: CURRENT_GELATO_RELAY_ROUTER_ABI,
+                functionName: 'batch',
+                args: [subAccountAddress, traderAddress, gateAddr, depositForCalldata, false],
+            });
 
             return {
                 to: routerAddress,
@@ -51,7 +53,7 @@ export function encodeDepositTransaction(
         };
     }
 
-    const calldata = encodeGateCall(gateAddr, 'deposit', [depositArg]);
+    const calldata = encodeFunctionData({ abi: CURRENT_GATE_ABI, functionName: 'deposit', args: [depositArg] });
 
     return {
         to: gateAddr,
@@ -73,16 +75,18 @@ export function encodeWithdrawTransaction(
 
     if (useWithdrawFor) {
         const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for withdrawFor');
-        const withdrawForCalldata = encodeGateCall(gateAddr, 'withdrawFor', [traderAddress, withdrawArg]);
+        const withdrawForCalldata = encodeFunctionData({
+            abi: CURRENT_GATE_ABI,
+            functionName: 'withdrawFor',
+            args: [traderAddress, withdrawArg],
+        });
 
         if (subAccountAddress && routerAddress) {
-            const batchData = encodeRouterCall(routerAddress, 'batch', [
-                subAccountAddress,
-                traderAddress,
-                gateAddr,
-                withdrawForCalldata,
-                false,
-            ]);
+            const batchData = encodeFunctionData({
+                abi: CURRENT_GELATO_RELAY_ROUTER_ABI,
+                functionName: 'batch',
+                args: [subAccountAddress, traderAddress, gateAddr, withdrawForCalldata, false],
+            });
 
             return {
                 to: routerAddress,
@@ -98,7 +102,7 @@ export function encodeWithdrawTransaction(
         };
     }
 
-    const calldata = encodeGateCall(gateAddr, 'withdraw', [withdrawArg]);
+    const calldata = encodeFunctionData({ abi: CURRENT_GATE_ABI, functionName: 'withdraw', args: [withdrawArg] });
 
     return {
         to: gateAddr,
