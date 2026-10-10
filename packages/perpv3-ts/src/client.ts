@@ -22,9 +22,7 @@ import {
 import { UserSetting, type PairSnapshot, type Quotation } from './types';
 import { WebSocketManager } from './wss';
 import { MarketMakerModule, MarketModule } from './apis';
-import { HttpClient } from './utils';
-
-const defaultHttpClient = new HttpClient();
+import { defaultHttpClient } from './utils';
 
 /**
  * PerpClient is a scoped client for interacting with a specific trading pair (instrument + expiry).

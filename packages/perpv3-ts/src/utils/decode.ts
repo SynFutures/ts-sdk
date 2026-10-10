@@ -20,14 +20,6 @@ export function decodeTradeParam(args: readonly string[]): TradeParam {
     return decodeParamForTradeAndPlace(args);
 }
 
-export function decodeTradeWithStabilityFeeParam(args: string[]): TradeParam & { limitStabilityFeeRatio: number } {
-    const tradeParam = decodeTradeParam(args);
-    const value1 = bytes32ToBigInt(args[0]);
-    const offset = EXPIRY_LENGTH + TICK_LENGTH + DEADLINE_LENGTH;
-    const limitStabilityFeeRatio = pickNumber(value1, offset, offset + LIMIT_STABILITY_FEE_RATIO_LENGTH);
-    return { ...tradeParam, limitStabilityFeeRatio };
-}
-
 export function decodeDepositParam(arg: string): { token: string; quantity: bigint } {
     return decodeParamForDepositAndWithdraw(arg);
 }
@@ -185,7 +177,6 @@ const AMOUNT_LENGTH = 128;
 const QUANTITY_LENGTH = 96;
 const ADDRESS_LENGTH = 160;
 const DEADLINE_LENGTH = 32;
-const LIMIT_STABILITY_FEE_RATIO_LENGTH = 16;
 const RATIO_LENGTH = 16;
 const LEVERAGE_LENGTH = 128;
 
