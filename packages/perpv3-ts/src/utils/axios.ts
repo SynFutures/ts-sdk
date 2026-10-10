@@ -8,13 +8,6 @@ export type QueryParams = object;
 
 type RetryableRequestConfig = AxiosRequestConfig & { _retryCount?: number };
 
-function appendQueryParam(searchParams: URLSearchParams, key: string, value: unknown): void {
-    if (value === null || value === undefined) {
-        return;
-    }
-    searchParams.append(key, String(value));
-}
-
 /**
  * Get the sorted query string from the parameters
  * @param params - The parameters to get the sorted query string from
@@ -26,13 +19,8 @@ export function getSortedQueryString(params: QueryParams): string {
     }
     const pa = new URLSearchParams();
     for (const [key, value] of Object.entries(params)) {
-        if (Array.isArray(value)) {
-            for (const item of value) {
-                appendQueryParam(pa, key, item);
-            }
-            continue;
-        }
-        appendQueryParam(pa, key, value);
+        if (value === null || value === undefined) continue;
+        pa.append(key, String(value));
     }
     pa.sort();
     return pa.toString();
@@ -112,8 +100,7 @@ export async function axiosGet<T = unknown>({
             ...authInfo,
         });
     }
-    const httpClient = new HttpClient();
-    return await httpClient.get<T>(url, {
+    return await defaultHttpClient.get<T>(url, {
         ...restConfig,
         headers: {
             ...restConfig?.headers,
@@ -237,3 +224,6 @@ export class HttpClient {
         return await this.client.delete(url, config);
     }
 }
+
+/** Shared client for the default API domain, used whenever a caller does not inject its own. */
+export const defaultHttpClient = new HttpClient();

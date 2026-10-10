@@ -26,7 +26,7 @@ import type {
     PriceDataFromApi,
     QuoteStateFromApi,
 } from '../apis/interfaces';
-import { HttpClient } from '../utils';
+import { defaultHttpClient } from '../utils';
 // ============================================================================
 // Exported Functions
 // ============================================================================
@@ -35,7 +35,7 @@ export function createQueryMarketModule(config: ApiConfig): MarketModule {
     if (!config.signer) {
         throw Errors.apiRequestFailed('Signer is required for API query helpers');
     }
-    return new MarketModule(config.httpClient ?? new HttpClient(), config.signer);
+    return new MarketModule(config.httpClient ?? defaultHttpClient, config.signer);
 }
 
 /**
