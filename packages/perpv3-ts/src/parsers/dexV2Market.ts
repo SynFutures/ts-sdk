@@ -2,7 +2,6 @@ import type { Address, ContractParser } from '@derivation-tech/viem-kit';
 import { formatAddress, formatExpiry, formatTimestamp, formatWad } from '../utils/format';
 import { formatFeederType } from './enums';
 import type { ParserDeps } from './types';
-import { defaultParseError } from './errors';
 import { DEX_V2_MARKET_ABI } from '../abis';
 
 function stringify(values: readonly unknown[]): string {
@@ -91,10 +90,6 @@ export function createDexV2MarketParser(deps?: ParserDeps): ContractParser<typeo
                 default:
                     return `${eventName}(...)`;
             }
-        },
-
-        async parseError(error) {
-            return defaultParseError(error, 'DexV2Market error');
         },
     };
 }

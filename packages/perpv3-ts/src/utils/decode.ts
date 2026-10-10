@@ -16,7 +16,7 @@ import {
 // Exported Functions
 // ============================================================================
 
-export function decodeTradeParam(args: string[]): TradeParam {
+export function decodeTradeParam(args: readonly string[]): TradeParam {
     return decodeParamForTradeAndPlace(args);
 }
 
@@ -44,7 +44,7 @@ export function decodeParamForDepositAndWithdraw(arg: string): { token: string; 
     return { quantity, token };
 }
 
-export function decodeAddParam(args: string[]): AddParam {
+export function decodeAddParam(args: readonly string[]): AddParam {
     if (args.length !== 2) {
         throw Errors.encoding('invalid args length for add', { args });
     }
@@ -72,7 +72,7 @@ export function decodeAddParam(args: string[]): AddParam {
     };
 }
 
-export function decodeRemoveParam(args: string[]): RemoveParam {
+export function decodeRemoveParam(args: readonly string[]): RemoveParam {
     if (args.length !== 2) {
         throw Errors.encoding('invalid args length for remove', { args });
     }
@@ -93,7 +93,7 @@ export function decodeRemoveParam(args: string[]): RemoveParam {
     return { tickUpper, tickLower, target: target as Address, expiry, limitTicks, deadline };
 }
 
-export function decodePlaceParam(args: string[]): PlaceParam {
+export function decodePlaceParam(args: readonly string[]): PlaceParam {
     const result = decodeParamForTradeAndPlace(args);
     return {
         expiry: result.expiry,
@@ -104,7 +104,7 @@ export function decodePlaceParam(args: string[]): PlaceParam {
     };
 }
 
-export function decodeBatchPlaceParam(args: string[]): BatchPlaceParam {
+export function decodeBatchPlaceParam(args: readonly string[]): BatchPlaceParam {
     if (args.length !== 3) {
         throw Errors.encoding('invalid args length for place', { args });
     }
@@ -211,7 +211,7 @@ function pickAddress(value: bigint, from: number, to: number): string {
     return padHex(toHex(pickBigInt(value, from, to)), { size: 20 });
 }
 
-function decodeParamForTradeAndPlace(args: string[]): TradeParam {
+function decodeParamForTradeAndPlace(args: readonly string[]): TradeParam {
     if (args.length !== 2) {
         throw Errors.encoding('invalid args length for trade and place', { args });
     }

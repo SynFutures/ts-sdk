@@ -11,7 +11,6 @@ import {
     formatUnitsSafe,
 } from '../utils/format';
 import type { ParserDeps } from './types';
-import { parseCustomError } from './errors';
 import { CURRENT_GATE_ABI } from '../abis';
 
 function stringify(values: readonly unknown[]): string {
@@ -298,8 +297,8 @@ export function createGateParser(deps?: ParserDeps): ContractParser<typeof CURRE
             }
         },
 
-        async parseError(error) {
-            return parseCustomError(error, gateErrorParsers, 'Gate error');
+        parseError(error) {
+            return error.kind === 'custom' ? gateErrorParsers[error.name]?.(error.args, error) : undefined;
         },
     };
 }

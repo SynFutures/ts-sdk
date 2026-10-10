@@ -2,7 +2,6 @@ import type { Address, ContractParser } from '@derivation-tech/viem-kit';
 import { formatAddress, formatExpiry, formatRatio, formatTokenAmount } from '../utils/format';
 import { formatFeederType, formatQuoteType } from './enums';
 import type { ParserDeps } from './types';
-import { defaultParseError } from './errors';
 import { CURRENT_GUARDIAN_ABI } from '../abis';
 
 interface CexPriceFeederTuple {
@@ -248,10 +247,6 @@ export function createGuardianParser(deps?: ParserDeps): ContractParser<typeof C
                 default:
                     return `${eventName}(...)`;
             }
-        },
-
-        async parseError(error) {
-            return defaultParseError(error, 'Guardian error');
         },
     };
 }
