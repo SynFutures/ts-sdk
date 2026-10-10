@@ -40,8 +40,7 @@ TypeScript 6.0.3 is pinned once in the workspace catalog. Source, examples, tool
 tests and documentation snippets use explicit source roots and ambient types.
 Path mappings resolve relative to their config (or use absolute paths for generated
 documentation checks); no compiler `baseUrl` or deprecation suppression is needed.
-The bundled SDK uses `Bundler` resolution; directly emitted package scaffolds use
-`NodeNext`. Build-config checks use `--ignoreConfig` when passing a file to `tsc`.
+The bundled SDK uses `Bundler` resolution. Build-config checks use `--ignoreConfig` when passing a file to `tsc`.
 
 Tests have three explicit scopes under `src/tests`:
 
@@ -80,14 +79,6 @@ to inspect a separate snapshot without replacing the committed one. A stale-stat
 by changing expected hashes. Dependency lifecycle scripts can be disabled when
 platform binaries are already installed; inspect a missing Anvil binary before
 approving its installation script.
-
-## Adding a package
-
-Run `bash scripts/init.sh package-name` from the workspace root. The scaffolder
-refuses existing targets and creates source/test directories, a manifest, README
-and TypeScript configuration links. Add source and tests, install the declared
-dependencies, then run the generated package's build and tests. Edit `templates/`
-when changing future scaffolds; existing packages are not regenerated.
 
 ## Demos
 
