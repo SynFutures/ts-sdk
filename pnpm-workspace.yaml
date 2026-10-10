@@ -20,5 +20,5 @@ minimumReleaseAgeExclude:
     - prettier@3.9.9
     - ts-jest@29.4.13
 
-# Keep installs explicit: verification steps do not receive registry credentials.
-verifyDepsBeforeRun: false
+# Fail fast when node_modules does not match the lockfile; installs stay an explicit step.
+verifyDepsBeforeRun: error
