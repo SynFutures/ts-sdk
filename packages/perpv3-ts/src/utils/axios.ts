@@ -187,6 +187,7 @@ export class HttpClient {
             const data = error.response?.data;
             const dataRecord = data && typeof data === 'object' ? (data as Record<string, unknown>) : undefined;
             const message =
+                (typeof dataRecord?.msg === 'string' && dataRecord.msg) ||
                 (typeof dataRecord?.message === 'string' && dataRecord.message) ||
                 (typeof dataRecord?.error === 'string' && dataRecord.error) ||
                 error.message;

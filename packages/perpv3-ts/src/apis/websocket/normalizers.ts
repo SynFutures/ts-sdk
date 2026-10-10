@@ -262,7 +262,8 @@ function decodeTradeItem(value: unknown, label: string): TradeItem {
             `${label}.instrumentAddress`
         ).toLowerCase() as Address,
         expiry: number('expiry'),
-        trader: requireAddress(record, 'trader', `${label}.trader`),
+        // The server sends `""` for some trades (seen on Base).
+        ...(record.trader !== '' && { trader: requireAddress(record, 'trader', `${label}.trader`) }),
         size: string('size'),
         balance: string('balance'),
         price: string('price'),

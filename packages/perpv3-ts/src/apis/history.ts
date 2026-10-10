@@ -14,14 +14,53 @@ import type {
     GetTransferHistoryResponse,
     GetTransferHistoryItemResponse,
     ApiSigner,
+    AccountBalanceHistory,
+    FundingHistory,
+    OrderHistory,
+    TradeHistory,
+    TransferHistory,
 } from './interfaces';
 import { HttpClient } from '../utils';
 import { getStartEndTimeByRangeType } from '../frontend';
 import { ApiEnvelope, BaseApiModule, getApiData } from './base';
+import { requireRecord } from './codecs';
 
 type ApiListData<T> = ApiEnvelope<{
     list?: T[] | null;
 }>;
+
+// Closed value sets the history service emits (backend indexer models).
+const SIDES = ['long', 'short'] as const satisfies readonly TradeHistory['side'][];
+const TRADE_TYPES = [
+    'Market',
+    'Limit',
+    'Liquidity',
+    'Liquidation',
+    'Taker Over',
+] as const satisfies readonly TradeHistory['typeString'][];
+const ORDER_TYPES = ['place', 'filled', 'cancelled'] as const satisfies readonly OrderHistory['typeString'][];
+const FUNDING_TYPES = ['pay', 'receive'] as const satisfies readonly FundingHistory['typeString'][];
+const TRANSFER_TYPES = ['scatter', 'gather'] as const satisfies readonly TransferHistory['typeString'][];
+const ACCOUNT_TYPES = ['deposit', 'withdraw'] as const satisfies readonly AccountBalanceHistory['typeString'][];
+
+/** Reject history items whose enumerated fields carry values the typed response does not allow. */
+function requireHistoryEnums<T>(
+    list: T[] | null | undefined,
+    endpoint: string,
+    fields: Record<string, readonly string[]>
+): T[] {
+    return (list ?? []).map((item, index) => {
+        const label = `${endpoint}.list[${index}]`;
+        const record = requireRecord(item, label);
+        for (const [field, allowed] of Object.entries(fields)) {
+            const value = record[field];
+            if (typeof value !== 'string' || !allowed.includes(value)) {
+                throw new Error(`Invalid ${label}.${field}: unsupported value ${String(value)}`);
+            }
+        }
+        return item;
+    });
+}
 
 /**
  * HistoryModule - History API endpoints
@@ -69,11 +108,11 @@ export class HistoryModule extends BaseApiModule {
         };
         type TradeHistoryItem = GetTradeHistoryResponse[number];
         const res = await this.makeSignedRequest<ApiListData<TradeHistoryItem>>(requestUrl, requestParams);
-        const tradeHistoryList = getApiData(res)?.list;
-        if (!Array.isArray(tradeHistoryList)) {
-            return [];
-        }
-        return [...tradeHistoryList].sort((a: TradeHistoryItem, b: TradeHistoryItem) => b.timestamp - a.timestamp);
+        const tradeHistoryList = requireHistoryEnums(getApiData(res)?.list, 'tradeHistory', {
+            typeString: TRADE_TYPES,
+            side: SIDES,
+        });
+        return tradeHistoryList.sort((a: TradeHistoryItem, b: TradeHistoryItem) => b.timestamp - a.timestamp);
     }
 
     /**
@@ -113,14 +152,14 @@ export class HistoryModule extends BaseApiModule {
         };
         type OrderHistoryItem = GetOrdersHistoryResponse[number] & { timestamp?: number };
         const result = await this.makeSignedRequest<ApiListData<OrderHistoryItem>>(requestUrl, requestParams);
-        const orderHistoryList = getApiData(result)?.list;
-        if (!Array.isArray(orderHistoryList)) {
-            return [];
-        }
+        const orderHistoryList = requireHistoryEnums(getApiData(result)?.list, 'ordersHistory', {
+            typeString: ORDER_TYPES,
+            side: SIDES,
+        });
         const getOrderHistoryTimestamp = (value: OrderHistoryItem): number =>
             value.timestamp ?? value.placeTimestamp ?? 0;
 
-        return [...orderHistoryList].sort(
+        return orderHistoryList.sort(
             (a: OrderHistoryItem, b: OrderHistoryItem) => getOrderHistoryTimestamp(b) - getOrderHistoryTimestamp(a)
         );
     }
@@ -162,8 +201,7 @@ export class HistoryModule extends BaseApiModule {
             requestUrl,
             requestParams
         );
-        const historyList = getApiData(result)?.list ?? [];
-        return historyList;
+        return requireHistoryEnums(getApiData(result)?.list, 'fundingHistory', { typeString: FUNDING_TYPES });
     }
 
     /**
@@ -206,8 +244,7 @@ export class HistoryModule extends BaseApiModule {
             requestParams
         );
 
-        const historyList = getApiData(result)?.list ?? [];
-        return historyList;
+        return requireHistoryEnums(getApiData(result)?.list, 'transferHistory', { typeString: TRANSFER_TYPES });
     }
 
     /**
@@ -293,7 +330,6 @@ export class HistoryModule extends BaseApiModule {
             requestParams
         );
 
-        const eventList = getApiData(result)?.list ?? [];
-        return eventList;
+        return requireHistoryEnums(getApiData(result)?.list, 'accountBalanceHistory', { typeString: ACCOUNT_TYPES });
     }
 }

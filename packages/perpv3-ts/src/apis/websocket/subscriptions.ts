@@ -9,7 +9,6 @@ import type {
     KlineSubscribeParams,
     MarketListChangedData,
     MarketPairInfoChangedData,
-    MmOrderBookSubscribeParams,
     MmTradesSubscribeParams,
     OrderBookStreamData,
     OrderBookSubscribeParams,
@@ -41,7 +40,7 @@ export class PublicWsSubscriptionRegistry {
 
     private readonly orderBookSubscriptions = new Map<
         number,
-        SubscriptionRecord<OrderBookSubscribeParams | MmOrderBookSubscribeParams, OrderBookStreamData>
+        SubscriptionRecord<OrderBookSubscribeParams, OrderBookStreamData>
     >();
     private readonly portfolioSubscriptions = new Map<
         number,
@@ -64,23 +63,19 @@ export class PublicWsSubscriptionRegistry {
     private readonly rawSubscriptions = new Map<number, RawSubscriptionRecord>();
 
     addOrderBook(
-        params: OrderBookSubscribeParams | MmOrderBookSubscribeParams,
-        handler: StreamHandler<OrderBookStreamData, OrderBookSubscribeParams | MmOrderBookSubscribeParams>
-    ): SubscriptionRecord<OrderBookSubscribeParams | MmOrderBookSubscribeParams, OrderBookStreamData> {
+        params: OrderBookSubscribeParams,
+        handler: StreamHandler<OrderBookStreamData, OrderBookSubscribeParams>
+    ): SubscriptionRecord<OrderBookSubscribeParams, OrderBookStreamData> {
         const record = { id: this.nextId(), params, handler };
         this.orderBookSubscriptions.set(record.id, record);
         return record;
     }
 
-    removeOrderBook(
-        id: number
-    ): SubscriptionRecord<OrderBookSubscribeParams | MmOrderBookSubscribeParams, OrderBookStreamData> | undefined {
+    removeOrderBook(id: number): SubscriptionRecord<OrderBookSubscribeParams, OrderBookStreamData> | undefined {
         return this.remove(this.orderBookSubscriptions, id);
     }
 
-    orderBooks(): IterableIterator<
-        SubscriptionRecord<OrderBookSubscribeParams | MmOrderBookSubscribeParams, OrderBookStreamData>
-    > {
+    orderBooks(): IterableIterator<SubscriptionRecord<OrderBookSubscribeParams, OrderBookStreamData>> {
         return this.orderBookSubscriptions.values();
     }
 

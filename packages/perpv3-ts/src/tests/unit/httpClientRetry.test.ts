@@ -22,6 +22,21 @@ describe('HttpClient retries', () => {
         }
     });
 
+    test('reports the server msg field', async () => {
+        const server = createServer((_req, res) => {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ code: 500, msg: 'invalid symbol', data: null }));
+        });
+        await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+        try {
+            const { port } = server.address() as AddressInfo;
+            const client = new HttpClient({ baseUrl: `http://127.0.0.1:${port}`, retries: 0 });
+            await expect(client.get('/read')).rejects.toThrow('invalid symbol');
+        } finally {
+            await new Promise<void>((resolve) => server.close(() => resolve()));
+        }
+    });
+
     test('retries once on 5xx and succeeds', async () => {
         let requestCount = 0;
         const server = createServer((_req, res) => {

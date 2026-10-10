@@ -320,7 +320,7 @@ function buildSpacingInternal(orderSpacing: number, rangeSpacing: number, pearlS
 }
 
 function buildPortfolioInternal(portfolioFromApi: PortfolioFromApi): Portfolio {
-    const positionFromApi = portfolioFromApi.position[0];
+    const positionFromApi = portfolioFromApi.position;
     const position: Position = positionFromApi
         ? new Position(
               positionFromApi.balance,

@@ -20,6 +20,11 @@ export function requireArray(value: unknown, label: string): unknown[] {
     throw new Error(`Invalid ${label}: expected array`);
 }
 
+/** Reads a backend list field, where Go serializes an empty (nil) slice as `null`. */
+export function requireNullableArray(value: unknown, label: string): unknown[] {
+    return value === null ? [] : requireArray(value, label);
+}
+
 export function requireString(record: UnknownRecord, key: string, label = key): string {
     return requireStringValue(record[key], label);
 }
@@ -75,6 +80,19 @@ export function requireBoolean(record: UnknownRecord, key: string, label = key):
 
 export function requireBigInt(record: UnknownRecord, key: string, label = key): bigint {
     return toBigIntValue(record[key], label);
+}
+
+/**
+ * JSON.parse that keeps integers beyond Number.MAX_SAFE_INTEGER as their exact source text, which
+ * `toBigIntValue` accepts. Needs a runtime with JSON.parse source text access (Node.js 22+); elsewhere such
+ * numbers stay lossy and `toBigIntValue` rejects them.
+ */
+export function parseJsonPreservingLargeIntegers(text: string): unknown {
+    return JSON.parse(text, (_key, value: unknown, context?: { source?: string }) =>
+        typeof value === 'number' && Number.isInteger(value) && !Number.isSafeInteger(value)
+            ? (context?.source ?? value)
+            : value
+    );
 }
 
 /**

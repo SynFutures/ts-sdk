@@ -120,6 +120,29 @@ describe('PublicWebsocketClient trades subscription', () => {
         client.close();
     });
 
+    it('retries topics whose SUBSCRIBE the server rejected', () => {
+        const sockets: FakeWebSocket[] = [];
+        const client = new PublicWebsocketClient({
+            url: 'ws://localhost',
+            pingIntervalMs: 0,
+            autoReconnect: false,
+            wsFactory: createFakeWebSocketFactory(sockets),
+        });
+        const params = { chainId: 1, pairs: ['0xabc_123'], type: 'trades' as const };
+
+        client.subscribeTrades(params, () => undefined);
+        const socket = sockets[0];
+        socket.open();
+        const rejected = JSON.parse(socket.sent[0]) as { id: number };
+        socket.message(JSON.stringify({ id: rejected.id, result: 'invalid params' }));
+
+        client.subscribeTrades(params, () => undefined);
+        expect(socket.sent).toHaveLength(2);
+        expect(parseWsRequest(socket.sent[1])).toEqual({ method: 'SUBSCRIBE', params });
+
+        client.close();
+    });
+
     it('sends SUBSCRIBE/UNSUBSCRIBE without internal fields', () => {
         const sockets: FakeWebSocket[] = [];
         const client = new PublicWebsocketClient({
@@ -204,6 +227,20 @@ describe('PublicWebsocketClient trades subscription', () => {
 
         expect(handler).toHaveBeenCalledTimes(1);
         expect(handler.mock.calls[0][0].data.map((trade) => trade.id)).toEqual(['t-1', 't-2']);
+
+        client.close();
+    });
+
+    it('delivers trades whose trader the server sends empty', () => {
+        // The Base public WebSocket sends `trader: ""` for some items in a batch.
+        const { client, socket, handler } = connect();
+
+        socket.message(tradesMessage([tradeItem({ id: 't-1', trader: '' }), tradeItem({ id: 't-2' })]));
+
+        expect(handler).toHaveBeenCalledTimes(1);
+        const [first, second] = handler.mock.calls[0][0].data;
+        expect(first).not.toHaveProperty('trader');
+        expect(second?.trader).toBe(TRADER);
 
         client.close();
     });

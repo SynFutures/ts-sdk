@@ -44,7 +44,7 @@ import {
     decodeQuotationWithSize,
     decodeQuoteState,
 } from './decoders';
-import { requireRecord } from './codecs';
+import { parseJsonPreservingLargeIntegers, requireRecord } from './codecs';
 
 /**
  * MarketModule - Market API endpoints
@@ -122,7 +122,12 @@ export class MarketModule extends BaseApiModule {
             ...(params.userAddress ? { userAddress: params.userAddress } : {}),
             ...(params.signedSize !== undefined ? { signedSize: params.signedSize } : {}),
         };
-        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
+        // This endpoint sends raw on-chain integers (e.g. sqrtPX96, liquidity) as JSON numbers.
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams, {
+            responseType: 'text',
+            transformResponse: (data: unknown) =>
+                typeof data === 'string' && data.trim() ? parseJsonPreservingLargeIntegers(data) : data,
+        });
 
         const rawData = getApiData(res);
         if (rawData === null) {
@@ -250,7 +255,7 @@ export class MarketModule extends BaseApiModule {
             instrument: params.instrument,
             expiry: params.expiry,
             interval: params.interval,
-            ...(params.endTime && { endTime: params.endTime }),
+            endTime: params.endTime,
             limit: params.limit ?? 1000,
         };
         const res = await this.makeSignedRequest<ApiEnvelope<KlineDataFromApi[]>>(requestUrl, requestParams);
@@ -285,7 +290,7 @@ export class MarketModule extends BaseApiModule {
         const requestUrl = API_URLS.MARKET.PAIR_INFO;
         const requestParams = {
             chainId: params.chainId,
-            address: params.address,
+            instrument: params.address,
             expiry: params.expiry,
         };
         const res = await this.makeSignedRequest<ApiEnvelope<IMarketPair>>(requestUrl, requestParams);

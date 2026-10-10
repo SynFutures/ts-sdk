@@ -188,7 +188,8 @@ export type TradeItem = {
     chainId: number;
     instrumentAddress: Address;
     expiry: number;
-    trader: Address;
+    /** Absent when the server sends an empty trader for the item. */
+    trader?: Address;
     size: string;
     balance: string;
     price: string;
@@ -297,14 +298,6 @@ export interface MmTradesSubscribeParams {
     type: 'trades';
 }
 
-export interface MmOrderBookSubscribeParams {
-    chainId: number;
-    instrument: Address;
-    expiry: number;
-    depth?: number;
-    type: 'orderBook';
-}
-
 export interface PortfolioSubscribeParams {
     chainId: number;
     /**
@@ -352,7 +345,6 @@ export interface RawSubscribeParams {
 
 export type PublicWsSubscribeParams =
     | OrderBookSubscribeParams
-    | MmOrderBookSubscribeParams
     | MmTradesSubscribeParams
     | PortfolioSubscribeParams
     | KlineSubscribeParams
@@ -522,8 +514,8 @@ export class PublicWebsocketClient {
     // -----------------------------------------------------------------------
 
     public subscribeOrderBook(
-        params: OrderBookSubscribeParams | MmOrderBookSubscribeParams,
-        handler: StreamHandler<OrderBookStreamData, OrderBookSubscribeParams | MmOrderBookSubscribeParams>
+        params: OrderBookSubscribeParams,
+        handler: StreamHandler<OrderBookStreamData, OrderBookSubscribeParams>
     ): PublicWebsocketSubscription {
         const record = this.subscriptions.addOrderBook(params, handler);
         this.connect();
@@ -931,6 +923,10 @@ export class PublicWebsocketClient {
         const request = this.pendingRequests.get(message.id);
         this.pendingRequests.delete(message.id);
         const event = buildWsRequestResultEvent(message, request);
+        // A rejected SUBSCRIBE leaves its topics inactive, so a later subscribe or reconnect retries them.
+        if (!event.ok && request?.method === 'SUBSCRIBE') {
+            for (const topic of wsTopics(request.params)) this.activeTopics.delete(wsTopicKey(topic));
+        }
 
         this.onRequestResult?.(event);
     }
@@ -939,10 +935,7 @@ export class PublicWebsocketClient {
     // Matching
     // -----------------------------------------------------------------------
 
-    private orderBookMatches(
-        params: OrderBookSubscribeParams | MmOrderBookSubscribeParams,
-        data: OrderBookStreamData
-    ): boolean {
+    private orderBookMatches(params: OrderBookSubscribeParams, data: OrderBookStreamData): boolean {
         return (
             data.chainId === params.chainId &&
             sameAddress(data.instrument, params.instrument) &&
