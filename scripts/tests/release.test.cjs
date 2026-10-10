@@ -151,3 +151,16 @@ test('prepublishOnly rejects the local viem-kit override and allows removal of t
     writeFileSync(configFile, config);
     run('pnpm', check);
 });
+
+test('prepublishOnly rejects a direct local viem-kit dependency', (t) => {
+    const { cwd, run } = fixture(t);
+    const manifestFile = join(cwd, packageFiles[1]);
+    const manifest = readJson(manifestFile);
+    const check = ['-C', 'packages/perpv3-ts', 'run', 'prepublishOnly'];
+    for (const spec of ['link:../../viem-kit', 'file:./vendor/local-fixture.tgz']) {
+        writeJson(manifestFile, { ...manifest, dependencies: { '@derivation-tech/viem-kit': spec } });
+        assert.match(run('pnpm', check, 1), /Replace the local viem-kit dependencies entry/);
+    }
+    writeJson(manifestFile, { ...manifest, dependencies: { '@derivation-tech/viem-kit': '1.0.0' } });
+    run('pnpm', check);
+});
