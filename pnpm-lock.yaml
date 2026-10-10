@@ -616,7 +616,7 @@ packages:
     engines: {node: '>=12'}
 
   '@derivation-tech/viem-kit@file:vendor/derivation-tech-viem-kit-1.0.0-rc.0.tgz':
-    resolution: {integrity: sha512-Kzkf5B2yEe4pUtGL7luiJHWOTe8mWeq+AlmPYbTVRa2gwZLPbXrf2MfkDIEfdXJvdpyKakwU3TIhV3a3EtcUfA==, tarball: file:vendor/derivation-tech-viem-kit-1.0.0-rc.0.tgz}
+    resolution: {integrity: sha512-TRG/LG0P0wTW43uBrJwDpJmw+mRgh5dqZB0+OUPdeaCjQcjs3bds++XllKzdHFk2zlQxkvvY06bgUzLHtXx0iw==, tarball: file:vendor/derivation-tech-viem-kit-1.0.0-rc.0.tgz}
     version: 1.0.0-rc.0
     engines: {node: '>=22'}
     peerDependencies:
