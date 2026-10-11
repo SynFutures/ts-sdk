@@ -4,11 +4,25 @@ import { formatFeederType } from './enums';
 import type { ParserDeps } from './types';
 import { CEX_MARKET_ABI } from '../abis';
 
+interface CexPriceFeederTuple {
+    ftype: number;
+    scaler0: bigint;
+    aggregator0: Address;
+    heartBeat0: number;
+    scaler1: bigint;
+    aggregator1: Address;
+    heartBeat1: number;
+}
+
 function stringify(values: readonly unknown[]): string {
     return values.map((value) => String(value)).join(', ');
 }
 
-export function createCexMarketParser(deps?: ParserDeps): ContractParser {
+type EventArgsBag = {
+    [name: string]: unknown;
+};
+
+export function createCexMarketParser(deps?: ParserDeps): ContractParser<typeof CEX_MARKET_ABI> {
     return {
         abi: CEX_MARKET_ABI,
 
@@ -19,7 +33,7 @@ export function createCexMarketParser(deps?: ParserDeps): ContractParser {
                     return `clearStates(expiry: ${formatExpiry(Number(expiry))})`;
                 }
                 case 'setFeeder': {
-                    const [instruments, priceFeeders] = args as readonly [Address[], Array<any>];
+                    const [instruments, priceFeeders] = args as readonly [Address[], CexPriceFeederTuple[]];
                     const entries = await Promise.all(
                         instruments.map(async (instrument, idx) => {
                             const feeder = priceFeeders[idx];
@@ -43,7 +57,8 @@ export function createCexMarketParser(deps?: ParserDeps): ContractParser {
         },
 
         async parseEvent(event) {
-            const { eventName, args } = event as { eventName: string; args: Record<string, any> };
+            const eventName: string = event.eventName;
+            const args = event.args as EventArgsBag;
             switch (eventName) {
                 case 'SetFeeder': {
                     const { instrument, feeder } = args as {
@@ -73,7 +88,13 @@ export function createCexMarketParser(deps?: ParserDeps): ContractParser {
                     const { instrument, expiry, state } = args as {
                         instrument: Address;
                         expiry: number;
-                        state: { time: number; spot: bigint; initTime: number; initMark: bigint; accumulation: bigint };
+                        state: {
+                            time: number;
+                            spot: bigint;
+                            initTime: number;
+                            initMark: bigint;
+                            accumulation: bigint;
+                        };
                     };
                     const payload = [
                         `time: ${formatTimestamp(state.time)}`,
@@ -89,15 +110,6 @@ export function createCexMarketParser(deps?: ParserDeps): ContractParser {
                 default:
                     return `${eventName}(...)`;
             }
-        },
-
-        async parseError(error) {
-            if (typeof error === 'string') {
-                return error;
-            }
-            if (error.name) return error.name;
-            if (error.signature) return error.signature;
-            return 'CexMarket error';
         },
     };
 }

@@ -8,7 +8,11 @@ function stringify(values: readonly unknown[]): string {
     return values.map((value) => String(value)).join(', ');
 }
 
-export function createDexV2MarketParser(deps?: ParserDeps): ContractParser {
+type EventArgsBag = {
+    [name: string]: unknown;
+};
+
+export function createDexV2MarketParser(deps?: ParserDeps): ContractParser<typeof DEX_V2_MARKET_ABI> {
     return {
         abi: DEX_V2_MARKET_ABI,
 
@@ -37,7 +41,8 @@ export function createDexV2MarketParser(deps?: ParserDeps): ContractParser {
         },
 
         async parseEvent(event) {
-            const { eventName, args } = event as { eventName: string; args: Record<string, any> };
+            const eventName: string = event.eventName;
+            const args = event.args as EventArgsBag;
             switch (eventName) {
                 case 'AddDexV2Factory': {
                     const { factory, number } = args as { factory: Address; number: bigint };
@@ -85,15 +90,6 @@ export function createDexV2MarketParser(deps?: ParserDeps): ContractParser {
                 default:
                     return `${eventName}(...)`;
             }
-        },
-
-        async parseError(error) {
-            if (typeof error === 'string') {
-                return error;
-            }
-            if (error.name) return error.name;
-            if (error.signature) return error.signature;
-            return 'DexV2Market error';
         },
     };
 }

@@ -1,3 +1,4 @@
+import { assertTransactionSuccess } from '@derivation-tech/viem-kit';
 import { parseUnits } from 'viem';
 import { abs, wmul } from '@synfutures/perpv3-ts/math';
 import { WAD_DECIMALS } from '@synfutures/perpv3-ts/constants';
@@ -85,33 +86,36 @@ export async function demoPlaceAndCancel(context: DemoContext): Promise<void> {
 
     // Execute place order transaction
     console.log(`📝 Placing SHORT limit order at ${formatTick(targetTick)}...`);
-    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
-    await sendTxWithLog(publicClient, walletClient, kit, {
-        address: perpClient.instrumentAddress,
-        abi: CURRENT_INSTRUMENT_ABI,
-        functionName: 'place',
-        args: [encodePlaceParam(validPlaceParam)],
-        gas: BigInt(500000),
-    });
+    assertTransactionSuccess(
+        await kit.sendTx(walletClient, {
+            address: perpClient.instrumentAddress,
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'place',
+            args: [encodePlaceParam(validPlaceParam)],
+            gas: BigInt(500000),
+        })
+    );
 
     // Wait before canceling
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     // Cancel the order
     console.log(`🗑️ Canceling order at ${formatTick(targetTick)}...`);
-    await sendTxWithLog(publicClient, walletClient, kit, {
-        address: perpClient.instrumentAddress,
-        abi: CURRENT_INSTRUMENT_ABI,
-        functionName: 'cancel',
-        args: [
-            encodeCancelParam({
-                expiry: perpClient.expiry,
-                ticks: [targetTick],
-                deadline: perpClient.userSetting.getDeadline(),
-            }),
-        ],
-        gas: BigInt(500000),
-    });
+    assertTransactionSuccess(
+        await kit.sendTx(walletClient, {
+            address: perpClient.instrumentAddress,
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'cancel',
+            args: [
+                encodeCancelParam({
+                    expiry: perpClient.expiry,
+                    ticks: [targetTick],
+                    deadline: perpClient.userSetting.getDeadline(),
+                }),
+            ],
+            gas: BigInt(500000),
+        })
+    );
 }
 
 /**
@@ -194,12 +198,16 @@ export async function demoCrossLimitOrder(context: DemoContext, side: Side = Sid
     const totalMarginRequired = crossResult.tradeParam.amount + crossResult.placeParam.amount;
     // Convert WAD to token decimals: multiply by 10^decimals
     const marginNeededInDecimals = wmul(totalMarginRequired, 10n ** BigInt(instrumentSetting.quoteDecimals));
-    const totalMarginFormatted = await formatTokenAmount(totalMarginRequired, instrumentSetting.quoteAddress, undefined, 6);
+    const totalMarginFormatted = await formatTokenAmount(
+        totalMarginRequired,
+        instrumentSetting.quoteAddress,
+        undefined,
+        6
+    );
     console.log(`ℹ️ Total margin required: ${totalMarginFormatted}`);
 
     await ensureMarginAndAllowance(snapshot, publicClient, walletClient, kit, marginNeededInDecimals);
 
-    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
     if (crossResult.tradeParam.size !== 0n) {
         const tradeSize = crossResult.tradeParam.size; // Already correctly signed (positive for LONG, negative for SHORT)
         console.log(
@@ -216,13 +224,15 @@ export async function demoCrossLimitOrder(context: DemoContext, side: Side = Sid
             deadline: perpClient.userSetting.getDeadline(),
         };
 
-        await sendTxWithLog(publicClient, walletClient, kit, {
-            address: perpClient.instrumentAddress,
-            abi: CURRENT_INSTRUMENT_ABI,
-            functionName: 'trade',
-            args: [encodeTradeParam(tradeParam)],
-            gas: BigInt(500000),
-        });
+        assertTransactionSuccess(
+            await kit.sendTx(walletClient, {
+                address: perpClient.instrumentAddress,
+                abi: CURRENT_INSTRUMENT_ABI,
+                functionName: 'trade',
+                args: [encodeTradeParam(tradeParam)],
+                gas: BigInt(500000),
+            })
+        );
     }
 
     if (crossResult.placeParam.size !== 0n) {
@@ -284,13 +294,15 @@ export async function demoCrossLimitOrder(context: DemoContext, side: Side = Sid
         }
 
         console.log(`📝 Executing limit leg order at ${formatTick(finalTick)}...`);
-        await sendTxWithLog(publicClient, walletClient, kit, {
-            address: perpClient.instrumentAddress,
-            abi: CURRENT_INSTRUMENT_ABI,
-            functionName: 'place',
-            args: [encodePlaceParam(validLimitPlaceParam)], // Use place param which has validated tick
-            gas: BigInt(500000),
-        });
+        assertTransactionSuccess(
+            await kit.sendTx(walletClient, {
+                address: perpClient.instrumentAddress,
+                abi: CURRENT_INSTRUMENT_ABI,
+                functionName: 'place',
+                args: [encodePlaceParam(validLimitPlaceParam)], // Use place param which has validated tick
+                gas: BigInt(500000),
+            })
+        );
 
         console.log(`✅ Cross market order executed successfully!`);
 
@@ -335,7 +347,6 @@ export async function demoScaledLimitOrder(context: DemoContext): Promise<void> 
 
     // Prepare scaled limit order input: LONG orders at multiple price levels
     const baseQuantity = parseUnits('0.05', WAD_DECIMALS);
-    const targetLeverage = parseUnits('3', WAD_DECIMALS);
 
     const currentTick = snapshot.amm.tick;
     console.log(`ℹ️ Current AMM tick: ${formatTick(currentTick)}`);
@@ -360,8 +371,8 @@ export async function demoScaledLimitOrder(context: DemoContext): Promise<void> 
     const scaledResult = scaledOrderInput.simulate(snapshot, perpClient.userSetting);
 
     const validOrders = scaledResult.orders.filter((order) => order !== null);
-    if (validOrders.length === 0) {
-        throw new Error('No valid orders generated from scaled limit order');
+    if (validOrders.length !== scaledResult.orders.length) {
+        throw new Error('Some scaled orders failed simulation. Refresh the snapshot and revise the batch.');
     }
 
     console.log(`✅ Scaled limit order simulation: ${validOrders.length} valid orders generated`);
@@ -375,25 +386,9 @@ export async function demoScaledLimitOrder(context: DemoContext): Promise<void> 
         }
     }
 
-    // Derive aggregated values from orders
-    const totalMargin = scaledResult.orders.reduce(
-        (sum, order) => sum + (order ? order.param.amount : 0n),
-        0n
-    );
-    // Convert WAD to token decimals: multiply by 10^decimals
-    const marginNeededInDecimals = wmul(totalMargin, 10n ** BigInt(instrumentSetting.quoteDecimals));
-    const totalMarginFormatted = await formatTokenAmount(totalMargin, instrumentSetting.quoteAddress, undefined, 6);
-    console.log(`ℹ️ Total margin required: ${totalMarginFormatted}`);
-
-    await ensureMarginAndAllowance(snapshot, publicClient, walletClient, kit, marginNeededInDecimals);
-
-    // Extract aligned ticks from orders (preserve index positions, including null orders)
-    const orderTicks = scaledResult.orders.map((order) => (order ? order.param.tick : null));
-    const alignedTicks = orderTicks.filter((tick): tick is number => tick !== null);
-    const ratios = scaledResult.orders.map((order) => (order ? order.ratio : 0));
-    const totalQuantity = scaledOrderInput.baseQuantity; // Use input baseQuantity directly
-    const leverage = targetLeverage;
-    const side = scaledOrderInput.side; // Get the side from the input
+    const alignedTicks = validOrders.map((order) => order.param.tick);
+    const ratios = validOrders.map((order) => order.ratio);
+    const side = scaledOrderInput.side;
 
     // Re-validate ticks before batch placing
     if (!isRpcConfig(perpClient.config)) {
@@ -408,48 +403,34 @@ export async function demoScaledLimitOrder(context: DemoContext): Promise<void> 
         walletAddress
     );
 
-    if (validTicks.length === 0) {
-        console.log(`⚠️ No valid ticks remaining after re-validation. Skipping batch place.`);
-        return;
+    if (validTicks.length !== alignedTicks.length || validTicks.some((tick, index) => tick !== alignedTicks[index])) {
+        throw new Error('Scaled order ticks changed. Refresh the snapshot and simulate the complete batch again.');
     }
 
-    // Filter ratios to match valid ticks (preserve index mapping)
-    const validRatios: number[] = [];
-    const validTicksSet = new Set(validTicks);
-    orderTicks.forEach((tick, index) => {
-        if (tick !== null && validTicksSet.has(tick)) {
-            validRatios.push(ratios[index]);
-        }
+    // Keep the simulated distribution intact: filtering ratios would no longer sum to 10,000.
+    const signedSize = side === Side.LONG ? scaledOrderInput.baseQuantity : -scaledOrderInput.baseQuantity;
+    const batchParam = encodeBatchPlaceParam({
+        expiry: perpClient.expiry,
+        ticks: validTicks,
+        ratios,
+        size: signedSize,
+        leverage: perpClient.userSetting.leverage,
+        deadline: perpClient.userSetting.getDeadline(),
     });
+    const totalMargin = validOrders.reduce((sum, order) => sum + order.param.amount, 0n);
+    const marginNeededInDecimals = wmul(totalMargin, 10n ** BigInt(instrumentSetting.quoteDecimals));
+    await ensureMarginAndAllowance(snapshot, publicClient, walletClient, kit, marginNeededInDecimals);
 
-    // Recalculate total quantity based on valid orders
-    const validTotalRatio = validRatios.reduce((sum, ratio) => sum + ratio, 0);
-    const adjustedTotalQuantity =
-        validTotalRatio > 0 ? (totalQuantity * BigInt(validTotalRatio)) / BigInt(10000) : totalQuantity;
-
-    // Apply sign based on side: LONG = positive, SHORT = negative
-    const signedSize = side === Side.LONG ? adjustedTotalQuantity : -adjustedTotalQuantity;
-
-    console.log(
-        `📝 Executing batch place for ${validTicks.length} orders (total quantity: ${formatWad(adjustedTotalQuantity)}, side: ${side})...`
+    console.log(`📝 Executing batch place for ${validTicks.length} orders...`);
+    assertTransactionSuccess(
+        await kit.sendTx(walletClient, {
+            address: perpClient.instrumentAddress,
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'batchPlace',
+            args: [batchParam],
+            gas: BigInt(1000000),
+        })
     );
-    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
-    await sendTxWithLog(publicClient, walletClient, kit, {
-        address: perpClient.instrumentAddress,
-        abi: CURRENT_INSTRUMENT_ABI,
-        functionName: 'batchPlace',
-        args: [
-            encodeBatchPlaceParam({
-                expiry: perpClient.expiry,
-                ticks: validTicks,
-                ratios: validRatios,
-                size: signedSize,
-                leverage,
-                deadline: perpClient.userSetting.getDeadline(),
-            }),
-        ],
-        gas: BigInt(1000000),
-    });
 
     console.log(`✅ Scaled limit order executed successfully!`);
 

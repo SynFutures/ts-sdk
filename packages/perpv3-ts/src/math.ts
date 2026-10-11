@@ -44,7 +44,7 @@ export function asUint24(x: number): number {
 }
 
 export function asUint48(x: number): number {
-    return x < 0 ? x + (1 << 48) : x;
+    return x < 0 ? x + 2 ** 48 : x;
 }
 
 export function asUint128(x: bigint): bigint {

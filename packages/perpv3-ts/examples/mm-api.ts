@@ -1,24 +1,11 @@
 import type { Address } from 'viem';
 import {
-    PERP_EXPIRY,
-    KlineInterval,
-    fetchMmOrderBook,
-    fetchMmWalletBalance,
-    fetchMmPositionList,
-    PublicWebsocketClient,
     AuthInfo,
-    fetchMmServerTime,
-    fetchMmTickers,
-    fetchMmAccountTransactionHistory,
-    fetchMmTradeHistory,
-    fetchMmFundingHistory,
-    fetchMmInstrumentInfo,
-    fetchMmKline,
-    fetchMmLiquidityList,
-    fetchMmLiquidityHistory,
-    fetchMmOrderHistory,
-    fetchMmOrderRealtime,
-    fetchTokenCoinsWithSymbol,
+    HttpClient,
+    KlineInterval,
+    MarketMakerModule,
+    PERP_EXPIRY,
+    PublicWebsocketClient,
 } from '@synfutures/perpv3-ts';
 import 'dotenv/config';
 
@@ -33,7 +20,6 @@ const SYMBOL = 'BTC/USDC';
 const TRADER_ADDRESS = '0xB0B81c2c7686c63acAE28F9778ca8Fa80f0C004b' as Address;
 const INSTRUMENT = '0x73ada1ea346cc3908f41cf67a040f0acd7808be0' as Address;
 const DURATION_MS = 30_000;
-const DEPTH = 20;
 
 const toTradesPair = (instrumentAddress: Address, expiry: number): string =>
     `${instrumentAddress.toLowerCase()}_${expiry}`;
@@ -53,109 +39,101 @@ async function main(): Promise<void> {
         passphrase: process.env.SYNF_PARITY_PASSPHRASE!,
         secretKey: process.env.SYNF_PARITY_SECRET_KEY!,
     };
+    const mm = new MarketMakerModule(new HttpClient(), authInfo);
 
     try {
-        const serverTime = await fetchMmServerTime(authInfo);
+        const serverTime = await mm.fetchServerTime();
         console.log('serverTime : ', serverTime);
     } catch (error) {
         console.error('serverTime API error:', (error as Error).message);
     }
 
     try {
-        const orderHistory = await fetchMmOrderHistory({ chainId: CHAIN_ID, address: TRADER_ADDRESS }, authInfo);
+        const orderHistory = await mm.fetchOrderHistory({ chainId: CHAIN_ID, address: TRADER_ADDRESS });
         console.log('orderHistory : ', orderHistory?.totalCount, 'list : ', orderHistory?.list?.[0]);
     } catch (error) {
         console.error('orderHistory API error:', (error as Error).message);
     }
 
     try {
-        const orderRealtime = await fetchMmOrderRealtime({ chainId: CHAIN_ID, address: TRADER_ADDRESS }, authInfo);
+        const orderRealtime = await mm.fetchOrderRealtime({ chainId: CHAIN_ID, address: TRADER_ADDRESS });
         console.log('orderRealtime : ', orderRealtime?.length, 'list : ', orderRealtime?.[0]);
     } catch (error) {
         console.error('orderRealtime API error:', (error as Error).message);
     }
 
     try {
-        const tokenCoinsWithSymbol = await fetchTokenCoinsWithSymbol(authInfo);
+        const tokenCoinsWithSymbol = await mm.fetchTokenCoinsWithSymbol();
         console.log('tokenCoinsWithSymbol : ', tokenCoinsWithSymbol?.length, 'list : ', tokenCoinsWithSymbol?.[0]);
     } catch (error) {
         console.error('tokenCoinsWithSymbol API error:', (error as Error).message);
     }
 
     try {
-        const liquidityHistory = await fetchMmLiquidityHistory(
-            { chainId: CHAIN_ID, address: TRADER_ADDRESS },
-            authInfo
-        );
+        const liquidityHistory = await mm.fetchLiquidityHistory({ chainId: CHAIN_ID, address: TRADER_ADDRESS });
         console.log('liquidityHistory : ', liquidityHistory?.totalCount, 'list : ', liquidityHistory?.list?.[0]);
     } catch (error) {
         console.error('liquidityHistory API error:', (error as Error).message);
     }
 
     try {
-        const liquidityList = await fetchMmLiquidityList({ chainId: CHAIN_ID, address: TRADER_ADDRESS }, authInfo);
+        const liquidityList = await mm.fetchLiquidityList({ chainId: CHAIN_ID, address: TRADER_ADDRESS });
         console.log('liquidityList : ', liquidityList?.[0]);
     } catch (error) {
         console.error('liquidityList API error:', (error as Error).message);
     }
 
     try {
-        const kline = await fetchMmKline({ chainId: CHAIN_ID, symbol: SYMBOL, interval: KlineInterval.HOUR }, authInfo);
+        const kline = await mm.fetchKline({ chainId: CHAIN_ID, symbol: SYMBOL, interval: KlineInterval.HOUR });
         console.log('kline : ', kline?.[0]);
     } catch (error) {
         console.error('kline API error:', (error as Error).message);
     }
 
     try {
-        const instrumentInfo = await fetchMmInstrumentInfo({ chainId: CHAIN_ID, symbol: SYMBOL }, authInfo);
+        const instrumentInfo = await mm.fetchInstrumentInfo({ chainId: CHAIN_ID, symbol: SYMBOL });
         console.log('instrumentInfo : ', instrumentInfo?.[0]);
     } catch (error) {
         console.error('instrumentInfo API error:', (error as Error).message);
     }
 
     try {
-        const fundingHistory = await fetchMmFundingHistory({ chainId: CHAIN_ID, symbol: SYMBOL }, authInfo);
+        const fundingHistory = await mm.fetchFundingHistory({ chainId: CHAIN_ID, symbol: SYMBOL });
         console.log('fundingHistory : ', fundingHistory?.[0]);
     } catch (error) {
         console.error('fundingHistory API error:', (error as Error).message);
     }
 
     try {
-        const tickets = await fetchMmTickers({ chainId: CHAIN_ID }, authInfo);
+        const tickets = await mm.fetchTickers({ chainId: CHAIN_ID });
         console.log('tickets : ', tickets?.[0]);
     } catch (error) {
         console.error('tickets API error:', (error as Error).message);
     }
 
     try {
-        const accountTxHistory = await fetchMmAccountTransactionHistory(
-            { chainId: CHAIN_ID, address: TRADER_ADDRESS },
-            authInfo
-        );
+        const accountTxHistory = await mm.fetchAccountTransactionHistory({
+            chainId: CHAIN_ID,
+            address: TRADER_ADDRESS,
+        });
         console.log('accountTxHistory : ', accountTxHistory?.totalCount);
     } catch (error) {
         console.error('accountTxHistory API error:', (error as Error).message);
     }
 
     try {
-        const tradeHistory = await fetchMmTradeHistory(
-            { chainId: CHAIN_ID, address: TRADER_ADDRESS, symbol: SYMBOL },
-            authInfo
-        );
+        const tradeHistory = await mm.fetchTradeHistory({
+            chainId: CHAIN_ID,
+            address: TRADER_ADDRESS,
+            symbol: SYMBOL,
+        });
         console.log('tradeHistory : ', tradeHistory?.totalCount);
     } catch (error) {
         console.error('tradeHistory API error:', (error as Error).message);
     }
 
     try {
-        const orderBook = await fetchMmOrderBook(
-            {
-                chainId: CHAIN_ID,
-                symbol: SYMBOL,
-                ...(Number.isFinite(DEPTH) ? { depth: DEPTH } : {}),
-            },
-            authInfo
-        );
+        const orderBook = await mm.fetchOrderBook({ chainId: CHAIN_ID, symbol: SYMBOL });
         if (orderBook) {
             const ratios = Object.keys(orderBook);
             const first = ratios[0];
@@ -179,7 +157,7 @@ async function main(): Promise<void> {
     }
 
     try {
-        const wallet = await fetchMmWalletBalance({ chainId: CHAIN_ID, address: TRADER_ADDRESS }, authInfo);
+        const wallet = await mm.fetchWalletBalance({ chainId: CHAIN_ID, address: TRADER_ADDRESS });
         if (wallet?.portfolios?.length) {
             console.log(
                 'wallet balance snapshot:',
@@ -198,7 +176,7 @@ async function main(): Promise<void> {
     }
 
     try {
-        const positions = await fetchMmPositionList({ chainId: CHAIN_ID, address: TRADER_ADDRESS }, authInfo);
+        const positions = await mm.fetchPositionList({ chainId: CHAIN_ID, address: TRADER_ADDRESS });
         if (positions?.length) {
             console.log(
                 'position list snapshot:',

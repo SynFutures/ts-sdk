@@ -1,5 +1,4 @@
-import { getContract, WalletClient, Address, Hex, hexToNumber, isHex, padHex, toHex } from 'viem';
-import { secp256k1 } from '@noble/curves/secp256k1';
+import { getContract, WalletClient, Address, Hex } from 'viem';
 import { ERC20_WITH_PERMIT_ABI } from '../abis';
 
 /**
@@ -84,19 +83,4 @@ export async function signErc20PermitTypedData({
     });
 
     return signature;
-}
-
-/**
- * Split a signature string into its r, s, and v components.
- * replace with ethers.js with viem version
- * https://github.com/wevm/viem/discussions/458#discussioncomment-5842564
- *
- * @param signature The signature string to split.
- * @returns An object containing the r, s, and v components of the signature.
- */
-export function splitSignature(signature: string): { r: Hex; s: Hex; v: number } {
-    const signatureHex = isHex(signature) ? signature : toHex(signature);
-    const sig = secp256k1.Signature.fromCompact(signatureHex.substring(2, 130));
-    const v = hexToNumber(`0x${signatureHex.slice(130)}`);
-    return { ...sig, v, r: padHex(toHex(sig.r), { size: 32 }), s: padHex(toHex(sig.s), { size: 32 }) };
 }

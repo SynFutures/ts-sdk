@@ -1,6 +1,6 @@
 import type { Address } from 'viem';
 import { zeroAddress } from 'viem';
-import { fetchFuturesInstrumentInquireByTick, fetchMarketOnChainContext } from '../apis/api';
+import { MarketModule } from '../apis/market';
 import { getPerpInfo } from '../info';
 import {
     Errors,
@@ -26,9 +26,17 @@ import type {
     PriceDataFromApi,
     QuoteStateFromApi,
 } from '../apis/interfaces';
+import { defaultHttpClient } from '../utils';
 // ============================================================================
 // Exported Functions
 // ============================================================================
+
+export function createQueryMarketModule(config: ApiConfig): MarketModule {
+    if (!config.signer) {
+        throw Errors.apiRequestFailed('Signer is required for API query helpers');
+    }
+    return new MarketModule(config.httpClient ?? defaultHttpClient, config.signer);
+}
 
 /**
  * Unified context fetcher that always fetches SettingWrapper, amm, markPrice, and blockInfo.
@@ -49,7 +57,7 @@ export async function fetchOnchainContext(
     expiry: number,
     config: ApiConfig,
     traderAddress?: Address,
-    signedSize?: bigint,
+    signedSize?: bigint
 ): Promise<PairSnapshot> {
     const { chainId } = config;
     if (!config.signer) {
@@ -59,11 +67,14 @@ export async function fetchOnchainContext(
     const userAddressParam = traderAddress ?? zeroAddress;
     const signedSizeParam = signedSize !== undefined ? signedSize.toString() : '0';
 
-    const onChainContextResponse = await fetchMarketOnChainContext(
-        { chainId, instrument: instrumentAddress, expiry, userAddress: userAddressParam, signedSize: signedSizeParam },
-        config.signer,
-        config.httpClient
-    );
+    const market = createQueryMarketModule(config);
+    const onChainContextResponse = await market.fetchMarketOnChainContext({
+        chainId,
+        instrument: instrumentAddress,
+        expiry,
+        userAddress: userAddressParam,
+        signedSize: signedSizeParam,
+    });
 
     if (!onChainContextResponse?.instrument) {
         throw Errors.apiRequestFailed('Onchain context api request error');
@@ -73,7 +84,12 @@ export async function fetchOnchainContext(
 
     // Extract Setting, AMM, and markPrice from instrument response
     const perpInfo = getPerpInfo(chainId);
-    const { setting, amm, markPrice } = extractSettingAmmAndMarkPriceInternal(instrumentFromApi, expiry, perpInfo.gate);
+    const { setting, amm, markPrice } = extractSettingAmmAndMarkPriceInternal(
+        instrumentFromApi,
+        expiry,
+        perpInfo.gate,
+        perpInfo.config
+    );
 
     const priceData = onChainContextResponse.priceData
         ? buildPriceDataFromApi(onChainContextResponse.priceData)
@@ -109,10 +125,10 @@ export async function fetchOnchainContext(
     const quoteState: QuoteState = onChainContextResponse.quoteState
         ? buildQuoteStateFromApi(onChainContextResponse.quoteState)
         : PairSnapshot.emptyQuoteState(
-            instrumentFromApi.quote.address as Address,
-            instrumentFromApi.quote.decimals,
-            instrumentFromApi.quote.symbol
-        );
+              instrumentFromApi.quote.address as Address,
+              instrumentFromApi.quote.decimals,
+              instrumentFromApi.quote.symbol
+          );
 
     return new PairSnapshot({
         setting,
@@ -131,22 +147,19 @@ export async function inquireByTick(
     instrumentAddress: Address,
     expiry: number,
     tick: number,
-    config: ApiConfig,
+    config: ApiConfig
 ): Promise<{ size: bigint; quotation: Quotation }> {
     if (!config.signer) {
         throw Errors.apiRequestFailed('Signer is required for inquireByTick');
     }
 
-    const result = await fetchFuturesInstrumentInquireByTick(
-        {
-            chainId: config.chainId,
-            instrument: instrumentAddress,
-            expiry,
-            tick,
-        },
-        config.signer,
-        config.httpClient
-    );
+    const market = createQueryMarketModule(config);
+    const result = await market.fetchFuturesInstrumentInquireByTick({
+        chainId: config.chainId,
+        instrument: instrumentAddress,
+        expiry,
+        tick,
+    });
 
     if (!result || result.size === undefined) {
         throw Errors.missingQuotation();
@@ -178,7 +191,8 @@ export async function inquireByTick(
 function extractSettingAmmAndMarkPriceInternal(
     instrumentFromApi: InstrumentFromApi,
     expiry: number,
-    gateAddress: Address
+    gateAddress: Address,
+    configAddress: Address
 ): { setting: Setting; amm: Amm; markPrice: bigint } {
     // Find the AMM for the requested expiry
     const responseAmm: AmmFromApi | undefined = instrumentFromApi.amms.find((amm) => amm.expiry === expiry);
@@ -217,7 +231,7 @@ function extractSettingAmmAndMarkPriceInternal(
     // Build Setting from the data
     const setting: Setting = {
         symbol: instrumentFromApi.symbol,
-        config: instrumentFromApi.market.info.addr,
+        config: configAddress,
         gate: gateAddress,
         market: instrumentFromApi.market.info.addr,
         quote: instrumentFromApi.quote.address as Address,
@@ -253,7 +267,7 @@ function buildPriceDataInternal(instrumentFromApi: InstrumentFromApi, markPrice:
         expiry,
         markPrice,
         spotPrice: instrumentFromApi.spotPrice,
-        benchmarkPrice: 0n, // TODO should use real benchmark price
+        benchmarkPrice: markPrice,
         feeder0,
         feeder1,
         feeder0UpdatedAt: 0n,
@@ -306,15 +320,15 @@ function buildSpacingInternal(orderSpacing: number, rangeSpacing: number, pearlS
 }
 
 function buildPortfolioInternal(portfolioFromApi: PortfolioFromApi): Portfolio {
-    const positionFromApi = portfolioFromApi.position[0];
+    const positionFromApi = portfolioFromApi.position;
     const position: Position = positionFromApi
         ? new Position(
-            positionFromApi.balance,
-            positionFromApi.size,
-            positionFromApi.entryNotional,
-            positionFromApi.entrySocialLossIndex,
-            positionFromApi.entryFundingIndex
-        )
+              positionFromApi.balance,
+              positionFromApi.size,
+              positionFromApi.entryNotional,
+              positionFromApi.entrySocialLossIndex,
+              positionFromApi.entryFundingIndex
+          )
         : Position.empty();
 
     // Create Portfolio from PortfolioFromApi

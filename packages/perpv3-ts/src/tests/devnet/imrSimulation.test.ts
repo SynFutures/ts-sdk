@@ -1,8 +1,7 @@
-import type { Address, Hash } from 'viem';
-import { createTestClient, createWalletClient, http } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
+import type { Address } from 'viem';
+import { createTestClient, http } from 'viem';
 
-import { CEX_MARKET_ABI, CURRENT_GATE_ABI, CURRENT_INSTRUMENT_ABI } from '../../index';
+import { CEX_MARKET_ABI, CURRENT_INSTRUMENT_ABI } from '../../index';
 import {
     AddInput,
     RemoveInput,
@@ -12,7 +11,6 @@ import {
     WAD,
     buildInquireByTickResult,
     encodeAddParam,
-    encodeDepositParam,
     encodeRemoveParam,
     encodeTradeParam,
     fetchOnchainContext,
@@ -20,7 +18,7 @@ import {
 } from '../../index';
 import { abs, wmul } from '../../math';
 import type { PairSnapshot } from '../../types';
-import { createDevnetContext } from './devnet';
+import { createDevnetContext, createDevnetHelpers } from './devnet';
 
 const ctx = createDevnetContext();
 
@@ -34,6 +32,10 @@ const INSTRUMENT_ADDRESS = defaultInstrument.address;
 const EXPIRY = defaultInstrument.expiry;
 
 const QUOTE_TOKEN = defaultQuote.address;
+const { createUserWallet, waitForTx, transferQuote, approveQuote, depositQuote } = createDevnetHelpers(
+    ctx,
+    QUOTE_TOKEN
+);
 const QUOTE_UNIT = 10n ** BigInt(defaultQuote.decimals);
 const QUOTE_SCALER = 10n ** BigInt(18 - defaultQuote.decimals);
 
@@ -43,36 +45,6 @@ if (!MARKET_ADDRESS) {
 }
 
 const testClient = createTestClient({ chain: ctx.chain, mode: 'anvil', transport: http(ctx.manifest.rpcUrl) });
-
-const ERC20_ABI = [
-    {
-        name: 'transfer',
-        type: 'function',
-        stateMutability: 'nonpayable',
-        inputs: [
-            { name: 'to', type: 'address' },
-            { name: 'amount', type: 'uint256' },
-        ],
-        outputs: [{ type: 'bool' }],
-    },
-    {
-        name: 'approve',
-        type: 'function',
-        stateMutability: 'nonpayable',
-        inputs: [
-            { name: 'spender', type: 'address' },
-            { name: 'amount', type: 'uint256' },
-        ],
-        outputs: [{ type: 'bool' }],
-    },
-    {
-        name: 'balanceOf',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [{ name: 'account', type: 'address' }],
-        outputs: [{ type: 'uint256' }],
-    },
-] as const;
 
 const MOCK_CHAINLINK_FEEDER_ABI = [
     {
@@ -90,45 +62,6 @@ const MOCK_CHAINLINK_FEEDER_ABI = [
         outputs: [],
     },
 ] as const;
-
-function createUserWallet(addressIndex: number) {
-    const account = mnemonicToAccount(ctx.preset.anvil.mnemonic, { addressIndex });
-    return createWalletClient({ chain: ctx.chain, transport: http(ctx.manifest.rpcUrl), account });
-}
-
-async function waitForTx(hash: Hash) {
-    await ctx.publicClient.waitForTransactionReceipt({ hash });
-}
-
-async function transferQuote(to: Address, amount: bigint) {
-    const hash = await ctx.walletClients.admin.writeContract({
-        address: QUOTE_TOKEN,
-        abi: ERC20_ABI,
-        functionName: 'transfer',
-        args: [to, amount],
-    });
-    await waitForTx(hash);
-}
-
-async function approveQuote(wallet: ReturnType<typeof createUserWallet>, amount: bigint) {
-    const hash = await wallet.writeContract({
-        address: QUOTE_TOKEN,
-        abi: ERC20_ABI,
-        functionName: 'approve',
-        args: [ctx.manifest.contracts.gate, amount],
-    });
-    await waitForTx(hash);
-}
-
-async function depositQuote(wallet: ReturnType<typeof createUserWallet>, amount: bigint) {
-    const hash = await wallet.writeContract({
-        address: ctx.manifest.contracts.gate,
-        abi: CURRENT_GATE_ABI,
-        functionName: 'deposit',
-        args: [encodeDepositParam(QUOTE_TOKEN, amount)],
-    });
-    await waitForTx(hash);
-}
 
 async function setLeverage(initialMarginRatio: number, maintenanceMarginRatio: number) {
     const hash = await ctx.walletClients.admin.writeContract({
@@ -226,10 +159,12 @@ describe('devnet IMR simulation (ported from v3-contracts hardhat imrSimulation.
 
         const lpInitialMargin = 100_000n * WAD;
         const addUserSetting = new UserSetting(3600, 50, 2n * WAD);
-        const [addParam, addSim] = new AddInput(lpWallet.account.address, lpInitialMargin, tickLower, tickUpper).simulate(
-            lpBeforeAdd,
-            addUserSetting
-        );
+        const [addParam, addSim] = new AddInput(
+            lpWallet.account.address,
+            lpInitialMargin,
+            tickLower,
+            tickUpper
+        ).simulate(lpBeforeAdd, addUserSetting);
 
         await depositQuote(lpWallet, addParam.amount / QUOTE_SCALER + 1n);
 
@@ -265,17 +200,21 @@ describe('devnet IMR simulation (ported from v3-contracts hardhat imrSimulation.
         expect(attackerBeforeTrade.instrumentSetting.maxLeverage >= leverage).toBe(true);
         const tradeUserSetting = new UserSetting(3600, 50, leverage);
 
-        const [tradeParam] = new TradeInput(attackerWallet.account.address, boundaryQuote.baseQuantity, Side.LONG).simulate(
-            attackerBeforeTrade,
-            boundaryQuote,
-            tradeUserSetting
-        );
+        const [tradeParam] = new TradeInput(
+            attackerWallet.account.address,
+            boundaryQuote.baseQuantity,
+            Side.LONG
+        ).simulate(attackerBeforeTrade, boundaryQuote, tradeUserSetting);
 
         if (tradeParam.amount > 0n) {
             await depositQuote(attackerWallet, tradeParam.amount / QUOTE_SCALER + 1n);
         }
 
+        // Crossing a timestamp adds accounting work beyond the same-block gas estimate.
+        // Exercise that transition with a bounded gas budget; this test checks IMR, not gas estimation.
+        await testClient.increaseTime({ seconds: 1 });
         const tradeHash = await attackerWallet.writeContract({
+            gas: 1_000_000n,
             address: INSTRUMENT_ADDRESS,
             abi: CURRENT_INSTRUMENT_ABI,
             functionName: 'trade',
@@ -321,7 +260,12 @@ describe('devnet IMR simulation (ported from v3-contracts hardhat imrSimulation.
         });
         await waitForTx(removeHash);
 
-        const lpAfterRemove = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, lpWallet.account.address);
+        const lpAfterRemove = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            lpWallet.account.address
+        );
         const lpEquityAfterRemove = totalEquity(lpAfterRemove);
         expect(abs(lpEquityAfterRemove - lpEquityBeforeRemove) <= 1n).toBe(true);
     });
@@ -352,10 +296,12 @@ describe('devnet IMR simulation (ported from v3-contracts hardhat imrSimulation.
 
         const lpInitialMargin = 100_000n * WAD;
         const addUserSetting = new UserSetting(3600, 50, 2n * WAD);
-        const [addParam, addSim] = new AddInput(lpWallet.account.address, lpInitialMargin, tickLower, tickUpper).simulate(
-            lpBeforeAdd,
-            addUserSetting
-        );
+        const [addParam, addSim] = new AddInput(
+            lpWallet.account.address,
+            lpInitialMargin,
+            tickLower,
+            tickUpper
+        ).simulate(lpBeforeAdd, addUserSetting);
 
         await depositQuote(lpWallet, addParam.amount / QUOTE_SCALER + 1n);
 
@@ -400,7 +346,11 @@ describe('devnet IMR simulation (ported from v3-contracts hardhat imrSimulation.
             await depositQuote(attackerWallet, tradeParam.amount / QUOTE_SCALER + 1n);
         }
 
+        // Crossing a timestamp adds accounting work beyond the same-block gas estimate.
+        // Exercise that transition with a bounded gas budget; this test checks IMR, not gas estimation.
+        await testClient.increaseTime({ seconds: 1 });
         const tradeHash = await attackerWallet.writeContract({
+            gas: 1_000_000n,
             address: INSTRUMENT_ADDRESS,
             abi: CURRENT_INSTRUMENT_ABI,
             functionName: 'trade',
@@ -445,7 +395,12 @@ describe('devnet IMR simulation (ported from v3-contracts hardhat imrSimulation.
         });
         await waitForTx(removeHash);
 
-        const lpAfterRemove = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, lpWallet.account.address);
+        const lpAfterRemove = await fetchOnchainContext(
+            INSTRUMENT_ADDRESS,
+            EXPIRY,
+            ctx.rpcConfig,
+            lpWallet.account.address
+        );
         const lpEquityAfterRemove = totalEquity(lpAfterRemove);
         expect(abs(lpEquityAfterRemove - lpEquityBeforeRemove) <= 1n).toBe(true);
     });

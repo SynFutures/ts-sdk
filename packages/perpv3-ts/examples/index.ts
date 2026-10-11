@@ -8,7 +8,7 @@
  *   npm run demo trade-by-margin           # Run specific demo
  *   npm run demo trade-by-margin adjust-margin  # Run multiple demos
  *   npm run demo -- --category trade       # Run all demos in category
- *   npm run demo -- --chain abctest --signer alice --instrument BTC-USDM-EMG
+ *   npm run demo -- --chain base --signer alice --instrument ETH-USDC
  */
 
 import * as dotenv from 'dotenv';
@@ -18,8 +18,6 @@ import { runDemos, listAvailableDemos } from './framework/runner';
 import './trade';
 import './order';
 import './range';
-
-dotenv.config();
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -34,9 +32,9 @@ Usage:
 
 Options:
   --category <category>     Run all demos in category (trade, order, range)
-  --chain <chain>          Override default chain (default: abctest)
-  --signer <signer>         Override default signer (default: neo)
-  --instrument <symbol>    Override default instrument (default: ETH-USDM-EMG)
+  --chain <chain>          Chain name (required)
+  --signer <signer>         Signer ID (required)
+  --instrument <symbol>    Instrument symbol (required)
   --skip-cleanup           Skip cleanup after demos
   --continue-on-error      Continue running if one demo fails
   --skip-prerequisites      Skip prerequisite demos
@@ -49,7 +47,7 @@ Examples:
   npm run demo trade-by-margin adjust-margin      # Run multiple demos
   npm run demo -- --category trade                # Run all trade demos
   npm run demo -- --list                          # List all demos
-  npm run demo -- --chain abctest --signer alice  # Override defaults
+  npm run demo -- --chain base --signer alice --instrument ETH-USDC  # Override defaults
 `);
     process.exit(0);
 }
@@ -113,6 +111,9 @@ if (args.includes('--skip-prerequisites')) {
 if (args.length > 0) {
     options.demos = args;
 }
+
+// Load signer configuration only for explicit execution.
+dotenv.config();
 
 // Run demos
 runDemos(options)

@@ -1,8 +1,24 @@
-# pnpm-workspace.yaml
 packages:
-  - 'packages/*'
-  - '!**/test/**'
+    - 'packages/*'
 
 catalog:
-    "@derivation-tech/viem-kit": "^0.2.1"
-    "viem": "^2.45"
+    '@derivation-tech/viem-kit': '1.0.0-rc.0'
+    viem: '^2.56.8'
+    typescript: '6.0.3'
+
+overrides:
+    '@derivation-tech/viem-kit': 'file:./vendor/derivation-tech-viem-kit-1.0.0-rc.0.tgz'
+
+# Native binaries are supplied by platform-specific optional dependencies.
+allowBuilds:
+    '@foundry-rs/anvil': false
+    '@parcel/watcher': false
+    esbuild: false
+    unrs-resolver: false
+
+minimumReleaseAgeExclude:
+    - prettier@3.9.9
+    - ts-jest@29.4.13
+
+# Fail fast when node_modules does not match the lockfile; installs stay an explicit step.
+verifyDepsBeforeRun: error

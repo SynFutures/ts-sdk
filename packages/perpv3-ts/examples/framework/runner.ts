@@ -1,4 +1,4 @@
-import { createDemoContext, refreshDemoContext } from './context';
+import { createDemoContext } from './context';
 import { getDemo, listDemos, getDemoNames } from './registry';
 import { closePositionIfExists, removeAllRanges } from '../utils';
 import { isRpcConfig } from '@synfutures/perpv3-ts/queries';
@@ -17,17 +17,14 @@ export interface RunOptions {
     skipPrerequisites?: boolean; // Skip prerequisite demos
 }
 
-const DEFAULT_CHAIN_NAME = 'abctest';
-const DEFAULT_SIGNER_ID = 'neo';
-const DEFAULT_INSTRUMENT_SYMBOL = 'ETH-USDM-EMG';
-
 /**
  * Run demos based on the provided options.
  */
 export async function runDemos(options: RunOptions = {}): Promise<void> {
-    const chainName = options.chainName ?? DEFAULT_CHAIN_NAME;
-    const signerId = options.signerId ?? DEFAULT_SIGNER_ID;
-    const instrumentSymbol = options.instrumentSymbol ?? DEFAULT_INSTRUMENT_SYMBOL;
+    const { chainName, signerId, instrumentSymbol } = options;
+    if (!chainName || !signerId || !instrumentSymbol) {
+        throw new Error('Running demos requires --chain, --signer and --instrument. Use --list to inspect demos.');
+    }
 
     // Determine which demos to run
     let demosToRun: string[];
@@ -47,7 +44,7 @@ export async function runDemos(options: RunOptions = {}): Promise<void> {
     console.log(`🚀 Running ${demosToRun.length} demo(s): ${demosToRun.join(', ')}\n`);
 
     // Create demo context once
-    let context = await createDemoContext(chainName, signerId, instrumentSymbol);
+    const context = await createDemoContext(chainName, signerId, instrumentSymbol);
 
     const results: Array<{ name: string; success: boolean; error?: Error }> = [];
 
@@ -72,8 +69,6 @@ export async function runDemos(options: RunOptions = {}): Promise<void> {
 
         console.log(`=== Demo: ${demo.description || demoName} ===`);
         try {
-            // Refresh context before each demo to get latest state
-            context = await refreshDemoContext(context);
             await demo.run(context);
             console.log(`✅ Demo "${demoName}" completed successfully!\n`);
             results.push({ name: demoName, success: true });
@@ -95,7 +90,6 @@ export async function runDemos(options: RunOptions = {}): Promise<void> {
     if (!options.skipCleanup) {
         console.log('🧹 Cleaning up...');
         try {
-            context = await refreshDemoContext(context);
             if (!isRpcConfig(context.perpClient.config)) {
                 throw new Error('Cleanup requires RPC config, but API config was provided');
             }

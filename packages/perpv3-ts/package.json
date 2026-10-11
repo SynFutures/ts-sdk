@@ -11,69 +11,124 @@
     "types": "./dist/index.d.ts",
     "exports": {
         ".": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.mjs",
-            "require": "./dist/index.cjs",
+            "import": {
+                "types": "./dist/index.d.ts",
+                "default": "./dist/index.mjs"
+            },
+            "require": {
+                "types": "./dist/index.d.cts",
+                "default": "./dist/index.cjs"
+            },
             "default": "./dist/index.mjs"
         },
         "./types": {
-            "types": "./dist/types.d.ts",
-            "import": "./dist/types.mjs",
-            "require": "./dist/types.cjs",
+            "import": {
+                "types": "./dist/types.d.ts",
+                "default": "./dist/types.mjs"
+            },
+            "require": {
+                "types": "./dist/types.d.cts",
+                "default": "./dist/types.cjs"
+            },
             "default": "./dist/types.mjs"
         },
         "./actions": {
-            "types": "./dist/actions.d.ts",
-            "import": "./dist/actions.mjs",
-            "require": "./dist/actions.cjs",
+            "import": {
+                "types": "./dist/actions.d.ts",
+                "default": "./dist/actions.mjs"
+            },
+            "require": {
+                "types": "./dist/actions.d.cts",
+                "default": "./dist/actions.cjs"
+            },
             "default": "./dist/actions.mjs"
         },
         "./queries": {
-            "types": "./dist/queries.d.ts",
-            "import": "./dist/queries.mjs",
-            "require": "./dist/queries.cjs",
+            "import": {
+                "types": "./dist/queries.d.ts",
+                "default": "./dist/queries.mjs"
+            },
+            "require": {
+                "types": "./dist/queries.d.cts",
+                "default": "./dist/queries.cjs"
+            },
             "default": "./dist/queries.mjs"
         },
         "./apis": {
-            "types": "./dist/apis.d.ts",
-            "import": "./dist/apis.mjs",
-            "require": "./dist/apis.cjs",
+            "import": {
+                "types": "./dist/apis.d.ts",
+                "default": "./dist/apis.mjs"
+            },
+            "require": {
+                "types": "./dist/apis.d.cts",
+                "default": "./dist/apis.cjs"
+            },
             "default": "./dist/apis.mjs"
         },
         "./abis": {
-            "types": "./dist/abis.d.ts",
-            "import": "./dist/abis.mjs",
-            "require": "./dist/abis.cjs",
+            "import": {
+                "types": "./dist/abis.d.ts",
+                "default": "./dist/abis.mjs"
+            },
+            "require": {
+                "types": "./dist/abis.d.cts",
+                "default": "./dist/abis.cjs"
+            },
             "default": "./dist/abis.mjs"
         },
         "./parsers": {
-            "types": "./dist/parsers.d.ts",
-            "import": "./dist/parsers.mjs",
-            "require": "./dist/parsers.cjs",
+            "import": {
+                "types": "./dist/parsers.d.ts",
+                "default": "./dist/parsers.mjs"
+            },
+            "require": {
+                "types": "./dist/parsers.d.cts",
+                "default": "./dist/parsers.cjs"
+            },
             "default": "./dist/parsers.mjs"
         },
         "./frontend": {
-            "types": "./dist/frontend.d.ts",
-            "import": "./dist/frontend.mjs",
-            "require": "./dist/frontend.cjs",
+            "import": {
+                "types": "./dist/frontend.d.ts",
+                "default": "./dist/frontend.mjs"
+            },
+            "require": {
+                "types": "./dist/frontend.d.cts",
+                "default": "./dist/frontend.cjs"
+            },
             "default": "./dist/frontend.mjs"
         },
         "./utils": {
-            "types": "./dist/utils.d.ts",
-            "import": "./dist/utils.mjs",
-            "require": "./dist/utils.cjs",
+            "import": {
+                "types": "./dist/utils.d.ts",
+                "default": "./dist/utils.mjs"
+            },
+            "require": {
+                "types": "./dist/utils.d.cts",
+                "default": "./dist/utils.cjs"
+            },
             "default": "./dist/utils.mjs"
         },
         "./math": {
-            "types": "./dist/math.d.ts",
-            "import": "./dist/math.mjs",
-            "require": "./dist/math.cjs",
+            "import": {
+                "types": "./dist/math.d.ts",
+                "default": "./dist/math.mjs"
+            },
+            "require": {
+                "types": "./dist/math.d.cts",
+                "default": "./dist/math.cjs"
+            },
             "default": "./dist/math.mjs"
         },
         "./constants": {
-            "types": "./dist/constants.d.ts",
-            "import": "./dist/constants.mjs",
-            "require": "./dist/constants.cjs",
+            "import": {
+                "types": "./dist/constants.d.ts",
+                "default": "./dist/constants.mjs"
+            },
+            "require": {
+                "types": "./dist/constants.d.cts",
+                "default": "./dist/constants.cjs"
+            },
             "default": "./dist/constants.mjs"
         },
         "./package.json": "./package.json"
@@ -85,23 +140,35 @@
         "dist/**/*.d.ts.map",
         "dist/**/*.map",
         "!dist/**/*.test.*",
-        "README.md"
+        "README.md",
+        "docs/**/*.md"
     ],
     "scripts": {
-        "build": "tsup",
+        "build": "tsdown --config tsdown.config.mts",
         "build:check": "tsc --noEmit",
+        "typecheck:public": "tsc --noEmit -p tsconfig.typecheck.json",
+        "typecheck:examples": "tsc --noEmit -p examples/tsconfig.json",
+        "verify": "pnpm run lint && pnpm run build:check && pnpm run typecheck:build && pnpm run typecheck:tests && pnpm run typecheck:tools && pnpm run typecheck:public && pnpm run typecheck:examples && pnpm run typecheck:docs && pnpm run test:unit --runInBand && pnpm run build && pnpm run verify:consumer",
         "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
-        "prepack": "npm run build && npm run build:check",
-        "lint": "eslint",
-        "format": "prettier --write \"**/*.{ts,json,md}\"",
-        "test:unit": "jest",
+        "prepack": "pnpm run build && pnpm run build:check",
+        "lint": "eslint . --max-warnings=0",
+        "format": "prettier --write . --ignore-path ../../.prettierignore",
+        "test:unit": "jest --config jest.config.js",
         "test:devnet": "jest --config jest.devnet.config.js",
         "test": "pnpm run test:unit && pnpm run test:devnet",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",
         "demo": "tsx examples/index.ts",
         "devnet:check": "node scripts/devnet/check.js",
-        "devnet:regen": "tsx scripts/devnet/regen.ts"
+        "devnet:regen": "tsx scripts/devnet/regen.ts",
+        "verify:consumer": "node scripts/verify-consumer.mjs",
+        "prepublishOnly": "node scripts/check-release-dependency.mjs",
+        "typecheck:docs": "node scripts/typecheck-docs.mjs",
+        "typecheck:tests": "tsc --noEmit -p tsconfig.tests.json",
+        "typecheck:tools": "tsc --noEmit -p tsconfig.tools.json",
+        "test:live": "jest --config jest.live.config.js",
+        "format:check": "prettier --check . --ignore-path ../../.prettierignore",
+        "typecheck:build": "tsc --ignoreConfig --noEmit --module nodenext --target es2022 --strict --skipLibCheck tsdown.config.mts"
     },
     "keywords": [
         "synfutures",
@@ -112,9 +179,8 @@
     ],
     "dependencies": {
         "@derivation-tech/viem-kit": "catalog:",
-        "@noble/curves": "^1.9.1",
-        "axios": "^1.12.2",
-        "date-fns": "^4.1.0",
+        "axios": "^1.20.0",
+        "date-fns": "^4.4.0",
         "date-fns-tz": "^3.2.0",
         "viem": "catalog:"
     },
@@ -127,19 +193,23 @@
         }
     },
     "devDependencies": {
-        "@foundry-rs/anvil": "1.5.1",
-        "@jest/globals": "^30.2.0",
+        "@arethetypeswrong/cli": "0.18.5",
+        "@foundry-rs/anvil": "1.7.1",
+        "@jest/globals": "^30.5.2",
         "@synfutures/v3-contracts": "^0.0.2",
         "@types/jest": "^30.0.0",
-        "@types/node": "^20.0.0",
-        "dotenv": "^17.2.3",
-        "eslint": "^9.0.0",
-        "jest": "^30.2.0",
-        "prettier": "^3.0.0",
-        "ts-jest": "^29.4.6",
-        "ts-node": "^10.9.2",
-        "tsup": "^8.5.1",
-        "tsx": "^4.20.6",
-        "typescript": "^5.9.3"
+        "@types/node": "22.20.4",
+        "dotenv": "^18.0.3",
+        "esbuild": "0.28.2",
+        "eslint": "^10.11.0",
+        "jest": "^30.5.2",
+        "publint": "0.3.24",
+        "ts-jest": "^29.4.13",
+        "tsdown": "0.23.0",
+        "tsx": "^4.23.15",
+        "typescript": "catalog:"
+    },
+    "engines": {
+        "node": ">=22"
     }
 }

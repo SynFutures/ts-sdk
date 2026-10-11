@@ -1,27 +1,15 @@
 {
     "compilerOptions": {
-        "target": "es2022",
-        "module": "commonjs",
-        "declaration": true,
-        "declarationMap": true,
-        "esModuleInterop": true,
-        "forceConsistentCasingInFileNames": true,
-        "noEmitOnError": true,
+        "target": "ES2022",
+        "strict": true,
         "noFallthroughCasesInSwitch": true,
-        "noImplicitAny": true,
-        "noImplicitThis": true,
-        "strictNullChecks": true,
         "noImplicitReturns": true,
         "noUnusedLocals": true,
-        "preserveSymlinks": false,
-        "preserveWatchOutput": true,
-        "sourceMap": true,
+        "noUnusedParameters": true,
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
         "skipLibCheck": true,
         "resolveJsonModule": true,
-        "strictBindCallApply": true,
-        "removeComments": true,
-        "allowSyntheticDefaultImports": true,
-        "strictFunctionTypes": true,
-        "strictPropertyInitialization": true
+        "types": ["node"]
     }
 }

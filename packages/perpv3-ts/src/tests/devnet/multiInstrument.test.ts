@@ -1,5 +1,4 @@
-import type { Address, Hash } from 'viem';
-import { CURRENT_GATE_ABI, CURRENT_INSTRUMENT_ABI } from '../../index';
+import { CURRENT_INSTRUMENT_ABI } from '../../index';
 import {
     PERP_EXPIRY,
     QuotationWithSize,
@@ -7,12 +6,11 @@ import {
     TradeInput,
     UserSetting,
     WAD,
-    encodeDepositParam,
     encodeTradeParam,
     fetchOnchainContext,
     inquireByBaseSize,
 } from '../../index';
-import { createDevnetContext } from './devnet';
+import { createDevnetContext, createDevnetHelpers } from './devnet';
 
 const ctx = createDevnetContext();
 
@@ -22,71 +20,8 @@ if (!defaultQuote) {
     throw new Error(`Missing quote token info in manifest for ${defaultInstrument.quoteSymbol}`);
 }
 const QUOTE_TOKEN = defaultQuote.address;
+const { waitForTx, transferQuote, approveQuote, depositQuote } = createDevnetHelpers(ctx, QUOTE_TOKEN);
 const QUOTE_UNIT = 10n ** BigInt(defaultQuote.decimals);
-
-const ERC20_ABI = [
-    {
-        name: 'transfer',
-        type: 'function',
-        stateMutability: 'nonpayable',
-        inputs: [
-            { name: 'to', type: 'address' },
-            { name: 'amount', type: 'uint256' },
-        ],
-        outputs: [{ type: 'bool' }],
-    },
-    {
-        name: 'approve',
-        type: 'function',
-        stateMutability: 'nonpayable',
-        inputs: [
-            { name: 'spender', type: 'address' },
-            { name: 'amount', type: 'uint256' },
-        ],
-        outputs: [{ type: 'bool' }],
-    },
-    {
-        name: 'balanceOf',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [{ name: 'account', type: 'address' }],
-        outputs: [{ type: 'uint256' }],
-    },
-] as const;
-
-async function waitForTx(hash: Hash) {
-    await ctx.publicClient.waitForTransactionReceipt({ hash });
-}
-
-async function transferQuote(to: Address, amount: bigint) {
-    const hash = await ctx.walletClients.admin.writeContract({
-        address: QUOTE_TOKEN,
-        abi: ERC20_ABI,
-        functionName: 'transfer',
-        args: [to, amount],
-    });
-    await waitForTx(hash);
-}
-
-async function approveQuote(amount: bigint) {
-    const hash = await ctx.walletClients.trader.writeContract({
-        address: QUOTE_TOKEN,
-        abi: ERC20_ABI,
-        functionName: 'approve',
-        args: [ctx.manifest.contracts.gate, amount],
-    });
-    await waitForTx(hash);
-}
-
-async function depositQuote(amount: bigint) {
-    const hash = await ctx.walletClients.trader.writeContract({
-        address: ctx.manifest.contracts.gate,
-        abi: CURRENT_GATE_ABI,
-        functionName: 'deposit',
-        args: [encodeDepositParam(QUOTE_TOKEN, amount)],
-    });
-    await waitForTx(hash);
-}
 
 function createUserSetting() {
     return new UserSetting(3600, 50, 4n * WAD);
@@ -124,8 +59,8 @@ describe('devnet multi-instrument fixtures', () => {
         const depositAmount = 50_000n * QUOTE_UNIT;
 
         await transferQuote(traderAddress, transferAmount);
-        await approveQuote(transferAmount);
-        await depositQuote(depositAmount);
+        await approveQuote(ctx.walletClients.trader, transferAmount);
+        await depositQuote(ctx.walletClients.trader, depositAmount);
 
         const before = await fetchOnchainContext(instrument.address, instrument.expiry, ctx.rpcConfig, traderAddress);
         expect(before.portfolio.position.size).toBe(0n);

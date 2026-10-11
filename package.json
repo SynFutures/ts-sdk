@@ -7,40 +7,34 @@
     "license": "MIT",
     "scripts": {
         "preinstall": "node scripts/ensure-pnpm.cjs",
-        "nx": "nx run-many --target=build --all",
-        "test": "nx run-many --target=test --all",
+        "build": "pnpm -r run build",
+        "test": "pnpm -r run test",
         "deps": "pnpm -r i",
-        "init": "./scripts/init.sh",
         "prepare": "husky",
-        "lint": "eslint",
-        "format": "prettier --write packages/**/*.ts",
+        "lint": "eslint . --max-warnings=0",
+        "format": "prettier --write .",
         "clean": "pnpm -r clean",
         "release": "changeset publish",
-        "release:dry": "changeset version && changeset publish --dry-run"
+        "release:dry": "changeset status",
+        "format:check": "prettier --check .",
+        "release:version": "changeset version && pnpm install --lockfile-only --ignore-scripts --no-frozen-lockfile",
+        "test:release": "node --test scripts/tests/*.test.cjs"
     },
     "devDependencies": {
-        "@changesets/cli": "^2.28.1",
-        "@eslint/js": "^9.9.1",
-        "@nx/eslint": "20.0.6",
-        "@nx/jest": "20.0.6",
-        "eslint": "^9.7.0",
-        "eslint-config-prettier": "^9.1.0",
+        "@changesets/cli": "^3.0.3",
+        "@eslint/js": "^10.0.1",
+        "eslint": "^10.11.0",
+        "eslint-config-prettier": "^10.1.8",
+        "globals": "17.12.0",
         "husky": "^9.1.6",
-        "lint-staged": "^16.2.3",
-        "nx": "20.0.6",
-        "prettier": "^3.3.3",
-        "typescript": "^5.5.3",
-        "typescript-eslint": "^8.3.0"
+        "lint-staged": "^17.5.1",
+        "prettier": "3.9.9",
+        "typescript": "catalog:",
+        "typescript-eslint": "^8.70.1"
     },
     "engines": {
-        "node": ">=18",
-        "pnpm": ">=8"
+        "node": ">=24 <25",
+        "pnpm": ">=12 <13"
     },
-    "pnpm": {
-        "peerDependencyRules": {
-            "allowedVersions": {
-                "eslint": "^9.2.0"
-            }
-        }
-    }
+    "packageManager": "pnpm@12.6.0"
 }

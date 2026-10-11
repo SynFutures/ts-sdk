@@ -25,9 +25,21 @@ type SubtleCryptoLike = {
     sign: (algorithm: { name: 'HMAC' }, key: unknown, data: ArrayBufferView) => Promise<ArrayBuffer>;
 };
 
+type TextEncoderCtor = new () => {
+    encode: (value: string) => Uint8Array;
+};
+
+type RuntimeGlobals = typeof globalThis & {
+    crypto?: {
+        subtle?: SubtleCryptoLike;
+    };
+    TextEncoder?: TextEncoderCtor;
+};
+
+const runtimeGlobals = globalThis as RuntimeGlobals;
+
 function getSubtleCrypto(): SubtleCryptoLike {
-    const cryptoObj = (globalThis as unknown as { crypto?: { subtle?: unknown } }).crypto;
-    const subtle = cryptoObj?.subtle as SubtleCryptoLike | undefined;
+    const subtle = runtimeGlobals.crypto?.subtle;
     if (!subtle) {
         throw new Error(
             'WebCrypto is not available. Request signing requires `globalThis.crypto.subtle` (supported in modern browsers and Node.js 18+).'
@@ -37,8 +49,7 @@ function getSubtleCrypto(): SubtleCryptoLike {
 }
 
 function encodeUtf8(value: string): Uint8Array {
-    const TextEncoderCtor = (globalThis as unknown as { TextEncoder?: new () => { encode: (v: string) => Uint8Array } })
-        .TextEncoder;
+    const TextEncoderCtor = runtimeGlobals.TextEncoder;
     if (!TextEncoderCtor) {
         throw new Error('TextEncoder is not available in this environment.');
     }
@@ -99,7 +110,7 @@ export function sortJsonKeys(jsonStr: string): string {
     try {
         const data = JSON.parse(jsonStr);
         return JSON.stringify(data, Object.keys(data).sort());
-    } catch (error) {
+    } catch {
         return jsonStr;
     }
 }

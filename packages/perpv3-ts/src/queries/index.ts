@@ -1,8 +1,8 @@
 import type { Address } from 'viem';
 import type { IFuturesOrderBookAllSteps } from '../apis/interfaces';
 import { Errors, type PairSnapshot, type Quotation } from '../types';
-import { fetchFuturesInstrumentInquire, fetchFuturesPairOrderBook } from '../apis/api';
 import {
+    createQueryMarketModule,
     fetchOnchainContext as fetchOnchainContextFromApi,
     inquireByTick as inquireByTickFromApi,
 } from './api';
@@ -42,7 +42,13 @@ export async function fetchOnchainContext(
 ): Promise<PairSnapshot> {
     if (isApiConfig(config)) {
         // API doesn't support options parameter
-        return fetchOnchainContextFromApi(instrumentAddress, expiry, resolveApiConfig(config), traderAddress, signedSize);
+        return fetchOnchainContextFromApi(
+            instrumentAddress,
+            expiry,
+            resolveApiConfig(config),
+            traderAddress,
+            signedSize
+        );
     }
     return fetchOnchainContextFromRpc(instrumentAddress, expiry, config, traderAddress, signedSize, options);
 }
@@ -89,16 +95,13 @@ export async function inquireByBaseSize(
         }
         const resolved = resolveApiConfig(config);
         // API doesn't support options parameter
-        const quotation = await fetchFuturesInstrumentInquire(
-            {
-                chainId: resolved.chainId,
-                instrument: instrumentAddress,
-                expiry,
-                size: signedSize.toString(),
-            },
-            signer,
-            resolved.httpClient
-        );
+        const market = createQueryMarketModule(resolved);
+        const quotation = await market.fetchFuturesInstrumentInquire({
+            chainId: resolved.chainId,
+            instrument: instrumentAddress,
+            expiry,
+            size: signedSize.toString(),
+        });
         if (!quotation) {
             throw Errors.missingQuotation();
         }
@@ -131,15 +134,12 @@ export async function fetchOrderBook(
             throw Errors.apiRequestFailed('Signer is required for fetchOrderBook');
         }
         const resolved = resolveApiConfig(config);
-        return fetchFuturesPairOrderBook(
-            {
-                chainId: resolved.chainId,
-                address: instrument,
-                expiry,
-            },
-            signer,
-            resolved.httpClient
-        );
+        const market = createQueryMarketModule(resolved);
+        return market.fetchFuturesPairOrderBook({
+            chainId: resolved.chainId,
+            address: instrument,
+            expiry,
+        });
     }
 
     const fetchOptions: FetchOrderBookOptions | undefined =

@@ -1,9 +1,16 @@
+import { assertTransactionSuccess } from '@derivation-tech/viem-kit';
 import { parseUnits } from 'viem';
 import { ratioToWad, sqrtX96ToWad, wadToTick, wmul } from '@synfutures/perpv3-ts/math';
 import { RATIO_BASE } from '@synfutures/perpv3-ts/constants';
 import { CURRENT_INSTRUMENT_ABI } from '@synfutures/perpv3-ts/abis';
 import { AddInput, RemoveInput } from '@synfutures/perpv3-ts/actions';
-import { encodeAddParam, encodeRemoveParam, formatTick, formatTokenAmount, formatWad } from '@synfutures/perpv3-ts/utils';
+import {
+    encodeAddParam,
+    encodeRemoveParam,
+    formatTick,
+    formatTokenAmount,
+    formatWad,
+} from '@synfutures/perpv3-ts/utils';
 import type { DemoContext } from './framework/types';
 import { registerDemo } from './framework/registry';
 import { ensureMarginAndAllowance } from './utils';
@@ -54,14 +61,15 @@ export async function demoAddLiquidity(context: DemoContext): Promise<void> {
 
     // Add liquidity
     console.log(`📝 Adding liquidity...`);
-    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
-    await sendTxWithLog(publicClient, walletClient, kit, {
-        address: perpClient.instrumentAddress,
-        abi: CURRENT_INSTRUMENT_ABI,
-        functionName: 'add',
-        args: [encodeAddParam(addParam)],
-        gas: BigInt(500000),
-    });
+    assertTransactionSuccess(
+        await kit.sendTx(walletClient, {
+            address: perpClient.instrumentAddress,
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'add',
+            args: [encodeAddParam(addParam)],
+            gas: BigInt(500000),
+        })
+    );
 
     console.log(`✅ Liquidity added successfully!`);
 }
@@ -70,7 +78,7 @@ export async function demoAddLiquidity(context: DemoContext): Promise<void> {
  * Demo: Remove liquidity using RemoveInput
  */
 export async function demoRemoveLiquidity(context: DemoContext): Promise<void> {
-    const { walletAddress, publicClient, walletClient, kit, perpClient } = context;
+    const { walletAddress, walletClient, kit, perpClient } = context;
 
     // Get fresh snapshot
     const snapshot = await perpClient.getSnapshot(walletAddress);
@@ -100,14 +108,15 @@ export async function demoRemoveLiquidity(context: DemoContext): Promise<void> {
     console.log(`ℹ️ Post position size: ${formatWad(simulation.postPosition.size)}`);
     console.log(`ℹ️ Post position margin: ${formatWad(simulation.postPosition.balance)}`);
 
-    const { sendTxWithLog } = await import('@derivation-tech/viem-kit');
-    await sendTxWithLog(publicClient, walletClient, kit, {
-        address: perpClient.instrumentAddress,
-        abi: CURRENT_INSTRUMENT_ABI,
-        functionName: 'remove',
-        args: [encodeRemoveParam(removeParam)],
-        gas: BigInt(500000),
-    });
+    assertTransactionSuccess(
+        await kit.sendTx(walletClient, {
+            address: perpClient.instrumentAddress,
+            abi: CURRENT_INSTRUMENT_ABI,
+            functionName: 'remove',
+            args: [encodeRemoveParam(removeParam)],
+            gas: BigInt(500000),
+        })
+    );
 
     console.log(`✅ Liquidity removed successfully!`);
 }

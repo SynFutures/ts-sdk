@@ -19,13 +19,10 @@ import {
     type ReadOptions,
     type RpcConfig,
 } from './queries';
-import {
-    UserSetting,
-    type PairSnapshot,
-    type Quotation,
-} from './types';
+import { UserSetting, type PairSnapshot, type Quotation } from './types';
 import { WebSocketManager } from './wss';
-import { httpClient as defaultHttpClient, MarketMakerModule, MarketModule } from './apis';
+import { MarketMakerModule, MarketModule } from './apis';
+import { defaultHttpClient } from './utils';
 
 /**
  * PerpClient is a scoped client for interacting with a specific trading pair (instrument + expiry).
@@ -129,7 +126,9 @@ export class PerpClient {
      */
     get mm(): MarketMakerModule {
         if (!this._mm) {
-            throw new Error('MarketMaker module is not initialized. Please check if the config is an API config and has authInfo.');
+            throw new Error(
+                'MarketMaker module is not initialized. Please check if the config is an API config and has authInfo.'
+            );
         }
         return this._mm;
     }
@@ -139,7 +138,9 @@ export class PerpClient {
      */
     get market(): MarketModule {
         if (!this._market) {
-            throw new Error('Market module is not initialized. Please check if the config is an API config and has signer.');
+            throw new Error(
+                'Market module is not initialized. Please check if the config is an API config and has signer.'
+            );
         }
         return this._market;
     }
@@ -199,6 +200,7 @@ export class PerpClient {
                         options
                     );
                 } catch (rpcError) {
+                    // eslint-disable-next-line preserve-caught-error -- Both failures are retained in AggregateError.errors.
                     throw new AggregateError(
                         [apiError, rpcError],
                         'PerpClient.getSnapshot failed: API request and rpcFallback request both failed'
@@ -207,7 +209,14 @@ export class PerpClient {
             }
         }
 
-        return fetchOnchainContext(this._instrumentAddress, this._expiry, this._config, traderAddress, signedSize, options);
+        return fetchOnchainContext(
+            this._instrumentAddress,
+            this._expiry,
+            this._config,
+            traderAddress,
+            signedSize,
+            options
+        );
     }
 
     /**
@@ -230,6 +239,7 @@ export class PerpClient {
                 try {
                     return await inquireByTick(this._instrumentAddress, this._expiry, tick, this._rpcFallback, options);
                 } catch (rpcError) {
+                    // eslint-disable-next-line preserve-caught-error -- Both failures are retained in AggregateError.errors.
                     throw new AggregateError(
                         [apiError, rpcError],
                         'PerpClient.getQuotation failed: API request and rpcFallback request both failed'
@@ -259,8 +269,15 @@ export class PerpClient {
                 return await inquireByBaseSize(this._instrumentAddress, this._expiry, signedSize, this._config);
             } catch (apiError) {
                 try {
-                    return await inquireByBaseSize(this._instrumentAddress, this._expiry, signedSize, this._rpcFallback, options);
+                    return await inquireByBaseSize(
+                        this._instrumentAddress,
+                        this._expiry,
+                        signedSize,
+                        this._rpcFallback,
+                        options
+                    );
                 } catch (rpcError) {
+                    // eslint-disable-next-line preserve-caught-error -- Both failures are retained in AggregateError.errors.
                     throw new AggregateError(
                         [apiError, rpcError],
                         'PerpClient.inquire failed: API request and rpcFallback request both failed'
@@ -303,6 +320,7 @@ export class PerpClient {
             try {
                 return await fetchOrderBook(this._instrumentAddress, this._expiry, this._rpcFallback, length, options);
             } catch (rpcError) {
+                // eslint-disable-next-line preserve-caught-error -- Both failures are retained in AggregateError.errors.
                 throw new AggregateError(
                     [apiError, rpcError],
                     'PerpClient.getOrderBook failed: API request and rpcFallback request both failed'

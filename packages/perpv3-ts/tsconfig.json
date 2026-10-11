@@ -1,35 +1,13 @@
 {
+    "extends": "../../tsconfig.json",
     "compilerOptions": {
-        // Target and module resolution
-        // Using "bundler" mode for tsup compatibility (TS 5.0+)
-        "target": "ES2022",
         "module": "ESNext",
-        "moduleResolution": "bundler",
+        "moduleResolution": "Bundler",
         "lib": ["ES2022"],
-
-        // Type checking strictness
-        "strict": true,
-        "noUnusedLocals": true,
-        "noUnusedParameters": true,
-        "noImplicitReturns": true,
-        "noFallthroughCasesInSwitch": true,
-        "forceConsistentCasingInFileNames": true,
-
-        // Module compatibility
-        "esModuleInterop": true,
-        "allowSyntheticDefaultImports": true,
-        "resolveJsonModule": true,
         "isolatedModules": true,
-
-        // Type checking only (build is handled by tsup)
         "noEmit": true,
-        "skipLibCheck": true,
-
-        // Additional strictness (aligned with monorepo standards)
-        "strictBindCallApply": true,
-        "strictFunctionTypes": true,
-        "strictPropertyInitialization": true
+        "rootDir": "./src"
     },
-    "include": ["src/**/*", "*.config.ts"],
-    "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
+    "include": ["src/**/*.ts"],
+    "exclude": ["node_modules", "dist", "src/tests"]
 }

@@ -1,0 +1,12 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "isolatedModules": false,
+        "noEmit": true,
+        "noUnusedLocals": false,
+        "noUnusedParameters": false,
+        "rootDir": "."
+    },
+    "include": ["./src/**/*.ts", "./typecheck/viem-kit.typecheck.ts"],
+    "exclude": ["node_modules", "dist", "src/tests"]
+}
