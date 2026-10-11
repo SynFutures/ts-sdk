@@ -125,8 +125,17 @@ export class MarketModule extends BaseApiModule {
         // This endpoint sends raw on-chain integers (e.g. sqrtPX96, liquidity) as JSON numbers.
         const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams, {
             responseType: 'text',
-            transformResponse: (data: unknown) =>
-                typeof data === 'string' && data.trim() ? parseJsonPreservingLargeIntegers(data) : data,
+            transformResponse: (data: unknown, _headers: unknown, status?: number) => {
+                if (typeof data !== 'string' || !data.trim()) return data;
+                try {
+                    return parseJsonPreservingLargeIntegers(data);
+                } catch (error) {
+                    // axios also runs this on error responses. Keep a non-JSON error body (e.g. a gateway's HTML
+                    // page) as text so the HTTP error, not a SyntaxError, reaches the retry logic and the caller.
+                    if (status !== undefined && status >= 200 && status < 300) throw error;
+                    return data;
+                }
+            },
         });
 
         const rawData = getApiData(res);

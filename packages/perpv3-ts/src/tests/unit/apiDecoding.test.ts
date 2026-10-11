@@ -1,4 +1,5 @@
-import { AxiosHeaders } from 'axios';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import type { Address } from 'viem';
 import { getApiData, requireApiData, type ApiEnvelope } from '../../apis/base';
 import {
@@ -526,6 +527,40 @@ describe('API decoding', () => {
         expect(portfolio.portfolios[0]?.position).toBeUndefined();
     });
 
+    it('decodes other list fields the server leaves empty', () => {
+        // go-backend builds these with `var x []T` + append, or copies them from gRPC/cache structs, so empty
+        // lists arrive as `null`.
+        const payload = createInstrumentPayload('0x0000000000000000000000000000000000000001', 1, 1n);
+        (payload.market as { config: Record<string, unknown> }).config.feederSource = null;
+        payload.amms = null;
+        const instrument = decodeFuturesInstrument(payload);
+        expect(instrument?.market.config.feederSource).toEqual([]);
+        expect(instrument?.amms).toEqual([]);
+
+        expect(decodeGateBalances(null)).toEqual([]);
+        expect(
+            decodeMmWalletBalance({
+                address: '0x0000000000000000000000000000000000000001',
+                isBlacklisted: false,
+                pendingDuration: '0',
+                portfolios: null,
+            }).portfolios
+        ).toEqual([]);
+        expect(
+            decodeDepthChartLiquidityDetails({
+                amm: { liquidity: '0', sqrtPX96: '1', tick: 0 },
+                blockInfo: { timestamp: 1, height: 2 },
+                length: 0,
+                pearls: [],
+                size: 0,
+                stepRatio: 1,
+                tick2Pearl: {},
+                tickDelta: 1,
+                tids: null,
+            }).tids
+        ).toEqual([]);
+    });
+
     it('decodes depth chart liquidity details and normalizes tick pearls', () => {
         const details = decodeDepthChartLiquidityDetails({
             amm: {
@@ -582,23 +617,37 @@ describe('PascalCase on-chain query decoding', () => {
             /"(\d{16,})"/g,
             '$1'
         );
-        const httpClient = new HttpClient();
-        jest.spyOn(httpClient, 'get').mockImplementation(async (_url, config) => {
-            const transform = config?.transformResponse;
-            if (!config || typeof transform !== 'function') throw new Error('expected a response transform');
-            return axiosResponse(transform.call({ ...config, headers: new AxiosHeaders() }, text, new AxiosHeaders()));
+        let requestCount = 0;
+        const server = createServer((_req, res) => {
+            requestCount += 1;
+            // A gateway error page first: it must surface as a retryable HTTP error, not a JSON SyntaxError.
+            if (requestCount === 1) {
+                res.writeHead(502, { 'Content-Type': 'text/html' });
+                res.end('<html><body>502 Bad Gateway</body></html>');
+                return;
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(text);
         });
-        const market = new MarketModule(httpClient, signer);
+        await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+        try {
+            const { port } = server.address() as AddressInfo;
+            const httpClient = new HttpClient({ baseUrl: `http://127.0.0.1:${port}`, retries: 1, timeout: 2_000 });
+            const market = new MarketModule(httpClient, signer);
 
-        const snapshot = await market.fetchMarketOnChainContextQuery({
-            chainId: 8453,
-            instrument: fixture.instrumentAddress as Address,
-            expiry: fixture.context.amm.expiry,
-        });
+            const snapshot = await market.fetchMarketOnChainContextQuery({
+                chainId: 8453,
+                instrument: fixture.instrumentAddress as Address,
+                expiry: fixture.context.amm.expiry,
+            });
 
-        expect(BigInt(fixture.context.amm.sqrtPX96) > BigInt(Number.MAX_SAFE_INTEGER)).toBe(true);
-        expect(snapshot?.amm.sqrtPX96).toBe(BigInt(fixture.context.amm.sqrtPX96));
-        expect(snapshot?.amm.liquidity).toBe(BigInt(fixture.context.amm.liquidity));
+            expect(requestCount).toBe(2);
+            expect(BigInt(fixture.context.amm.sqrtPX96) > BigInt(Number.MAX_SAFE_INTEGER)).toBe(true);
+            expect(snapshot?.amm.sqrtPX96).toBe(BigInt(fixture.context.amm.sqrtPX96));
+            expect(snapshot?.amm.liquidity).toBe(BigInt(fixture.context.amm.liquidity));
+        } finally {
+            await new Promise<void>((resolve) => server.close(() => resolve()));
+        }
     });
     test('parses JSON with exact large integers and ordinary numbers', () => {
         expect(parseJsonPreservingLargeIntegers('{"a":948762293131447213047873171696,"b":0.5,"c":7}')).toEqual({

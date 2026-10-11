@@ -34,7 +34,9 @@ Reject malformed data instead of substituting defaults.
   `instrument` parameter, and the portfolio list uses `/v4/public/market/portfolio`. Portfolio
   lists decode the server's single position object, treat its empty struct as no position and
   read `null` lists as empty, so the on-chain context no longer fails for a trader without
-  portfolios.
+  portfolios. Instrument feeder sources and AMMs, depth tick ids and gate and MM wallet
+  portfolios also read `null` as empty. A non-JSON error page on the on-chain context query
+  stays an HTTP error, so it is retried and reports its status.
 - History responses reject unknown `typeString` and `side` values.
 - A topic whose WebSocket SUBSCRIBE the server rejects is subscribed again by the next
   subscribe call or reconnect.
