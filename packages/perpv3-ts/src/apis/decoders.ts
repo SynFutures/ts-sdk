@@ -95,7 +95,7 @@ function decodeSetting(value: unknown, label: string): SettingFromApi {
 }
 
 function decodeFeederSource(value: unknown, label: string): MarketFromApi['config']['feederSource'] {
-    return requireArray(value, label).map((item, index) => {
+    return requireNullableArray(value, label).map((item, index) => {
         const itemLabel = `${label}[${index}]`;
         const record = requireRecord(item, itemLabel);
         return {
@@ -183,7 +183,9 @@ function decodeInstrument(value: unknown, label: string): InstrumentFromApi {
     const record = requireRecord(value, label);
     const instrumentAddr = requireAddress(record, 'instrumentAddr', `${label}.instrumentAddr`);
     return {
-        amms: requireArray(record.amms, `${label}.amms`).map((amm, index) => decodeAmm(amm, `${label}.amms[${index}]`)),
+        amms: requireNullableArray(record.amms, `${label}.amms`).map((amm, index) =>
+            decodeAmm(amm, `${label}.amms[${index}]`)
+        ),
         base: decodeTokenInfo(record.base, `${label}.base`),
         blockInfo: decodeBlockInfo(record.blockInfo, `${label}.blockInfo`),
         condition: decodeCondition(record, 'condition', `${label}.condition`),
@@ -409,7 +411,7 @@ export function decodeMmWalletBalance(value: unknown): FetchMmWalletBalanceRespo
 }
 
 function decodeMmWalletPortfolios(value: unknown): MmWalletPortfolio[] {
-    return requireArray(value, 'MM wallet portfolios').map(decodeMmWalletPortfolio);
+    return requireNullableArray(value, 'MM wallet portfolios').map(decodeMmWalletPortfolio);
 }
 
 function decodeMmWalletPortfolio(value: unknown): MmWalletPortfolio {
@@ -473,7 +475,7 @@ function decodeMmPosition(value: unknown): MmPositionFromApi {
 }
 
 export function decodeGateBalances(value: unknown): FetchGateBalanceResponse {
-    return requireArray(value, 'gate balances').map((item, index) =>
+    return requireNullableArray(value, 'gate balances').map((item, index) =>
         decodeGateBalance(item, `gate balances[${index}]`)
     );
 }
@@ -533,7 +535,7 @@ export function decodeDepthChartLiquidityDetails(value: unknown): ChartLiquidity
         stepRatio: requireNumber(record, 'stepRatio', `${label}.stepRatio`),
         tick2Pearl,
         tickDelta: requireNumber(record, 'tickDelta', `${label}.tickDelta`),
-        tids: requireArray(record.tids, `${label}.tids`).map((tid, index) =>
+        tids: requireNullableArray(record.tids, `${label}.tids`).map((tid, index) =>
             requireNumberValue(tid, `${label}.tids[${index}]`)
         ),
     };
