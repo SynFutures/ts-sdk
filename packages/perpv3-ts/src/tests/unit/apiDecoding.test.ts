@@ -674,5 +674,24 @@ describe('API request contracts', () => {
         await expect(history.fetchTradeHistory({ chainId: 8453, userAddress: instrument })).rejects.toThrow(
             'Invalid tradeHistory.list[1].typeString: unsupported value market'
         );
+
+        // Order history never carries placements, and liquidity history uses lower-case add/remove.
+        jest.spyOn(httpClient, 'get').mockResolvedValue(
+            apiEnvelopeResponse({ list: [{ ...trade, typeString: 'place' }] })
+        );
+        await expect(history.fetchOrdersHistory({ chainId: 8453, userAddress: instrument })).rejects.toThrow(
+            'Invalid ordersHistory.list[0].typeString: unsupported value place'
+        );
+        const removal = { id: '3', typeString: 'remove' };
+        jest.spyOn(httpClient, 'get').mockResolvedValue(apiEnvelopeResponse({ list: [removal] }));
+        await expect(history.fetchLiquidityHistory({ chainId: 8453, userAddress: instrument })).resolves.toEqual([
+            removal,
+        ]);
+        jest.spyOn(httpClient, 'get').mockResolvedValue(
+            apiEnvelopeResponse({ list: [{ id: '4', typeString: 'Add' }] })
+        );
+        await expect(history.fetchLiquidityHistory({ chainId: 8453, userAddress: instrument })).rejects.toThrow(
+            'Invalid liquidityHistory.list[0].typeString: unsupported value Add'
+        );
     });
 });

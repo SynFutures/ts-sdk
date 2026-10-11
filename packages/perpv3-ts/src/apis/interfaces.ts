@@ -976,7 +976,8 @@ export interface OrderHistory extends Omit<InstrumentHistoryBasicInfo, 'txHash' 
     cancelTimestamp: number;
     tradeValue: string;
 
-    typeString: 'place' | 'filled' | 'cancelled';
+    // The server excludes placements from order history.
+    typeString: 'filled' | 'cancelled';
     side: 'long' | 'short';
 
     //  missing fields
@@ -993,8 +994,7 @@ export interface LiquidityHistory extends InstrumentHistoryBasicInfo {
 
     lowerPrice: string;
     lowerTick: number;
-    // Current history API exposes the display type string, not the numeric type code.
-    typeString: string;
+    typeString: 'add' | 'remove';
     upperPrice: string;
     upperTick: number;
 }

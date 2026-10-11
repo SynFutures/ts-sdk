@@ -4,7 +4,9 @@
 
 `PerpClient` binds one instrument and expiry to an `ApiConfig` or `RpcConfig`.
 An `ApiConfig.baseUrl` creates an instance-owned HTTP client without mutating the
-caller's configuration. Direct query helpers also resolve this setting.
+caller's configuration. Direct query helpers also resolve this setting. Without it,
+HTTP requests go to `https://base-api.synfutures.com` and the public WebSocket to
+`wss://base-api.synfutures.com/v4/public/ws`, the Base deployment.
 `RpcConfig` supplies `chainId`, `publicClient` and `observerAddress`; these values
 must describe the same deployment.
 

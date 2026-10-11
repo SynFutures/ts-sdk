@@ -27,14 +27,20 @@ Migrate the SDK to the refactored `@derivation-tech/viem-kit` 1.0 API and remove
 
 - MM instrument `minMarginAmount` and `tip` are `bigint`, matching their decoded values.
 - WebSocket `TradeItem` drops the duplicated `instrument` field; use `instrumentAddress`. It
-  adds the `trader` address sent by the server, which is absent when the server sends it empty. Trade items must carry their own `chainId`,
-  `instrumentAddress` and `expiry`; the SDK no longer copies them from the message.
+  adds the `trader` address sent by the server, which is absent when the server sends it
+  empty. Trade items must carry their own `chainId`, `instrumentAddress` and `expiry`; the SDK
+  no longer copies them from the message.
 - Retired ABC deployment defaults are removed; demos require explicit execution settings.
+- The default HTTP and public WebSocket endpoints move from `mainnet-api.monday.trade`, which
+  lists no perpetual markets, to the Base deployment at `base-api.synfutures.com`. To keep
+  another deployment, set `baseUrl` and the WebSocket URL (`wsUrl` on `PerpClient`, `url` on
+  `PublicWebsocketClient`).
 - API request and response types follow the server contract. The server has no order-book
   `depth` parameter: `FetchMmOrderBookInput.depth` is removed, and `MmOrderBookSubscribeParams`
   is replaced by `OrderBookSubscribeParams`. `FetchFuturesPairKlineChartInput.endTime` and
   `FetchMmKlineInput.interval` are required. History `typeString` unions list the values the
-  server sends: trades use `Market`, `Limit`, `Liquidity`, `Liquidation` or `Taker Over`, and
-  orders use `place`, `filled` or `cancelled`. `MarketFromApi.info.beacon` is optional, and `AmmFromApi.status`
-  and `SettingFromApi.quoteParam.qtype` use the `Status` and `QuoteType` enums.
+  server sends: trades use `Market`, `Limit`, `Liquidity`, `Liquidation` or `Taker Over`,
+  orders use `filled` or `cancelled`, and liquidity events use `add` or `remove`.
+  `MarketFromApi.info.beacon` is optional, and `AmmFromApi.status` and
+  `SettingFromApi.quoteParam.qtype` use the `Status` and `QuoteType` enums.
   `PortfolioFromApi.position` is the single optional position the server sends, not an array.

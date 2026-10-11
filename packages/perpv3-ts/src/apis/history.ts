@@ -16,6 +16,7 @@ import type {
     ApiSigner,
     AccountBalanceHistory,
     FundingHistory,
+    LiquidityHistory,
     OrderHistory,
     TradeHistory,
     TransferHistory,
@@ -29,7 +30,7 @@ type ApiListData<T> = ApiEnvelope<{
     list?: T[] | null;
 }>;
 
-// Closed value sets the history service emits (backend indexer models).
+// Closed value sets the history service emits (go-backend indexer gRPC history handlers).
 const SIDES = ['long', 'short'] as const satisfies readonly TradeHistory['side'][];
 const TRADE_TYPES = [
     'Market',
@@ -38,7 +39,8 @@ const TRADE_TYPES = [
     'Liquidation',
     'Taker Over',
 ] as const satisfies readonly TradeHistory['typeString'][];
-const ORDER_TYPES = ['place', 'filled', 'cancelled'] as const satisfies readonly OrderHistory['typeString'][];
+const ORDER_TYPES = ['filled', 'cancelled'] as const satisfies readonly OrderHistory['typeString'][];
+const LIQUIDITY_TYPES = ['add', 'remove'] as const satisfies readonly LiquidityHistory['typeString'][];
 const FUNDING_TYPES = ['pay', 'receive'] as const satisfies readonly FundingHistory['typeString'][];
 const TRANSFER_TYPES = ['scatter', 'gather'] as const satisfies readonly TransferHistory['typeString'][];
 const ACCOUNT_TYPES = ['deposit', 'withdraw'] as const satisfies readonly AccountBalanceHistory['typeString'][];
@@ -287,8 +289,7 @@ export class HistoryModule extends BaseApiModule {
             requestParams
         );
 
-        const eventList = getApiData(result)?.list ?? [];
-        return eventList;
+        return requireHistoryEnums(getApiData(result)?.list, 'liquidityHistory', { typeString: LIQUIDITY_TYPES });
     }
 
     /**

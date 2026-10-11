@@ -9,8 +9,8 @@ import {
 
 describe('websocket transport helpers', () => {
     test('builds default browser-like headers with origin derived from websocket url', () => {
-        expect(buildWebSocketHeaders('wss://mainnet-api.monday.trade/v4/public/ws')).toMatchObject({
-            Origin: 'https://mainnet-api.monday.trade',
+        expect(buildWebSocketHeaders('wss://base-api.synfutures.com/v4/public/ws')).toMatchObject({
+            Origin: 'https://base-api.synfutures.com',
         });
 
         expect(buildWebSocketHeaders('ws://localhost:8080/ws', { 'X-Test': '1' })).toMatchObject({
