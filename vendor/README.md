@@ -2,9 +2,9 @@
 
 `derivation-tech-viem-kit-1.0.0-rc.0.tgz` is packed from the viem-kit
 `refactor/viem-kit-core-hardening` branch at commit
-`da7d11d70027d9989f407ba44ec51a415b45319d`. The package version in the archive is set to `1.0.0-rc.0`.
+`dcd529764f9cb2645805e5d1f78c2366e9076417`. The package version in the archive is set to `1.0.0-rc.0`.
 
-SHA-256: `77a68f245853ed5048132b3bc2e7ab4cb9154cc54a90613858d2986e9c47d757`.
+SHA-256: `0cd7bab1b9abe1365e61a4d5ccc87177e9d3f4bad7e2f3c11c927501181cc6ec`.
 
 When viem-kit changes, rebuild the archive from a committed revision and update the
 revision and SHA-256 above. Ledger remains a separately installed optional package; its
