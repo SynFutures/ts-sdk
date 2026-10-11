@@ -33,6 +33,13 @@ requires exact integers; malformed required fields throw. Missing data, a zero
 value and a decoding failure have different meanings. For example, MM instrument
 `minMarginAmount` and `tip` are `bigint`, not strings or JavaScript numbers.
 
+`MarketModule.fetchMarketOnChainContextQuery` receives raw on-chain integers such as
+`sqrtPX96` as JSON numbers. It keeps integers above `Number.MAX_SAFE_INTEGER` exact by
+reading their source text through `JSON.parse` source text access, available in
+Node.js 22 and later (the supported range), Chrome and Edge 114+, Firefox 135+ and
+Safari 18.4+. In older browsers the query throws on such an integer instead of
+returning a rounded value.
+
 HTTP 5xx responses can be retried for GET, HEAD and OPTIONS, subject to the
 configured retry limit and backoff. POST, PUT and DELETE are not automatically
 repeated. A failed response does not prove that a write did not happen.
