@@ -23,25 +23,18 @@ import {
     encodeRemoveParam,
     encodeTradeParam,
 } from '../../utils/encode';
-import { requireAddress } from './shared';
+import { isDelegated, requireAddress } from './shared';
 import type {
-    AddLiquidityEncodingOptions,
+    TransactionRoute,
     AddLiquidityEncodingParam,
-    AdjustMarginEncodingOptions,
     AdjustMarginEncodingParam,
-    BaseEncodingOptions,
-    BatchPlaceScaledLimitOrderEncodingOptions,
     BatchPlaceScaledLimitOrderEncodingParam,
     CancelOrderEncodingOptions,
     CancelOrderEncodingParam,
-    CrossLimitOrderEncodingOptions,
     CrossLimitOrderEncodingParam,
     FillLimitOrderEncodingParam,
-    LimitOrderEncodingOptions,
     LimitOrderEncodingParam,
-    MarketOrderEncodingOptions,
     MarketOrderEncodingParam,
-    RemoveLiquidityEncodingOptions,
     RemoveLiquidityEncodingParam,
     SettleEncodingParam,
     TransactionParam,
@@ -84,7 +77,7 @@ function encodeForCallTransaction(
     instrumentAddress: Address,
     traderAddress: Address,
     calldata: Hex,
-    { subAccountAddress, routerAddress }: BaseEncodingOptions
+    { subAccountAddress, routerAddress }: TransactionRoute
 ): TransactionParam {
     if (subAccountAddress && routerAddress) {
         return encodeRouterBatchTransaction(
@@ -101,7 +94,7 @@ function encodeForCallTransaction(
 
 export function encodeMarketOrderTransaction(
     param: MarketOrderEncodingParam,
-    options?: MarketOrderEncodingOptions
+    options?: TransactionRoute
 ): TransactionParam {
     const sideSign = param.side === Side.LONG ? 1n : -1n;
     const signedSize = param.baseQuantity * sideSign;
@@ -115,7 +108,7 @@ export function encodeMarketOrderTransaction(
     };
     const txArgs = encodeTradeParam(tradeParam);
 
-    if (options?.useTradeFor) {
+    if (isDelegated(options)) {
         const traderAddress = requireAddress(options.traderAddress, 'traderAddress for tradeFor');
         const calldata = encodeFunctionData({
             abi: CURRENT_INSTRUMENT_ABI,
@@ -133,7 +126,7 @@ export function encodeMarketOrderTransaction(
 
 export function encodeLimitOrderTransaction(
     param: LimitOrderEncodingParam,
-    options?: LimitOrderEncodingOptions
+    options?: TransactionRoute
 ): TransactionParam {
     const sideSign = param.side === Side.LONG ? 1n : -1n;
     const signedSize = param.baseQuantity * sideSign;
@@ -147,11 +140,17 @@ export function encodeLimitOrderTransaction(
     };
     const txArgs = encodePlaceParam(placeParam);
 
-    if (options?.usePlaceFor) {
+    if (isDelegated(options)) {
         const traderAddress = requireAddress(options.traderAddress, 'traderAddress for placeFor');
-        return toTransactionParam(
+        return encodeForCallTransaction(
             param.instrumentAddress,
-            encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'placeFor', args: [traderAddress, txArgs] })
+            traderAddress,
+            encodeFunctionData({
+                abi: CURRENT_INSTRUMENT_ABI,
+                functionName: 'placeFor',
+                args: [traderAddress, txArgs],
+            }),
+            options
         );
     }
 
@@ -165,17 +164,13 @@ export function encodeCancelOrderTransaction(
     param: CancelOrderEncodingParam,
     options?: CancelOrderEncodingOptions
 ): TransactionParam {
-    const {
-        useCancelFor = false,
-        subAccountAddress,
-        routerAddress,
-        maxCancelCount = MAX_CANCEL_ORDER_COUNT,
-    } = options || {};
+    const { subAccountAddress, routerAddress, maxCancelCount = MAX_CANCEL_ORDER_COUNT } = options || {};
     if (!Number.isInteger(maxCancelCount) || maxCancelCount < 1 || maxCancelCount > MAX_CANCEL_ORDER_COUNT) {
         throw Errors.encoding(`maxCancelCount must be an integer between 1 and ${MAX_CANCEL_ORDER_COUNT}`);
     }
     const deadline = param.userSetting.getDeadline();
     const encodeCancel = (ticks: number[]) => encodeCancelParam({ expiry: param.expiry, ticks, deadline });
+    const useCancelFor = isDelegated(options);
     const encodeCancelFor = (traderAddress: Address, ticks: number[]) =>
         encodeFunctionData({
             abi: CURRENT_INSTRUMENT_ABI,
@@ -188,7 +183,12 @@ export function encodeCancelOrderTransaction(
     if (param.ticks.length <= maxCancelCount) {
         if (useCancelFor) {
             const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for cancelFor');
-            return toTransactionParam(param.instrumentAddress, encodeCancelFor(traderAddress, param.ticks));
+            return encodeForCallTransaction(
+                param.instrumentAddress,
+                traderAddress,
+                encodeCancelFor(traderAddress, param.ticks),
+                options
+            );
         }
 
         return toTransactionParam(param.instrumentAddress, encodeDirectCancel(param.ticks));
@@ -222,7 +222,7 @@ export function encodeCancelOrderTransaction(
 
 export function encodeAdjustMarginTransaction(
     param: AdjustMarginEncodingParam,
-    options?: AdjustMarginEncodingOptions
+    options?: TransactionRoute
 ): TransactionParam {
     const sideSign = param.transferIn ? 1n : -1n;
     const deadline = param.userSetting.getDeadline();
@@ -233,7 +233,7 @@ export function encodeAdjustMarginTransaction(
     };
     const txArgs = encodeAdjustParam(adjustParam);
 
-    if (options?.useAdjustFor) {
+    if (isDelegated(options)) {
         const traderAddress = requireAddress(options.traderAddress, 'traderAddress for adjustFor');
         const calldata = encodeFunctionData({
             abi: CURRENT_INSTRUMENT_ABI,
@@ -251,7 +251,7 @@ export function encodeAdjustMarginTransaction(
 
 export function encodeBatchPlaceScaledLimitOrderTransaction(
     param: BatchPlaceScaledLimitOrderEncodingParam,
-    options?: BatchPlaceScaledLimitOrderEncodingOptions
+    options?: TransactionRoute
 ): TransactionParam {
     const sideSign = param.side === Side.LONG ? 1n : -1n;
     const signedTotalSize = param.baseQuantity * sideSign;
@@ -273,7 +273,7 @@ export function encodeBatchPlaceScaledLimitOrderTransaction(
         deadline: batchPlaceParam.deadline,
     });
 
-    if (options?.usePlaceFor) {
+    if (isDelegated(options)) {
         const traderAddress = requireAddress(options.traderAddress, 'traderAddress for batchPlaceFor');
         const calldata = encodeFunctionData({
             abi: CURRENT_INSTRUMENT_ABI,
@@ -291,9 +291,9 @@ export function encodeBatchPlaceScaledLimitOrderTransaction(
 
 export function encodeCrossLimitOrderTransaction(
     param: CrossLimitOrderEncodingParam,
-    options?: CrossLimitOrderEncodingOptions
+    options?: TransactionRoute
 ): TransactionParam {
-    const { useFor = false, subAccountAddress, routerAddress } = options || {};
+    const { subAccountAddress, routerAddress } = options || {};
     const sideSign = param.side === Side.LONG ? 1n : -1n;
     const signedTradeSize = param.tradeSize * sideSign;
     const signedOrderSize = param.orderSize * sideSign;
@@ -313,7 +313,7 @@ export function encodeCrossLimitOrderTransaction(
         deadline,
     });
 
-    if (useFor) {
+    if (isDelegated(options)) {
         const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for crossLimit useFor');
         const callDatas = [
             encodeFunctionData({
@@ -362,7 +362,7 @@ export function encodeFillLimitOrderTransaction(param: FillLimitOrderEncodingPar
 
 export function encodeAddLiquidityTransaction(
     param: AddLiquidityEncodingParam,
-    options: AddLiquidityEncodingOptions = {}
+    options: TransactionRoute = {}
 ): TransactionParam {
     const deadline = param.userSetting.getDeadline();
     const addParam: AddParam = {
@@ -375,7 +375,7 @@ export function encodeAddLiquidityTransaction(
     };
     const txArgs = encodeAddParam(addParam);
 
-    if (options.useAddFor) {
+    if (isDelegated(options)) {
         const traderAddress = requireAddress(options.traderAddress, 'traderAddress for addFor');
         const calldata = encodeFunctionData({
             abi: CURRENT_INSTRUMENT_ABI,
@@ -393,7 +393,7 @@ export function encodeAddLiquidityTransaction(
 
 export function encodeRemoveLiquidityTransaction(
     param: RemoveLiquidityEncodingParam,
-    options: RemoveLiquidityEncodingOptions = {}
+    options: TransactionRoute = {}
 ): TransactionParam {
     const deadline = param.userSetting.getDeadline();
     const removeParam: RemoveParam = {
@@ -406,7 +406,9 @@ export function encodeRemoveLiquidityTransaction(
     };
     const txArgs = encodeRemoveParam(removeParam);
 
-    if (options.useRemoveFor) {
+    if (isDelegated(options)) {
+        if (options.traderAddress.toLowerCase() !== param.traderAddress.toLowerCase())
+            throw Errors.encoding('removeFor trader does not match the packed target');
         // removeFor takes no trader argument: the packed param already names the target.
         const calldata = encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'removeFor', args: [txArgs] });
         return encodeForCallTransaction(param.instrumentAddress, param.traderAddress, calldata, options);

@@ -13,138 +13,12 @@ export interface TransactionParam {
     value?: bigint;
 }
 
-/**
- * Base encoding options shared across all transaction types
- */
-export interface BaseEncodingOptions {
-    /**
-     * 1CT sub-account/agent address used by the router batching flow.
-     * This is typically the tx sender, and is not necessarily the on-chain portfolio owner.
-     */
-    subAccountAddress?: Address;
-    /** Router address for batchMulticall or batch operations */
-    routerAddress?: Address;
-    /**
-     * Trader/portfolio owner address.
-     * When encoding `*For` calls (e.g. `tradeFor/placeFor/addFor/removeFor/cancelFor`), this is the `to` address.
-     */
-    traderAddress?: Address;
-}
+export type TransactionRoute =
+    | { route?: 'direct'; traderAddress?: never; routerAddress?: never; subAccountAddress?: never }
+    | { route: 'for'; traderAddress: Address; routerAddress?: never; subAccountAddress?: never }
+    | { route: 'router'; traderAddress: Address; routerAddress: Address; subAccountAddress: Address };
 
-/**
- * Encoding options for trade-related operations (market/limit orders)
- */
-export interface TradeEncodingOptions extends BaseEncodingOptions {
-    /** Use tradeFor/placeFor for Gelato transactions */
-    useFor?: boolean;
-}
-
-/**
- * Encoding options for market order encoding
- */
-export interface MarketOrderEncodingOptions extends BaseEncodingOptions {
-    /** Use tradeFor for Gelato transactions */
-    useTradeFor?: boolean;
-}
-
-/**
- * Encoding options for limit order encoding
- */
-export interface LimitOrderEncodingOptions extends BaseEncodingOptions {
-    /** Use placeFor for Gelato transactions */
-    usePlaceFor?: boolean;
-}
-
-/**
- * Encoding options for cancel order encoding
- */
-export interface CancelOrderEncodingOptions extends BaseEncodingOptions {
-    /** Use cancelFor for Gelato transactions */
-    useCancelFor?: boolean;
-    /** Maximum orders per cancel call (default: MAX_CANCEL_ORDER_COUNT:8) */
-    maxCancelCount?: number;
-}
-
-/**
- * Encoding options for adjust margin encoding
- */
-export interface AdjustMarginEncodingOptions extends BaseEncodingOptions {
-    /** Use adjustFor for Gelato transactions */
-    useAdjustFor?: boolean;
-}
-
-/**
- * Encoding options for batch place scaled limit order
- */
-export interface BatchPlaceScaledLimitOrderEncodingOptions extends BaseEncodingOptions {
-    /** Use batchPlaceFor for Gelato transactions */
-    usePlaceFor?: boolean;
-}
-
-/**
- * Encoding options for cross market order encoding
- */
-export interface CrossLimitOrderEncodingOptions extends BaseEncodingOptions {
-    /** Use tradeFor/placeFor for Gelato transactions */
-    useFor?: boolean;
-}
-
-/**
- * Encoding options for fill limit order encoding
- */
-export interface FillLimitOrderEncodingOptions {
-    /** Use fill(address, bytes32) for Gelato transactions */
-    useFillFor?: boolean;
-}
-
-/**
- * Encoding options for add liquidity operation
- */
-export interface AddLiquidityEncodingOptions extends BaseEncodingOptions {
-    /** Use addFor for Gelato transactions */
-    useAddFor?: boolean;
-    traderAddress?: Address;
-}
-
-/**
- * Encoding options for remove liquidity operation
- */
-export interface RemoveLiquidityEncodingOptions extends BaseEncodingOptions {
-    /** Use removeFor for Gelato transactions */
-    useRemoveFor?: boolean;
-}
-
-/**
- * Encoding options for deposit operation
- */
-export interface DepositEncodingOptions extends BaseEncodingOptions {
-    /** Use depositFor for Gelato transactions */
-    useDepositFor?: boolean;
-}
-
-/**
- * Encoding options for withdraw operation
- */
-export interface WithdrawEncodingOptions extends BaseEncodingOptions {
-    /** Use withdrawFor for Gelato transactions */
-    useWithdrawFor?: boolean;
-}
-
-/**
- * Union type of all encoding options
- */
-export type EncodingOptions =
-    | MarketOrderEncodingOptions
-    | LimitOrderEncodingOptions
-    | CancelOrderEncodingOptions
-    | AdjustMarginEncodingOptions
-    | BatchPlaceScaledLimitOrderEncodingOptions
-    | CrossLimitOrderEncodingOptions
-    | FillLimitOrderEncodingOptions
-    | AddLiquidityEncodingOptions
-    | RemoveLiquidityEncodingOptions
-    | DepositEncodingOptions
-    | WithdrawEncodingOptions;
+export type CancelOrderEncodingOptions = TransactionRoute & { maxCancelCount?: number };
 
 export interface InstrumentEncodingBaseParam {
     instrumentAddress: Address;
@@ -164,7 +38,7 @@ export interface MarketOrderEncodingParam extends InstrumentEncodingBaseParam {
 }
 
 export interface MarketOrderEncoder {
-    encodeMarketOrder(param: MarketOrderEncodingParam, options?: MarketOrderEncodingOptions): TransactionParam;
+    encodeMarketOrder(param: MarketOrderEncodingParam, options?: TransactionRoute): TransactionParam;
 }
 
 /**
@@ -180,7 +54,7 @@ export interface LimitOrderEncodingParam extends InstrumentEncodingBaseParam {
 }
 
 export interface LimitOrderEncoder {
-    encodeLimitOrder(param: LimitOrderEncodingParam, options?: LimitOrderEncodingOptions): TransactionParam;
+    encodeLimitOrder(param: LimitOrderEncodingParam, options?: TransactionRoute): TransactionParam;
 }
 
 /**
@@ -207,7 +81,7 @@ export interface AdjustMarginEncodingParam extends InstrumentEncodingBaseParam {
 }
 
 export interface AdjustMarginEncoder {
-    encodeAdjustMargin(param: AdjustMarginEncodingParam, options?: AdjustMarginEncodingOptions): TransactionParam;
+    encodeAdjustMargin(param: AdjustMarginEncodingParam, options?: TransactionRoute): TransactionParam;
 }
 
 /**
@@ -226,7 +100,7 @@ export interface BatchPlaceScaledLimitOrderEncodingParam extends InstrumentEncod
 export interface BatchPlaceScaledLimitOrderEncoder {
     encodeBatchPlaceScaledLimitOrder(
         param: BatchPlaceScaledLimitOrderEncodingParam,
-        options?: BatchPlaceScaledLimitOrderEncodingOptions
+        options?: TransactionRoute
     ): TransactionParam;
 }
 
@@ -246,10 +120,7 @@ export interface CrossLimitOrderEncodingParam extends InstrumentEncodingBasePara
 }
 
 export interface CrossLimitOrderEncoder {
-    encodeCrossLimitOrder(
-        param: CrossLimitOrderEncodingParam,
-        options?: CrossLimitOrderEncodingOptions
-    ): TransactionParam;
+    encodeCrossLimitOrder(param: CrossLimitOrderEncodingParam, options?: TransactionRoute): TransactionParam;
 }
 
 /**
@@ -263,7 +134,7 @@ export interface FillLimitOrderEncodingParam extends InstrumentEncodingBaseParam
 }
 
 export interface FillLimitOrderEncoder {
-    encodeFillLimitOrder(param: FillLimitOrderEncodingParam, options?: FillLimitOrderEncodingOptions): TransactionParam;
+    encodeFillLimitOrder(param: FillLimitOrderEncodingParam): TransactionParam;
 }
 
 /**
@@ -278,7 +149,7 @@ export interface AddLiquidityEncodingParam extends InstrumentEncodingBaseParam {
 }
 
 export interface AddLiquidityEncoder {
-    encodeAddLiquidity(param: AddLiquidityEncodingParam, options?: AddLiquidityEncodingOptions): TransactionParam;
+    encodeAddLiquidity(param: AddLiquidityEncodingParam, options?: TransactionRoute): TransactionParam;
 }
 
 /**
@@ -293,10 +164,7 @@ export interface RemoveLiquidityEncodingParam extends InstrumentEncodingBasePara
 }
 
 export interface RemoveLiquidityEncoder {
-    encodeRemoveLiquidity(
-        param: RemoveLiquidityEncodingParam,
-        options?: RemoveLiquidityEncodingOptions
-    ): TransactionParam;
+    encodeRemoveLiquidity(param: RemoveLiquidityEncodingParam, options?: TransactionRoute): TransactionParam;
 }
 
 export interface SettleEncodingParam extends InstrumentEncodingBaseParam {
@@ -316,11 +184,7 @@ export interface DepositEncodingParam {
 }
 
 export interface DepositEncoder {
-    encodeDeposit(
-        param: DepositEncodingParam,
-        gateAddress: Address,
-        options?: DepositEncodingOptions
-    ): TransactionParam;
+    encodeDeposit(param: DepositEncodingParam, gateAddress: Address, options?: TransactionRoute): TransactionParam;
 }
 
 /**
@@ -332,11 +196,7 @@ export interface WithdrawEncodingParam {
 }
 
 export interface WithdrawEncoder {
-    encodeWithdraw(
-        param: WithdrawEncodingParam,
-        gateAddress: Address,
-        options?: WithdrawEncodingOptions
-    ): TransactionParam;
+    encodeWithdraw(param: WithdrawEncodingParam, gateAddress: Address, options?: TransactionRoute): TransactionParam;
 }
 
 export interface ApproveEncodingParam {

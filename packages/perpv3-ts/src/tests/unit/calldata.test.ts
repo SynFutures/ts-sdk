@@ -61,7 +61,7 @@ describe('frontend calldata encoding', () => {
 
     it('routes a tradeFor call through the router batch when a sub-account is configured', () => {
         const tx = contractCallEncoder.encodeMarketOrder(marketParam, {
-            useTradeFor: true,
+            route: 'router',
             traderAddress,
             subAccountAddress,
             routerAddress,
@@ -87,8 +87,8 @@ describe('frontend calldata encoding', () => {
     });
 
     it('requires a trader address for for-calls', () => {
-        expect(() => contractCallEncoder.encodeMarketOrder(marketParam, { useTradeFor: true })).toThrow(
-            'traderAddress for tradeFor is required'
+        expect(() => contractCallEncoder.encodeMarketOrder(marketParam, { route: 'for' } as never)).toThrow(
+            'traderAddress is required'
         );
     });
 
@@ -102,7 +102,7 @@ describe('frontend calldata encoding', () => {
             limitTicks: 0,
             userSetting,
         };
-        const tx = contractCallEncoder.encodeRemoveLiquidity(removeParam, { useRemoveFor: true });
+        const tx = contractCallEncoder.encodeRemoveLiquidity(removeParam, { route: 'for', traderAddress });
 
         expect(tx.to).toBe(instrumentAddress);
         expect(decodeInstrument(tx.data)).toEqual({
@@ -140,7 +140,7 @@ describe('frontend calldata encoding', () => {
         expect(() =>
             contractCallEncoder.encodeCancelOrder(
                 { instrumentAddress, expiry: 1, ticks: [1, 2, 3], userSetting },
-                { maxCancelCount: 2, useCancelFor: true, traderAddress }
+                { maxCancelCount: 2, route: 'for', traderAddress }
             )
         ).toThrow('Agent and router addresses required');
     });
@@ -186,14 +186,21 @@ describe('frontend calldata encoding', () => {
         const amount = 100n;
 
         const depositTx = contractCallEncoder.encodeDeposit({ tokenAddress, amount }, gateAddress, {
-            useDepositFor: true,
+            route: 'for',
             traderAddress,
         });
         const withdrawTx = contractCallEncoder.encodeWithdraw({ tokenAddress, amount }, gateAddress, {
-            useWithdrawFor: true,
+            route: 'for',
             traderAddress,
         });
 
+        expect(() =>
+            contractCallEncoder.encodeDeposit({ tokenAddress, amount }, gateAddress, {
+                route: 'router',
+                traderAddress,
+                routerAddress,
+            } as never)
+        ).toThrow('subAccountAddress is required');
         const depositDecoded = decodeFunctionData({ abi: CURRENT_GATE_ABI, data: depositTx.data });
         const withdrawDecoded = decodeFunctionData({ abi: CURRENT_GATE_ABI, data: withdrawTx.data });
 

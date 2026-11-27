@@ -14,42 +14,34 @@ import {
 } from './calldata/instrument';
 import { encodeApproveTransaction, encodePermitTransaction } from './calldata/token';
 import type {
-    AddLiquidityEncodingOptions,
+    TransactionRoute,
     AddLiquidityEncodingParam,
-    AdjustMarginEncodingOptions,
     AdjustMarginEncodingParam,
     SignedPermit,
     ApproveEncodingParam,
-    BatchPlaceScaledLimitOrderEncodingOptions,
     BatchPlaceScaledLimitOrderEncodingParam,
     CancelOrderEncodingOptions,
     CancelOrderEncodingParam,
-    CrossLimitOrderEncodingOptions,
     CrossLimitOrderEncodingParam,
-    DepositEncodingOptions,
     DepositEncodingParam,
     FillLimitOrderEncodingParam,
     IContractCallEncoder,
-    LimitOrderEncodingOptions,
     LimitOrderEncodingParam,
-    MarketOrderEncodingOptions,
     MarketOrderEncodingParam,
-    RemoveLiquidityEncodingOptions,
     RemoveLiquidityEncodingParam,
     SettleEncodingParam,
     TransactionParam,
-    WithdrawEncodingOptions,
     WithdrawEncodingParam,
 } from './calldata/types';
 
 export * from './calldata/types';
 
 export class ContractCallEncoder implements IContractCallEncoder {
-    encodeMarketOrder(param: MarketOrderEncodingParam, options?: MarketOrderEncodingOptions): TransactionParam {
+    encodeMarketOrder(param: MarketOrderEncodingParam, options?: TransactionRoute): TransactionParam {
         return encodeMarketOrderTransaction(param, options);
     }
 
-    encodeLimitOrder(param: LimitOrderEncodingParam, options?: LimitOrderEncodingOptions): TransactionParam {
+    encodeLimitOrder(param: LimitOrderEncodingParam, options?: TransactionRoute): TransactionParam {
         return encodeLimitOrderTransaction(param, options);
     }
 
@@ -57,21 +49,18 @@ export class ContractCallEncoder implements IContractCallEncoder {
         return encodeCancelOrderTransaction(param, options);
     }
 
-    encodeAdjustMargin(param: AdjustMarginEncodingParam, options?: AdjustMarginEncodingOptions): TransactionParam {
+    encodeAdjustMargin(param: AdjustMarginEncodingParam, options?: TransactionRoute): TransactionParam {
         return encodeAdjustMarginTransaction(param, options);
     }
 
     encodeBatchPlaceScaledLimitOrder(
         param: BatchPlaceScaledLimitOrderEncodingParam,
-        options?: BatchPlaceScaledLimitOrderEncodingOptions
+        options?: TransactionRoute
     ): TransactionParam {
         return encodeBatchPlaceScaledLimitOrderTransaction(param, options);
     }
 
-    encodeCrossLimitOrder(
-        param: CrossLimitOrderEncodingParam,
-        options?: CrossLimitOrderEncodingOptions
-    ): TransactionParam {
+    encodeCrossLimitOrder(param: CrossLimitOrderEncodingParam, options?: TransactionRoute): TransactionParam {
         return encodeCrossLimitOrderTransaction(param, options);
     }
 
@@ -79,14 +68,11 @@ export class ContractCallEncoder implements IContractCallEncoder {
         return encodeFillLimitOrderTransaction(param);
     }
 
-    encodeAddLiquidity(param: AddLiquidityEncodingParam, options: AddLiquidityEncodingOptions = {}): TransactionParam {
+    encodeAddLiquidity(param: AddLiquidityEncodingParam, options: TransactionRoute = {}): TransactionParam {
         return encodeAddLiquidityTransaction(param, options);
     }
 
-    encodeRemoveLiquidity(
-        param: RemoveLiquidityEncodingParam,
-        options: RemoveLiquidityEncodingOptions = {}
-    ): TransactionParam {
+    encodeRemoveLiquidity(param: RemoveLiquidityEncodingParam, options: TransactionRoute = {}): TransactionParam {
         return encodeRemoveLiquidityTransaction(param, options);
     }
 
@@ -94,15 +80,11 @@ export class ContractCallEncoder implements IContractCallEncoder {
         return encodeSettleTransaction(param);
     }
 
-    encodeDeposit(param: DepositEncodingParam, gateAddr: Address, options?: DepositEncodingOptions): TransactionParam {
+    encodeDeposit(param: DepositEncodingParam, gateAddr: Address, options?: TransactionRoute): TransactionParam {
         return encodeDepositTransaction(param, gateAddr, options);
     }
 
-    encodeWithdraw(
-        param: WithdrawEncodingParam,
-        gateAddr: Address,
-        options?: WithdrawEncodingOptions
-    ): TransactionParam {
+    encodeWithdraw(param: WithdrawEncodingParam, gateAddr: Address, options?: TransactionRoute): TransactionParam {
         return encodeWithdrawTransaction(param, gateAddr, options);
     }
 

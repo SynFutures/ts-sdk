@@ -1,21 +1,14 @@
 import { encodeFunctionData, ethAddress, zeroAddress, type Address } from 'viem';
 import { CURRENT_GATE_ABI, CURRENT_GELATO_RELAY_ROUTER_ABI } from '../../abis';
 import { encodeDepositParam, encodeWithdrawParam } from '../../utils/encode';
-import { requireAddress } from './shared';
-import type {
-    DepositEncodingOptions,
-    DepositEncodingParam,
-    TransactionParam,
-    WithdrawEncodingOptions,
-    WithdrawEncodingParam,
-} from './types';
+import { isDelegated, requireAddress } from './shared';
+import type { TransactionRoute, DepositEncodingParam, TransactionParam, WithdrawEncodingParam } from './types';
 
 export function encodeDepositTransaction(
     param: DepositEncodingParam,
     gateAddr: Address,
-    options?: DepositEncodingOptions
+    options?: TransactionRoute
 ): TransactionParam {
-    const useDepositFor = options?.useDepositFor ?? false;
     const subAccountAddress = options?.subAccountAddress;
     const routerAddress = options?.routerAddress;
 
@@ -24,7 +17,7 @@ export function encodeDepositTransaction(
         param.tokenAddress.toLowerCase() === ethAddress || param.tokenAddress.toLowerCase() === zeroAddress;
     const value = isNativeToken ? param.amount : 0n;
 
-    if (useDepositFor) {
+    if (isDelegated(options)) {
         const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for depositFor');
         const depositForCalldata = encodeFunctionData({
             abi: CURRENT_GATE_ABI,
@@ -65,15 +58,14 @@ export function encodeDepositTransaction(
 export function encodeWithdrawTransaction(
     param: WithdrawEncodingParam,
     gateAddr: Address,
-    options?: WithdrawEncodingOptions
+    options?: TransactionRoute
 ): TransactionParam {
-    const useWithdrawFor = options?.useWithdrawFor ?? false;
     const subAccountAddress = options?.subAccountAddress;
     const routerAddress = options?.routerAddress;
 
     const withdrawArg = encodeWithdrawParam(param.tokenAddress, param.amount);
 
-    if (useWithdrawFor) {
+    if (isDelegated(options)) {
         const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for withdrawFor');
         const withdrawForCalldata = encodeFunctionData({
             abi: CURRENT_GATE_ABI,
