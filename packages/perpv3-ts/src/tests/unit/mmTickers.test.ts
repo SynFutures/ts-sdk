@@ -1,6 +1,6 @@
 import { MarketMakerModule } from '../../apis/mm';
 import { KlineInterval, type AuthInfo } from '../../apis/interfaces';
-import { HttpClient } from '../../utils/axios';
+import { HttpClient } from '../../utils/http';
 import { apiEnvelopeResponse } from '../helpers/http';
 
 type CapturedRequest = {

@@ -44,7 +44,7 @@ import {
     decodeQuotationWithSize,
     decodeQuoteState,
 } from './decoders';
-import { parseJsonPreservingLargeIntegers, requireRecord } from './codecs';
+import { requireRecord } from './codecs';
 
 /**
  * MarketModule - Market API endpoints
@@ -123,20 +123,7 @@ export class MarketModule extends BaseApiModule {
             ...(params.signedSize !== undefined ? { signedSize: params.signedSize } : {}),
         };
         // This endpoint sends raw on-chain integers (e.g. sqrtPX96, liquidity) as JSON numbers.
-        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams, {
-            responseType: 'text',
-            transformResponse: (data: unknown, _headers: unknown, status?: number) => {
-                if (typeof data !== 'string' || !data.trim()) return data;
-                try {
-                    return parseJsonPreservingLargeIntegers(data);
-                } catch (error) {
-                    // axios also runs this on error responses. Keep a non-JSON error body (e.g. a gateway's HTML
-                    // page) as text so the HTTP error, not a SyntaxError, reaches the retry logic and the caller.
-                    if (status !== undefined && status >= 200 && status < 300) throw error;
-                    return data;
-                }
-            },
-        });
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
 
         const rawData = getApiData(res);
         if (rawData === null) {

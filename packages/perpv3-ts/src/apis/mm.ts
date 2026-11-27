@@ -1,4 +1,4 @@
-import type { AxiosResponse } from 'axios';
+import type { HttpResponse } from '../utils/http';
 import { API_URLS, DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from './constants';
 import type {
     FetchMmOrderBookInput,
@@ -30,7 +30,7 @@ import type {
     FetchMmOrderRealtimeResponse,
     FetchTokenCoinsWithSymbolResponse,
 } from './interfaces';
-import { HttpClient, getRequestUrlWithQuery, type QueryParams } from '../utils/axios';
+import { HttpClient, getRequestUrlWithQuery, type QueryParams } from '../utils/http';
 import { ApiAuthSigner } from '../utils';
 import { ApiEnvelope, getApiData, requireApiData } from './base';
 import {
@@ -45,13 +45,13 @@ import {
  * MarketMakerModule - Market Maker API endpoints
  */
 export class MarketMakerModule {
-    private readonly signer: ApiAuthSigner;
+    private readonly signer: Pick<ApiAuthSigner, 'sign'>;
 
     constructor(
         private readonly httpClient: HttpClient,
-        signerOrAuthInfo: ApiAuthSigner | AuthInfo
+        signerOrAuthInfo: Pick<ApiAuthSigner, 'sign'> | AuthInfo
     ) {
-        if (signerOrAuthInfo instanceof ApiAuthSigner) {
+        if ('sign' in signerOrAuthInfo) {
             this.signer = signerOrAuthInfo;
         } else {
             this.signer = new ApiAuthSigner(signerOrAuthInfo);
@@ -66,9 +66,14 @@ export class MarketMakerModule {
         params?: QueryParams,
         body?: string,
         contentType?: string
-    ): Promise<AxiosResponse<T>> {
+    ): Promise<HttpResponse<T>> {
         const urlWithQuery = getRequestUrlWithQuery(url, params ?? {});
-        const extraHeaders = await this.signer.sign('GET', urlWithQuery, body, contentType);
+        const extraHeaders = await this.signer.sign(
+            'GET',
+            this.httpClient.requestPath(urlWithQuery),
+            body,
+            contentType
+        );
         return await this.httpClient.get<T>(urlWithQuery, {
             headers: {
                 ...extraHeaders,

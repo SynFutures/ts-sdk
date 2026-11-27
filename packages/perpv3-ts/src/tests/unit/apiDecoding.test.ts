@@ -24,7 +24,7 @@ import { PublicModule } from '../../apis/public';
 import { KlineInterval, type ApiSigner } from '../../apis/interfaces';
 import { fetchOnchainContext } from '../../queries/api';
 import { HttpClient } from '../../utils';
-import { apiEnvelopeResponse, axiosResponse } from '../helpers/http';
+import { apiEnvelopeResponse, httpResponse } from '../helpers/http';
 import { SynfError } from '../../types/error';
 
 const signer: ApiSigner = {
@@ -229,7 +229,7 @@ describe('API decoding', () => {
         'rejects malformed HTTP 200 envelopes instead of returning empty history',
         async (body) => {
             const client = new HttpClient();
-            jest.spyOn(client, 'get').mockResolvedValue(axiosResponse(body));
+            jest.spyOn(client, 'get').mockResolvedValue(httpResponse(body));
             const history = new HistoryModule(client, signer);
             await expect(
                 history.fetchTradeHistory({ chainId: 8453, userAddress: '0x0000000000000000000000000000000000000001' })
@@ -352,7 +352,7 @@ describe('API decoding', () => {
     });
 
     it('throws the server message for business errors returned with HTTP 200', () => {
-        const response = axiosResponse<ApiEnvelope<null>>({ code: 12000003, msg: 'invalid size format', data: null });
+        const response = httpResponse<ApiEnvelope<null>>({ code: 12000003, msg: 'invalid size format', data: null });
 
         expect(() => getApiData(response)).toThrow(SynfError);
         expect(() => getApiData(response)).toThrow('invalid size format');

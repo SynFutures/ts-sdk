@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { getRequestUrlWithQuery, HttpClient } from '../../utils';
+import { getRequestUrlWithQuery, HttpClient } from '../../utils/http';
 
 describe('HttpClient retries', () => {
     test.each(['post', 'put', 'delete'] as const)('does not repeat a failed %s request', async (method) => {
@@ -20,6 +20,33 @@ describe('HttpClient retries', () => {
         } finally {
             await new Promise<void>((resolve) => server.close(() => resolve()));
         }
+    });
+
+    test('uses the signed path and preserves the exact integer sent by the server', async () => {
+        let received = '';
+        const client = new HttpClient({
+            baseUrl: 'https://example.com/api/',
+            fetch: async (url) => {
+                received = new URL(String(url)).pathname + new URL(String(url)).search;
+                return new Response('{"value":9007199254740993}');
+            },
+        });
+        const path = '/history?symbol=A%2FB';
+        const response = await client.get(path);
+        expect(received).toBe('/api/history?symbol=A%2FB');
+        expect(client.requestPath(path)).toBe(received);
+        expect(response.data).toEqual({ value: '9007199254740993' });
+    });
+
+    test('aborts a request after its timeout', async () => {
+        const client = new HttpClient({
+            timeout: 10,
+            fetch: (_url, init) =>
+                new Promise((_resolve, reject) => {
+                    init?.signal?.addEventListener('abort', () => reject(new Error('timed out')));
+                }),
+        });
+        await expect(client.get('/read')).rejects.toThrow('timed out');
     });
 
     test('reports the server msg field', async () => {

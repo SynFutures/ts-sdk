@@ -1,7 +1,7 @@
-import type { AxiosRequestConfig, AxiosResponse } from 'axios';
+import type { HttpRequestOptions, HttpResponse } from '../utils/http';
 import { isRecord } from './codecs';
 import type { ApiSigner } from './interfaces';
-import { getRequestUrlWithQuery, HttpClient, type QueryParams } from '../utils/axios';
+import { getRequestUrlWithQuery, HttpClient, type QueryParams } from '../utils/http';
 import { ErrorCode, SynfError } from '../types/error';
 
 export type ApiEnvelope<T> = {
@@ -11,7 +11,7 @@ export type ApiEnvelope<T> = {
     data: T | null;
 };
 
-export function getApiData<T>(response: AxiosResponse<ApiEnvelope<T>>): T | null {
+export function getApiData<T>(response: HttpResponse<ApiEnvelope<T>>): T | null {
     const envelope = response.data;
     if (!isRecord(envelope) || !Number.isSafeInteger(envelope.code)) {
         throw new SynfError(
@@ -35,7 +35,7 @@ export function getApiData<T>(response: AxiosResponse<ApiEnvelope<T>>): T | null
     return envelope.data;
 }
 
-export function requireApiData<T>(response: AxiosResponse<ApiEnvelope<T>>, label: string): T {
+export function requireApiData<T>(response: HttpResponse<ApiEnvelope<T>>, label: string): T {
     const data = getApiData(response);
     if (data === null) {
         throw new Error(`Missing API response data for ${label}`);
@@ -59,11 +59,11 @@ export abstract class BaseApiModule {
     protected async makeSignedRequest<T>(
         url: string,
         params: QueryParams,
-        config: Omit<AxiosRequestConfig, 'headers'> = {}
-    ): Promise<AxiosResponse<T>> {
+        config: Omit<HttpRequestOptions, 'headers'> = {}
+    ): Promise<HttpResponse<T>> {
         const urlWithQuery = getRequestUrlWithQuery(url, params);
         const extraHeaders = this.signer.sign({
-            uri: urlWithQuery,
+            uri: this.httpClient.requestPath(urlWithQuery),
             ts: Date.now(),
         });
         return await this.httpClient.get<T>(urlWithQuery, {

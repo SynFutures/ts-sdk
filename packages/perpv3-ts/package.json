@@ -179,7 +179,6 @@
     ],
     "dependencies": {
         "@derivation-tech/viem-kit": "catalog:",
-        "axios": "^1.21.1",
         "viem": "catalog:"
     },
     "peerDependencies": {
