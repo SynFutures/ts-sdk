@@ -1,0 +1,46 @@
+{
+    "name": "@synfutures/airdrop",
+    "version": "0.0.85",
+    "description": "SynFutures V3 airdrop plugin",
+    "author": "SynFutures",
+    "license": "MIT",
+    "main": "build/index.js",
+    "types": "build/index.d.ts",
+    "files": [
+        "build",
+        "src"
+    ],
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "test": "node --test test/*.test.cjs",
+        "prepack": "npm run build",
+        "gen": "typechain --always-generate-overloads --discriminate-types --target ethers-v5 --out-dir ./src/typechain ./src/abis/*.json"
+    },
+    "dependencies": {
+        "@derivation-tech/web3-core": "^1.0.43",
+        "@ethersproject/abi": "^5.7.0",
+        "@ethersproject/abstract-provider": "^5.7.0",
+        "@ethersproject/providers": "^5.7.0",
+        "@synfutures/oyster-sdk2": "^0.0.82",
+        "ethers": "^5.7.2"
+    },
+    "devDependencies": {
+        "@typechain/ethers-v5": "^11.1.0",
+        "typechain": "^8.1.0",
+        "typescript": "5.6.3"
+    },
+    "nx": {
+        "targets": {
+            "build": {
+                "outputs": [
+                    "{projectRoot}/build"
+                ]
+            },
+            "test": {
+                "dependsOn": [
+                    "build"
+                ]
+            }
+        }
+    }
+}

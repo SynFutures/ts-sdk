@@ -1,0 +1,42 @@
+{
+    "name": "@synfutures/oyster-governance",
+    "version": "0.0.83",
+    "description": "SynFutures V3 governance plugin",
+    "author": "SynFutures",
+    "license": "MIT",
+    "main": "build/index.js",
+    "types": "build/index.d.ts",
+    "files": [
+        "build",
+        "src"
+    ],
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "test": "node --test test/*.test.cjs",
+        "prepack": "npm run build"
+    },
+    "dependencies": {
+        "@derivation-tech/web3-core": "^1.0.43",
+        "@ethersproject/abi": "^5.7.0",
+        "@synfutures/oyster-governance-abi": "^0.0.1",
+        "@synfutures/oyster-sdk2": "^0.0.83",
+        "ethers": "^5.7.2"
+    },
+    "devDependencies": {
+        "typescript": "^5.9.3"
+    },
+    "nx": {
+        "targets": {
+            "build": {
+                "outputs": [
+                    "{projectRoot}/build"
+                ]
+            },
+            "test": {
+                "dependsOn": [
+                    "build"
+                ]
+            }
+        }
+    }
+}
