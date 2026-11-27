@@ -2,13 +2,10 @@ import { BigNumber, constants } from 'ethers';
 import type { CallOverrides } from 'ethers';
 import type { TxOptions } from './host';
 
-// Match the host's truthy-only filtering, including explicit false and zero options.
 export function toPopulatedTxOverrides(options?: TxOptions): CallOverrides {
     const overrides = { ...options };
-    if (overrides.signer) {
-        if (overrides.from === undefined) overrides.from = overrides.signer.getAddress();
-        delete overrides.signer;
-    }
+    if (overrides.signer && overrides.from === undefined) overrides.from = overrides.signer.getAddress();
+    delete overrides.signer;
     for (const key of [
         'blockTag',
         'enableGasPrice',
@@ -16,7 +13,7 @@ export function toPopulatedTxOverrides(options?: TxOptions): CallOverrides {
         'gasLimitMultiple',
         'gasPriceMultiple',
     ] as const) {
-        if (overrides[key]) delete overrides[key];
+        delete overrides[key];
     }
     return overrides;
 }

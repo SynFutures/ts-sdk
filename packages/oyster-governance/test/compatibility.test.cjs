@@ -30,9 +30,22 @@ test('population preserves explicit senders and leaves the original transaction 
     assert.deepEqual({ ...overrides, from: await overrides.from }, { from: address, gasLimit: 120, nonce: 0 });
     const from = '0x0000000000000000000000000000000000000002';
     assert.deepEqual(toPopulatedTxOverrides({ ...options, from }), { from, gasLimit: 120, nonce: 0 });
-    const explicitZeros = { blockTag: 0, enableGasPrice: false, disableGasLimit: false, gasLimitMultiple: 0 };
-    assert.deepEqual(toPopulatedTxOverrides(explicitZeros), explicitZeros);
     assert.deepEqual(toPopulatedTxOverrides(), {});
+});
+
+test('staking can populate a transaction with disabled gas options and zero-valued overrides', async () => {
+    const address = '0x0000000000000000000000000000000000000001';
+    const options = Object.freeze({
+        blockTag: 0, enableGasPrice: false, disableGasLimit: false, gasLimitMultiple: 0, gasPriceMultiple: 0,
+        nonce: 0, gasPrice: 0,
+    });
+    const overrides = toPopulatedTxOverrides(options);
+    assert.deepEqual(overrides, { nonce: 0, gasPrice: 0 });
+    const vault = SynFuturesStakingVault__factory.connect(address);
+    const tx = await vault.populateTransaction.stake(1, overrides);
+    assert.equal(tx.nonce, 0);
+    assert.ok(tx.gasPrice.isZero());
+    assert.equal(tx.data, vault.interface.encodeFunctionData('stake', [1]));
 });
 
 test('fixed-point helpers match integer rounding at a half unit and for negative inputs', () => {
