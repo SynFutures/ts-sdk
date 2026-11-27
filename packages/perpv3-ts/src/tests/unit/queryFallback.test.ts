@@ -1,4 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
+import { mainnet } from 'viem/chains';
 import type { Address } from 'viem';
 import type { ApiSigner } from '../../apis/interfaces';
 import { WAD } from '../../constants';
@@ -157,6 +158,27 @@ describe('PerpClient fallback (API -> rpcFallback)', () => {
         slippageBps: 10,
         leverageWad: 1n * WAD,
         markPriceBufferInBps: 1,
+    });
+
+    test('rejects a known wrong RPC chain before reading, including after an API failure', async () => {
+        const rpc = buildMockRpcConfig(ZERO_ADDRESS, 1);
+        const wrongChain = { ...rpc, publicClient: { ...rpc.publicClient, chain: mainnet } };
+        await expect(inquireByBaseSize(ZERO_ADDRESS, 1, 1n, wrongChain)).rejects.toThrow('RPC client chain 1');
+        const signer = {
+            sign: jest.fn(() => {
+                throw new Error('API unavailable');
+            }),
+        };
+        const client = new PerpClient({ chainId: CHAIN_ID, signer }, userSetting, ZERO_ADDRESS, 1, {
+            rpcFallback: wrongChain,
+        });
+        await expect(client.inquire(1n)).rejects.toMatchObject({
+            cause: expect.objectContaining({ message: expect.stringContaining('RPC client chain 1') }),
+        });
+        expect(signer.sign).toHaveBeenCalled();
+        expect(rpc.publicClient.readContract).not.toHaveBeenCalled();
+        expect(rpc.publicClient.multicall).not.toHaveBeenCalled();
+        await expect(inquireByBaseSize(ZERO_ADDRESS, 1, 1n, rpc)).resolves.toBeDefined();
     });
 
     test('isolates default WebSockets and shares only an explicitly supplied client', () => {

@@ -20,6 +20,13 @@ import {
 } from '../types';
 import type { ReadOptions, RpcConfig } from './config';
 
+function rpcClient({ publicClient, chainId }: RpcConfig) {
+    if (publicClient.chain && publicClient.chain.id !== chainId) {
+        throw new Error(`RPC client chain ${publicClient.chain.id} does not match configured chain ${chainId}`);
+    }
+    return publicClient;
+}
+
 function currentObserverAbi(config: RpcConfig) {
     if (config.observer.version !== 'current') throw new Error('This query requires a current Observer deployment');
     return getABI('current', 'Observer');
@@ -41,7 +48,7 @@ export async function fetchOnchainContext(
 ): Promise<PairSnapshot> {
     const { blockNumber, blockTag } = options ?? {};
 
-    const [rawContext] = await config.publicClient.multicall({
+    const [rawContext] = await rpcClient(config).multicall({
         contracts: [
             {
                 address: config.observer.address,
@@ -158,7 +165,7 @@ export async function inquireByTick(
     options?: ReadOptions
 ): Promise<{ size: bigint; quotation: Quotation }> {
     const { blockNumber, blockTag } = options ?? {};
-    const [size, quotation] = await config.publicClient.readContract({
+    const [size, quotation] = await rpcClient(config).readContract({
         address: config.observer.address,
         abi: currentObserverAbi(config),
         functionName: 'inquireByTick',
@@ -180,7 +187,7 @@ export async function inquireByBaseSize(
     options?: ReadOptions
 ): Promise<Quotation> {
     const { blockNumber, blockTag } = options ?? {};
-    const [quotation] = (await config.publicClient.readContract({
+    const [quotation] = (await rpcClient(config).readContract({
         address: config.observer.address,
         abi: currentObserverAbi(config),
         functionName: 'inquireByBase',
@@ -201,7 +208,7 @@ export async function fetchLiquidityDetails(
 ): Promise<LiquidityDetails> {
     const { blockNumber, blockTag } = options ?? {};
 
-    const [rawAmm, rawTids, rawPearls, rawBlockInfo] = (await config.publicClient.readContract({
+    const [rawAmm, rawTids, rawPearls, rawBlockInfo] = (await rpcClient(config).readContract({
         address: config.observer.address,
         abi: getABI(config.observer.version, 'Observer'),
         functionName: 'liquidityDetails',
