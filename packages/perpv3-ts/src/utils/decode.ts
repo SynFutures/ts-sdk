@@ -17,7 +17,8 @@ import {
 // ============================================================================
 
 export function decodeTradeParam(args: readonly string[]): TradeParam {
-    return decodeParamForTradeAndPlace(args);
+    const fields = decodeParamForTradeAndPlace(args);
+    return { ...fields, amount: asInt128(fields.amount) };
 }
 
 export function decodeDepositParam(arg: string): { token: string; quantity: bigint } {
@@ -129,7 +130,7 @@ export function decodeBatchPlaceParam(args: readonly string[]): BatchPlaceParam 
 
     offset = 0;
     const value3 = bytes32ToBigInt(arg3);
-    const leverage = asInt128(pickBigInt(value3, offset, (offset += LEVERAGE_LENGTH)));
+    const leverage = pickBigInt(value3, offset, (offset += LEVERAGE_LENGTH));
     const size = asInt128(pickBigInt(value3, offset, offset + SIZE_LENGTH));
 
     return { expiry, ticks, ratios, size, leverage, deadline };
@@ -216,7 +217,7 @@ function decodeParamForTradeAndPlace(args: readonly string[]): TradeParam {
 
     offset = 0;
     const value2 = bytes32ToBigInt(arg2);
-    const amount = asInt128(pickBigInt(value2, offset, (offset += AMOUNT_LENGTH)));
+    const amount = pickBigInt(value2, offset, (offset += AMOUNT_LENGTH));
     const size = asInt128(pickBigInt(value2, offset, offset + SIZE_LENGTH));
 
     return { expiry, size, amount, limitTick, deadline };

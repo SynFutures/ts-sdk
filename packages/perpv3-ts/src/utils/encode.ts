@@ -18,10 +18,12 @@ import {
 // ============================================================================
 
 export function encodeTradeParam(tradeParam: TradeParam): readonly [Hex, Hex] {
+    assertIntegerRange(tradeParam.amount, 128, true, 'amount');
     return encodeParamForTradeAndPlace(tradeParam);
 }
 
 export function encodePlaceParam(placeParam: PlaceParam): readonly [Hex, Hex] {
+    assertIntegerRange(placeParam.amount, 128, false, 'amount');
     return encodeParamForTradeAndPlace({ ...placeParam, limitTick: placeParam.tick });
 }
 
@@ -34,7 +36,7 @@ export function encodeWithdrawParam(token: string, quantity: bigint): Hex {
 }
 
 export function encodeAdjustParam(adjustParam: AdjustParam): readonly [Hex, Hex] {
-    return encodeParamForTradeAndPlace({
+    return encodeTradeParam({
         expiry: adjustParam.expiry,
         size: ZERO,
         amount: adjustParam.net,
@@ -107,12 +109,11 @@ export function encodeBatchPlaceParam({
 
     validateTiming({ expiry, deadline });
     assertIntegerRange(size, 128, true, 'size');
-    assertIntegerRange(leverage, 128, true, 'leverage');
+    assertIntegerRange(leverage, 128, false, 'leverage');
     ticks.forEach((tick) => assertIntegerRange(tick, 24, true, 'tick'));
     ratios.forEach((ratio) => assertIntegerRange(ratio, 16, false, 'ratio'));
     const usize = BigInt(asUint128(size));
-    const uLeverage = BigInt(asUint128(leverage));
-    const combinedSize = (usize << 128n) + uLeverage;
+    const combinedSize = (usize << 128n) + leverage;
     const page2 = pad32(combinedSize);
 
     let tmp0 = (BigInt(deadline) << 32n) + BigInt(expiry);
@@ -179,7 +180,6 @@ const pad32 = (value: bigint | string): Hex => {
 function encodeParamForTradeAndPlace(tradeParam: TradeParam): readonly [Hex, Hex] {
     validateTiming(tradeParam);
     assertIntegerRange(tradeParam.size, 128, true, 'size');
-    assertIntegerRange(tradeParam.amount, 128, true, 'amount');
     assertIntegerRange(tradeParam.limitTick, 24, true, 'limitTick');
     const usize = BigInt(asUint128(tradeParam.size));
     const uAmount = BigInt(asUint128(tradeParam.amount));

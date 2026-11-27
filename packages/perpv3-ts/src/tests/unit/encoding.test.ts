@@ -1,13 +1,21 @@
 import { asUint48 } from '../../math';
 import {
     encodeTradeParam,
+    encodePlaceParam,
     encodeAddParam,
     encodeFillParam,
     encodeDepositParam,
     encodeCancelParam,
     encodeBatchPlaceParam,
 } from '../../utils/encode';
-import { decodeTradeParam, decodeAddParam, decodeFillParam, decodeDepositParam } from '../../utils/decode';
+import {
+    decodePlaceParam,
+    decodeBatchPlaceParam,
+    decodeTradeParam,
+    decodeAddParam,
+    decodeFillParam,
+    decodeDepositParam,
+} from '../../utils/decode';
 
 const trade = { expiry: 2 ** 32 - 1, deadline: 2 ** 32 - 1, limitTick: -100, size: 1n, amount: 0n };
 const address = '0x0000000000000000000000000000000000000011' as const;
@@ -21,6 +29,25 @@ describe('packed integer boundaries', () => {
         const input = { ...trade, size: value, amount: value };
         expect(decodeTradeParam([...encodeTradeParam(input)])).toEqual(input);
     });
+    test('encodes place collateral and batch leverage as uint128 while retaining signed size', () => {
+        const place = { expiry: 1, deadline: 1, size: -1n, tick: 0 };
+        const batch = { expiry: 1, deadline: 1, size: -1n, ticks: [0], ratios: [10000] };
+        for (const value of [0n, 1n << 127n, (1n << 128n) - 1n]) {
+            expect(decodePlaceParam(encodePlaceParam({ ...place, amount: value }))).toEqual({
+                ...place,
+                amount: value,
+            });
+            expect(decodeBatchPlaceParam(encodeBatchPlaceParam({ ...batch, leverage: value }))).toEqual({
+                ...batch,
+                leverage: value,
+            });
+        }
+        for (const value of [-1n, 1n << 128n]) {
+            expect(() => encodePlaceParam({ ...place, amount: value })).toThrow('amount is outside uint128');
+            expect(() => encodeBatchPlaceParam({ ...batch, leverage: value })).toThrow('leverage is outside uint128');
+        }
+    });
+
     test.each(['size', 'amount'] as const)('rejects %s overflow without corrupting adjacent fields', (field) => {
         for (const value of [1n << 127n, 1n << 128n, -(1n << 127n) - 1n]) {
             expect(() => encodeTradeParam({ ...trade, [field]: value })).toThrow(`${field} is outside int128 range`);
