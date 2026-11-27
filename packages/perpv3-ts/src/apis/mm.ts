@@ -36,6 +36,7 @@ import { ApiEnvelope, getApiData, requireApiData } from './base';
 import {
     decodeMmInstrumentInfoList,
     decodeMmPositionList,
+    decodeMmTickers,
     decodeMmWalletBalance,
     decodeOrderBookSteps,
 } from './decoders';
@@ -178,8 +179,9 @@ export class MarketMakerModule {
             chainId: params.chainId,
             ...(params.symbol !== undefined && { symbol: params.symbol }),
         };
-        const res = await this.makeSignedRequest<ApiEnvelope<FetchMmTickersResponse>>(requestUrl, requestParams);
-        return getApiData(res);
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
+        const data = getApiData(res);
+        return data === null ? null : decodeMmTickers(data);
     }
 
     /**

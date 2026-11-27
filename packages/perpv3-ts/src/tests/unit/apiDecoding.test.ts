@@ -715,6 +715,18 @@ describe('API request contracts', () => {
         ]);
     });
 
+    test('uses the endpoint-specific download flags for account and trade history', async () => {
+        const { httpClient, urls } = requestedUrls({ list: [] });
+        const history = new HistoryModule(httpClient, signer);
+        const params = { chainId: 8453, userAddress: instrument, download: true };
+        await history.fetchAccountBalanceHistory(params);
+        await history.fetchTradeHistory(params);
+        expect(urls()).toEqual([
+            `/v4/public/history/fundFlow?chainId=8453&downLoad=true&userAddress=${instrument}`,
+            `/v4/public/history/trade?chainId=8453&download=true&userAddress=${instrument}`,
+        ]);
+    });
+
     test('validates closed history enums and keeps observed server values', async () => {
         // typeString and side values observed on the Base mainnet history API.
         const trade = { id: '1', timestamp: 2, typeString: 'Market', side: 'long' };

@@ -317,7 +317,7 @@ export class HistoryModule extends BaseApiModule {
             userAddress,
 
             ...(download
-                ? { download: true }
+                ? { downLoad: true }
                 : {
                       ...(startTime !== undefined && { startTime }),
                       ...(endTime !== undefined && { endTime }),

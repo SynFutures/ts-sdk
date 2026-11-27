@@ -7,6 +7,7 @@ import type {
     FetchMmInstrumentInfoResponse,
     FetchMmPositionListResponse,
     FetchMmWalletBalanceResponse,
+    FetchMmTicker,
     FetchPortfolioListFromApiResponse,
     GateBalanceInfoFromApi,
     IFuturesOrderBookAllSteps,
@@ -395,6 +396,37 @@ function decodeOrderBookSide(value: unknown, label: string): OrderDataFromApi[] 
             quoteSize: requireBigInt(record, 'quoteSize', `${itemLabel}.quoteSize`),
             quoteSum: requireBigInt(record, 'quoteSum', `${itemLabel}.quoteSum`),
             tick: requireNumber(record, 'tick', `${itemLabel}.tick`),
+        };
+    });
+}
+
+export function decodeMmTickers(value: unknown): FetchMmTicker[] {
+    // The symbol-filtered endpoint returns one object; the unfiltered endpoint returns an array.
+    return (Array.isArray(value) ? value : [value]).map((item, index) => {
+        const record = requireRecord(item, `MM ticker.${index}`);
+        return {
+            closeTime24h: requireNumber(record, 'closeTime24h', `MM ticker.${index}.closeTime24h`),
+            expiry: requireNumber(record, 'expiry', `MM ticker.${index}.expiry`),
+            fundingRate: requireString(record, 'fundingRate', `MM ticker.${index}.fundingRate`),
+            highPrice24h: requireNumber(record, 'highPrice24h', `MM ticker.${index}.highPrice24h`),
+            instrumentAddress: requireAddress(record, 'instrumentAddress', `MM ticker.${index}.instrumentAddress`),
+            lastPrice: requireString(record, 'lastPrice', `MM ticker.${index}.lastPrice`),
+            lowPrice24h: requireNumber(record, 'lowPrice24h', `MM ticker.${index}.lowPrice24h`),
+            markPrice: requireString(record, 'markPrice', `MM ticker.${index}.markPrice`),
+            openInterest: requireString(record, 'openInterest', `MM ticker.${index}.openInterest`),
+            openPrice24h: requireNumber(record, 'openPrice24h', `MM ticker.${index}.openPrice24h`),
+            openTime24h: requireNumber(record, 'openTime24h', `MM ticker.${index}.openTime24h`),
+            priceChange24H: requireString(record, 'priceChange24H', `MM ticker.${index}.priceChange24H`),
+            priceChangePercent24h: requireString(
+                record,
+                'priceChangePercent24h',
+                `MM ticker.${index}.priceChangePercent24h`
+            ),
+            quoteVolume24h: requireString(record, 'quoteVolume24h', `MM ticker.${index}.quoteVolume24h`),
+            spotPrice: requireString(record, 'spotPrice', `MM ticker.${index}.spotPrice`),
+            symbol: requireString(record, 'symbol', `MM ticker.${index}.symbol`),
+            timestamp: requireNumber(record, 'timestamp', `MM ticker.${index}.timestamp`),
+            volume24h: requireString(record, 'volume24h', `MM ticker.${index}.volume24h`),
         };
     });
 }
