@@ -44,3 +44,8 @@ test('marketByLeverage applies the scenario leverage instead of the base default
         { postPosition: { balance: BigInt(fixture.expected.simulation.postPosition.balance) } },
     ]);
 });
+
+test('rejects missing fields and mismatched integer types from either provider', () => {
+    expect(() => compareTradeResults({}, { fee: 0n })).toThrow();
+    expect(() => compareTradeResults({ fee: '1' }, { fee: 1n })).toThrow();
+});

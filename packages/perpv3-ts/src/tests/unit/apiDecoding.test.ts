@@ -300,7 +300,7 @@ describe('API decoding', () => {
         const config = {
             chainId: 8453,
             signer,
-            fetch: async (url: URL | RequestInfo) => {
+            fetch: async (url: Parameters<typeof fetch>[0]) => {
                 expect(new URL(String(url)).pathname).toBe('/v4/public/market/getOnChainContext/onChainQuery');
                 return Response.json({ code: 0, data });
             },

@@ -20,14 +20,10 @@ export function buildBaseUserSetting(raw: RawUserSetting): UserSetting {
     });
 }
 
-export function createTestApiSigner(): ApiSigner {
-    return {
-        sign: ({ ts }) => ({
-            'X-Api-Nonce': 'test',
-            'X-Api-Sign': 'test',
-            'X-Api-Ts': ts,
-        }),
-    };
+export function marketApiSigner(keyEnv = 'SYNFUTURES_X_API_KEY'): ApiSigner {
+    const key = process.env[keyEnv];
+    if (!key) throw new Error(`Missing market API key (${keyEnv})`);
+    return { sign: () => ({ 'x-api-key': key }) };
 }
 
 export function resolveChain(chainId: number): Chain | undefined {

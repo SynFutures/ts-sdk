@@ -5,7 +5,7 @@ import { TradeInput } from '../../../actions/trade';
 import { abs } from '../../../math';
 import { fetchOnchainContext as fetchRpcContext } from '../../../queries/rpc';
 import { PairSnapshot, QuotationWithSize, Side, UserSetting } from '../../../types';
-import { compareTradeResults, normalizeData } from './assertions';
+import { compareTradeResults } from './assertions';
 import { scenarioReadOptions, scenarioSignedSize } from './fixtures';
 import type { PreparedScenario, Scenario } from './types';
 
@@ -77,7 +77,8 @@ export async function executeScenario({
         scenarioSignedSize(scenario),
         scenarioReadOptions(scenario, onchainContext.blockInfo.height)
     );
-    expect(normalizeData(rpcContext.blockInfo)).toEqual(normalizeData(onchainContext.blockInfo));
+    expect(onchainContext.blockInfo).toStrictEqual(rpcContext.blockInfo);
+    expect(onchainContext.quotation).toStrictEqual(rpcContext.quotation);
     // Keep both providers' portfolios and funding indices intact: differences must fail parity.
     compareTradeResults(
         simulateScenario(scenario, onchainContext, userSetting),

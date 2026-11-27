@@ -4,7 +4,7 @@ import { fetchOnchainContext } from '../../queries';
 import type { ApiConfig, RpcConfig } from '../../queries/config';
 import {
     buildBaseUserSetting,
-    createTestApiSigner,
+    marketApiSigner,
     loadScenarios,
     resolveChain,
     resolveObserverAddress,
@@ -32,18 +32,8 @@ async function prepareScenario(scenario: Scenario): Promise<PreparedScenario> {
 
     const apiConfig: ApiConfig = {
         chainId: scenario.chainId,
-        signer: createTestApiSigner(),
+        signer: marketApiSigner(scenario.apiKeyEnv),
     };
-
-    const apiKeyEnv = scenario.apiKeyEnv ?? 'SYNF_PARITY_API_KEY';
-    const apiKey = process.env[apiKeyEnv];
-    if (apiKey) {
-        const passphrase = process.env.SYNF_PARITY_PASSPHRASE;
-        const secretKey = process.env.SYNF_PARITY_SECRET_KEY;
-        if (passphrase && secretKey) {
-            apiConfig.authInfo = { apiKey, passphrase, secretKey };
-        }
-    }
 
     const userSetting = buildBaseUserSetting(scenario.userSetting);
     const onchainContext = await fetchOnchainContext(
@@ -58,6 +48,7 @@ async function prepareScenario(scenario: Scenario): Promise<PreparedScenario> {
         transport: http(rpcUrl),
     });
 
+    if ((await publicClient.getChainId()) !== scenario.chainId) throw new Error('RPC chain ID differs from scenario');
     const rpcConfig: RpcConfig = {
         chainId: scenario.chainId,
         publicClient,

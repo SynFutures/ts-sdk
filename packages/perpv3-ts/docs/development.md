@@ -52,9 +52,9 @@ Run live checks with `pnpm -C packages/perpv3-ts run test:live --runTestsByPath 
 `PERPV3_INSTRUMENT`; `PERPV3_EXPIRY` defaults to perpetual and `PERPV3_OBSERVER`
 can override the built-in deployment. `live/apiRpcParity.test.ts` requires a
 non-empty `SIMULATE_PARITY_FIXTURE` matching the scenario types in
-`src/tests/live/apiRpcParity/types.ts`, plus its explicit RPC/API settings.
+`src/tests/live/apiRpcParity/types.ts`, plus its RPC URL and a market API key in `SYNFUTURES_X_API_KEY` (or the scenario’s `apiKeyEnv`).
 A selected live test fails on missing configuration or request errors. API/RPC parity pins RPC
-reads to the API snapshot height and compares independently simulated results, including funding
+reads to the API snapshot height and compares all quotation fields and independently simulated results, including funding
 indices. A scenario block number must match that height; moving block tags are rejected.
 
 Unit or devnet success does not establish parity with deployed APIs, production

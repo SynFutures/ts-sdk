@@ -20,11 +20,7 @@ export interface SignParams {
     body?: object;
 }
 
-export interface SignResult {
-    'X-Api-Nonce': string;
-    'X-Api-Sign': string;
-    'X-Api-Ts': number;
-}
+export type SignResult = { 'X-Api-Nonce': string; 'X-Api-Sign': string; 'X-Api-Ts': number } | { 'x-api-key': string };
 
 /**
  * ApiSigner is a function that signs the request parameters
