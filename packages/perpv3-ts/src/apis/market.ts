@@ -24,7 +24,6 @@ import type {
     FetchMarketPairInfoInput,
     FetchMarketPairInfoResponse,
     FetchMarketPairListResponse,
-    IMarketPair,
     FetchOnChainContextQueryInput,
     FetchOnChainContextQueryResponse,
     ApiSigner,
@@ -38,6 +37,7 @@ import {
     decodeFuturesInstrument,
     decodeGateBalances,
     decodeMarketKline,
+    decodeMarketPair,
     decodeOrderBookSteps,
     decodePortfolioList,
     decodePriceData,
@@ -45,7 +45,7 @@ import {
     decodeQuotationWithSize,
     decodeQuoteState,
 } from './decoders';
-import { requireRecord } from './codecs';
+import { requireArray, requireRecord } from './codecs';
 
 /**
  * MarketModule - Market API endpoints
@@ -289,15 +289,9 @@ export class MarketModule extends BaseApiModule {
             instrument: params.address,
             expiry: params.expiry,
         };
-        const res = await this.makeSignedRequest<ApiEnvelope<IMarketPair>>(requestUrl, requestParams);
-        const p = getApiData(res);
-        if (p !== null) {
-            return {
-                ...p,
-                chainId: params.chainId,
-            };
-        }
-        return null;
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
+        const data = getApiData(res);
+        return data === null ? null : decodeMarketPair(data, params.chainId, 'market pair');
     }
 
     /**
@@ -308,16 +302,11 @@ export class MarketModule extends BaseApiModule {
         const requestParams = {
             chainId: params.chainId,
         };
-        const res = await this.makeSignedRequest<ApiEnvelope<IMarketPair[]>>(requestUrl, requestParams);
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
         const data = getApiData(res);
-        if (data !== null) {
-            return data.map((p: IMarketPair) => {
-                return {
-                    ...p,
-                    chainId: params.chainId,
-                };
-            });
-        }
-        return undefined;
+        if (data === null) return undefined;
+        return requireArray(data, 'market pairs').map((pair, index) =>
+            decodeMarketPair(pair, params.chainId, `market pairs[${index}]`)
+        );
     }
 }

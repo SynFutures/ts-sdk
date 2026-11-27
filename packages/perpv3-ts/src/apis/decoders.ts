@@ -4,6 +4,7 @@ import type {
     FetchMmFundingHistoryResponse,
     FetchMmKlineResponse,
     FetchFuturesPairKlineChartResponse,
+    MarketPairWithChainId,
     FetchMmLiquidityHistoryResponse,
     FetchMmLiquidityListResponse,
     FetchMmOrderHistoryResponse,
@@ -609,13 +610,64 @@ function decodeMmInstrumentInfo(value: unknown, label: string): FetchMmInstrumen
     };
 }
 
+function decodeMarketTokenIdentity(record: UnknownRecord, label: string) {
+    return {
+        ...record,
+        address: requireAddress(record, 'address', label + '.address'),
+        symbol: requireString(record, 'symbol', label + '.symbol'),
+        image: optionalString(record, 'image', label + '.image'),
+    };
+}
+
 function decodeTradeToken(value: unknown, label: string): TokenInfoFromApi {
     const record = requireRecord(value, label);
     return {
-        address: requireAddress(record, 'address'),
-        symbol: requireString(record, 'symbol'),
-        decimals: requireNumber(record, 'decimals'),
-        image: optionalString(record, 'image', label + '.image'),
+        ...decodeMarketTokenIdentity(record, label),
+        decimals: unsignedInteger(record, 'decimals', label, 255),
+    };
+}
+
+function decimalString(record: UnknownRecord, key: string, label: string): string {
+    const value = requireString(record, key, label + '.' + key);
+    if (!/^[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(value))
+        throw new Error(`Invalid ${label}.${key}: expected decimal string`);
+    return value;
+}
+
+function decodeFunding(value: unknown, label: string) {
+    const record = requireRecord(value, label);
+    return { ...record, long: decimalString(record, 'long', label), short: decimalString(record, 'short', label) };
+}
+
+export function decodeMarketPair(value: unknown, chainId: number, label: string): MarketPairWithChainId {
+    const record = requireRecord(value, label);
+    const baseToken = requireRecord(record.baseToken, label + '.baseToken');
+    return {
+        ...record,
+        chainId,
+        instrumentAddr: requireAddress(record, 'instrumentAddr', label + '.instrumentAddr'),
+        expiry: unsignedInteger(record, 'expiry', label, 0xffffffff),
+        symbol: requireString(record, 'symbol', label + '.symbol'),
+        baseToken:
+            baseToken.decimals === undefined
+                ? decodeMarketTokenIdentity(baseToken, label + '.baseToken')
+                : decodeTradeToken(baseToken, label + '.baseToken'),
+        quoteToken: decodeTradeToken(record.quoteToken, label + '.quoteToken'),
+        periods1hFunding: decodeFunding(record.periods1hFunding, label + '.periods1hFunding'),
+        last1hFunding: decodeFunding(record.last1hFunding, label + '.last1hFunding'),
+        fairPrice: decimalString(record, 'fairPrice', label),
+        markPrice: decimalString(record, 'markPrice', label),
+        fairPriceChange24h: decimalString(record, 'fairPriceChange24h', label),
+        baseVolume24h: decimalString(record, 'baseVolume24h', label),
+        openInterests: decimalString(record, 'openInterests', label),
+        tvl: decimalString(record, 'tvl', label),
+        volume24hUsd: decimalString(record, 'volume24hUsd', label),
+        tvlUsd: decimalString(record, 'tvlUsd', label),
+        openInterestsUsd: decimalString(record, 'openInterestsUsd', label),
+        longOi: decimalString(record, 'longOi', label),
+        shortOi: decimalString(record, 'shortOi', label),
+        fundingRatePerHour: decimalString(record, 'fundingRatePerHour', label),
+        quoteVolume24h: decimalString(record, 'quoteVolume24h', label),
     };
 }
 

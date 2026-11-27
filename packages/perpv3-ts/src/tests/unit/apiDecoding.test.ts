@@ -736,6 +736,51 @@ describe('API request contracts', () => {
         await expect(read([{ ...candle, high: false }])).rejects.toThrow('market kline[0].high');
     });
 
+    test('validates market pairs and funding fields without rounding decimal metrics', async () => {
+        const baseToken = { address: instrument, symbol: 'ETH' };
+        const quoteToken = { address: instrument, symbol: 'USDC', decimals: 6 };
+        const funding = { long: '-0.001', short: '0.001' };
+        const pair = {
+            instrumentAddr: instrument,
+            expiry: 4294967295,
+            symbol: 'ETH/USDC',
+            baseToken,
+            quoteToken,
+            periods1hFunding: funding,
+            last1hFunding: funding,
+            fairPrice: '123.00000000000000001',
+            markPrice: '123',
+            fairPriceChange24h: '-0.25',
+            baseVolume24h: '0',
+            openInterests: '0',
+            tvl: '0',
+            volume24hUsd: '0',
+            tvlUsd: '0',
+            openInterestsUsd: '0',
+            longOi: '0',
+            shortOi: '0',
+            fundingRatePerHour: '0',
+            quoteVolume24h: '0',
+        };
+        const list = (data: unknown) => createMarketModule(data).fetchMarketPairList({ chainId: 8453 });
+        await expect(list([pair])).resolves.toEqual([{ ...pair, chainId: 8453 }]);
+        await expect(list([])).resolves.toEqual([]);
+        await expect(list(null)).resolves.toBeUndefined();
+        await expect(list({})).rejects.toThrow('market pairs');
+        await expect(list([pair, { ...pair, markPrice: 'NaN' }])).rejects.toThrow('market pairs[1].markPrice');
+        await expect(list([{ ...pair, quoteToken: { ...quoteToken, address: '0x' } }])).rejects.toThrow(
+            'quoteToken.address'
+        );
+        await expect(list([{ ...pair, last1hFunding: {} }])).rejects.toThrow('last1hFunding.long');
+        await expect(
+            createMarketModule({ ...pair, expiry: -1 }).fetchMarketPairInfo({
+                chainId: 8453,
+                address: instrument,
+                expiry: 1,
+            })
+        ).rejects.toThrow('market pair.expiry');
+    });
+
     test('sends the parameter names the public API validates', async () => {
         const { httpClient, urls } = requestedUrls(null);
         const market = new MarketModule(httpClient, signer);
