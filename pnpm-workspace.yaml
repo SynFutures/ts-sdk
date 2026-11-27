@@ -3,10 +3,13 @@ packages:
 
 catalog:
     '@derivation-tech/viem-kit': '1.0.0-rc.0'
-    viem: '^2.56.8'
+    viem: '^2.58.7'
     typescript: '6.0.3'
 
 overrides:
+    # Jest and its Istanbul coverage tools still request affected glob and minimatch majors.
+    'glob@>=9 <=14.0.1': '^14.0.2'
+    'minimatch@>=7 <11.0.1': '^11.0.1'
     '@derivation-tech/viem-kit': 'file:./vendor/derivation-tech-viem-kit-1.0.0-rc.0.tgz'
 
 # Native binaries are supplied by platform-specific optional dependencies.
@@ -15,10 +18,6 @@ allowBuilds:
     '@parcel/watcher': false
     esbuild: false
     unrs-resolver: false
-
-minimumReleaseAgeExclude:
-    - prettier@3.9.9
-    - ts-jest@29.4.13
 
 # Fail fast when node_modules does not match the lockfile; installs stay an explicit step.
 verifyDepsBeforeRun: error

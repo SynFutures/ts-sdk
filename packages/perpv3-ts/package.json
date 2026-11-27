@@ -179,13 +179,13 @@
     ],
     "dependencies": {
         "@derivation-tech/viem-kit": "catalog:",
-        "axios": "^1.20.0",
+        "axios": "^1.21.1",
         "date-fns": "^4.4.0",
         "date-fns-tz": "^3.2.0",
         "viem": "catalog:"
     },
     "peerDependencies": {
-        "ws": "^8.0.0"
+        "ws": "^8.23.0"
     },
     "peerDependenciesMeta": {
         "ws": {
@@ -198,14 +198,14 @@
         "@jest/globals": "^30.5.2",
         "@synfutures/v3-contracts": "^0.0.2",
         "@types/jest": "^30.0.0",
-        "@types/node": "22.20.4",
-        "dotenv": "^18.0.3",
+        "@types/node": "22.20.7",
+        "dotenv": "^18.0.10",
         "esbuild": "0.28.2",
-        "eslint": "^10.11.0",
+        "eslint": "^10.15.0",
         "jest": "^30.5.2",
-        "publint": "0.3.24",
-        "ts-jest": "^29.4.13",
-        "tsdown": "0.23.0",
+        "publint": "0.3.25",
+        "ts-jest": "^29.4.15",
+        "tsdown": "0.23.7",
         "tsx": "^4.23.15",
         "typescript": "catalog:"
     },

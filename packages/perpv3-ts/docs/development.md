@@ -154,16 +154,13 @@ guard reads the effective pnpm override, so moving configuration cannot bypass i
 Installs are explicit. `verifyDepsBeforeRun: error` makes lint, tests and builds fail
 when `node_modules` does not match the lockfile, instead of starting an installation
 after CI has removed registry credentials. Run `pnpm install` again after changing
-dependencies or the local viem-kit override. The
-release-age exceptions are pinned to the reviewed Prettier and ts-jest versions,
-not entire package families.
+dependencies or the local viem-kit override.
 
 ## Dependency updates
 
 Review major upgrades against these current compatibility constraints:
 
-- TypeScript remains 6.0.3 while the installed typescript-eslint peer range is
-  below 6.1 and ts-jest's range is below 7. Upgrade that toolchain together.
+- TypeScript remains 6.0.3 while ts-jest's peer range is below 7. Upgrade that toolchain together.
 - Development stays on Node 24 LTS. Published SDK compatibility and `@types/node`
   stay on Node 22; a newer development runtime must not silently expand the SDK's APIs.
 - viem-kit remains a reviewed local tarball. Update it through the provenance and
