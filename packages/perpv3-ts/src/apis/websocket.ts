@@ -386,6 +386,7 @@ export type InvalidStreamDataEvent = {
 
 export interface PublicWebsocketClientOptions {
     url?: string;
+    /** Custom handshake headers require a wsFactory that supports them. */
     headers?: Record<string, string>;
     wsFactory?: WebSocketFactory;
     autoReconnect?: boolean;

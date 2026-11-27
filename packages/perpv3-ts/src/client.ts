@@ -1,5 +1,5 @@
 import type { Address } from 'viem';
-import { DEFAULT_PUBLIC_WS_URL } from './apis/constants';
+import { PublicWebsocketClient } from './apis/websocket';
 import type {
     InstrumentStreamData,
     MarketPairInfoChangedData,
@@ -20,7 +20,6 @@ import {
     type RpcConfig,
 } from './queries';
 import { UserSetting, type PairSnapshot, type Quotation } from './types';
-import { WebSocketManager } from './wss';
 import { MarketMakerModule, MarketModule } from './apis';
 import { defaultHttpClient } from './utils';
 
@@ -38,9 +37,7 @@ export class PerpClient {
     private readonly _instrumentAddress: Address;
     private readonly _expiry: number;
     private readonly _rpcFallback?: RpcConfig;
-    private readonly wsManager: WebSocketManager;
-    private readonly wsUrl: string;
-    private readonly wsOptions?: PublicWebsocketClientOptions;
+    readonly websocket: PublicWebsocketClient;
 
     private readonly _mm?: MarketMakerModule;
     private readonly _market?: MarketModule;
@@ -59,15 +56,15 @@ export class PerpClient {
         instrumentAddress: Address,
         expiry: number,
         options?: {
-            wsManager?: WebSocketManager; // Optional - defaults to singleton
-            wsUrl?: string;
-            wsOptions?: PublicWebsocketClientOptions;
             /**
              * Optional RPC config for falling back to onchain reads when API requests fail.
              * Only used when `config` is `ApiConfig`.
              */
             rpcFallback?: RpcConfig;
-        }
+        } & (
+            | { websocket?: PublicWebsocketClient; wsOptions?: never }
+            | { websocket?: never; wsOptions?: PublicWebsocketClientOptions }
+        )
     ) {
         this._config = isApiConfig(config) ? resolveApiConfig(config) : config;
         this._userSetting = userSetting;
@@ -79,9 +76,7 @@ export class PerpClient {
                 `rpcFallback.chainId (${this._rpcFallback.chainId}) must match ApiConfig.chainId (${this._config.chainId})`
             );
         }
-        this.wsManager = options?.wsManager ?? WebSocketManager.getInstance();
-        this.wsUrl = options?.wsUrl ?? DEFAULT_PUBLIC_WS_URL;
-        this.wsOptions = options?.wsOptions;
+        this.websocket = options?.websocket ?? new PublicWebsocketClient(options?.wsOptions);
         if (isApiConfig(this._config)) {
             const client = this._config.httpClient ?? defaultHttpClient;
             if (this._config.authInfo) {
@@ -218,16 +213,14 @@ export class PerpClient {
      * @returns Unsubscribe function
      */
     subscribeOrderBook(handler: (data: OrderBookStreamData) => void): () => void {
-        const subscription = this.wsManager.subscribeOrderBook(
-            this.wsUrl,
+        const subscription = this.websocket.subscribeOrderBook(
             {
                 chainId: this._config.chainId,
                 instrument: this._instrumentAddress,
                 expiry: this._expiry,
                 type: 'orderBook',
             },
-            handler,
-            this.wsOptions
+            handler
         );
         return () => subscription.unsubscribe();
     }
@@ -239,15 +232,13 @@ export class PerpClient {
      * @returns Unsubscribe function
      */
     subscribePortfolio(userAddress: Address, handler: (data: PortfolioStreamData) => void): () => void {
-        const subscription = this.wsManager.subscribePortfolio(
-            this.wsUrl,
+        const subscription = this.websocket.subscribePortfolio(
             {
                 chainId: this._config.chainId,
                 userAddress,
                 type: 'portfolio',
             },
-            handler,
-            this.wsOptions
+            handler
         );
         return () => subscription.unsubscribe();
     }
@@ -258,16 +249,14 @@ export class PerpClient {
      * @returns Unsubscribe function
      */
     subscribeInstrument(handler: (data: InstrumentStreamData | MarketPairInfoChangedData) => void): () => void {
-        const subscription = this.wsManager.subscribeInstrument(
-            this.wsUrl,
+        const subscription = this.websocket.subscribeInstrument(
             {
                 chainId: this._config.chainId,
                 instrument: this._instrumentAddress,
                 expiry: this._expiry,
                 type: 'instrument',
             },
-            handler,
-            this.wsOptions
+            handler
         );
         return () => subscription.unsubscribe();
     }
@@ -279,15 +268,13 @@ export class PerpClient {
      */
     subscribeTrades(handler: (data: TradesStreamData) => void): () => void {
         const pair = `${this._instrumentAddress.toLowerCase()}_${this._expiry}`;
-        const subscription = this.wsManager.subscribeTrades(
-            this.wsUrl,
+        const subscription = this.websocket.subscribeTrades(
             {
                 chainId: this._config.chainId,
                 pairs: [pair],
                 type: 'trades',
             },
-            handler,
-            this.wsOptions
+            handler
         );
         return () => subscription.unsubscribe();
     }

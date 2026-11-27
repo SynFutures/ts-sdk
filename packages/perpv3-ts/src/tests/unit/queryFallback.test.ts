@@ -156,6 +156,16 @@ function buildMockRpcConfig(instrument: Address, expiry: number): RpcConfig {
 describe('PerpClient fallback (API -> rpcFallback)', () => {
     const userSetting = new UserSetting(10, 10, 1n * WAD, 1);
 
+    test('isolates default WebSockets and shares only an explicitly supplied client', () => {
+        const config = { chainId: CHAIN_ID };
+        const first = new PerpClient(config, userSetting, ZERO_ADDRESS, 1);
+        const second = new PerpClient(config, userSetting, ZERO_ADDRESS, 1);
+        expect(first.websocket).not.toBe(second.websocket);
+        expect(new PerpClient(config, userSetting, ZERO_ADDRESS, 1, { websocket: first.websocket }).websocket).toBe(
+            first.websocket
+        );
+    });
+
     test('block zero bypasses the API and pins every liquidity read', async () => {
         const rpcFallback = buildMockRpcConfig(ZERO_ADDRESS, 0xffffffff);
         const signer = {
