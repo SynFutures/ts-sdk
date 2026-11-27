@@ -1,5 +1,4 @@
 import type { Address } from 'viem';
-import { createTestClient, http } from 'viem';
 
 import {
     AddInput,
@@ -58,8 +57,6 @@ const MARKET_ADDRESS = ctx.manifest.contracts.markets[futuresInstrument.marketTy
 if (!MARKET_ADDRESS) {
     throw new Error(`Missing market address in manifest for marketType=${futuresInstrument.marketType}`);
 }
-
-const testClient = createTestClient({ chain: ctx.chain, mode: 'anvil', transport: http(ctx.manifest.rpcUrl) });
 
 const SETTLING_DURATION_SECONDS = 30 * 60;
 
@@ -494,7 +491,7 @@ describe('devnet dated futures integration (ported from v3-contracts hardhat int
             }
 
             log(`enterSettling: +${toSettling}s`);
-            await testClient.increaseTime({ seconds: toSettling });
+            await ctx.advanceTime(toSettling);
             await waitForTx(
                 await ctx.walletClients.admin.writeContract({
                     address: INSTRUMENT_ADDRESS,
@@ -563,7 +560,7 @@ describe('devnet dated futures integration (ported from v3-contracts hardhat int
             // Trade during SETTLING (SDK simulation path) after aligning benchmark close to mark price.
             const markTick = wadToTick(settling.priceData.markPrice);
             await setSpotPrice(tickToWad(markTick + 1));
-            await testClient.increaseTime({ seconds: 60 });
+            await ctx.advanceTime(60);
             await waitForTx(
                 await ctx.walletClients.admin.writeContract({
                     address: INSTRUMENT_ADDRESS,
@@ -615,7 +612,7 @@ describe('devnet dated futures integration (ported from v3-contracts hardhat int
 
             // Finalize settlement.
             log(`finalizeSettlement: +${SETTLING_DURATION_SECONDS + 1}s`);
-            await testClient.increaseTime({ seconds: SETTLING_DURATION_SECONDS + 1 });
+            await ctx.advanceTime(SETTLING_DURATION_SECONDS + 1);
             await waitForTx(
                 await ctx.walletClients.admin.writeContract({
                     address: INSTRUMENT_ADDRESS,

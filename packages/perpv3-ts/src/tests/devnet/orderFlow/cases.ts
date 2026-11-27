@@ -916,7 +916,7 @@ export async function runMultiOrderFillAndCancelFlow(): Promise<void> {
     ).simulate(takerBeforeCrossTwo, crossTwoQuotation, userSetting);
 
     // Exercise the timestamp transition even on fast runners.
-    await ctx.publicClient.transport.request({ method: 'evm_increaseTime', params: [1] });
+    await ctx.advanceTime(1);
     const crossTwoHash = await takerWallet.writeContract({
         gas: tradeGas,
         address: INSTRUMENT_ADDRESS,
@@ -943,7 +943,7 @@ export async function runMultiOrderFillAndCancelFlow(): Promise<void> {
         userSetting
     );
 
-    await ctx.publicClient.transport.request({ method: 'evm_increaseTime', params: [1] });
+    await ctx.advanceTime(1);
     const thirdHash = await takerWallet.writeContract({
         gas: tradeGas,
         address: INSTRUMENT_ADDRESS,

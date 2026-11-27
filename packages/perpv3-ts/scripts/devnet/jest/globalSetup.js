@@ -46,6 +46,8 @@ export default async function globalSetup() {
             );
         }
 
+        // Keep block time independent of runner speed. Time-sensitive tests set the next timestamp explicitly.
+        await jsonRpc(rpcUrl, 'anvil_setBlockTimestampInterval', [0]);
         process.env.PERPV3_DEVNET_RPC_URL = rpcUrl;
 
         child.unref();

@@ -1,5 +1,4 @@
 import type { Address } from 'viem';
-import { createTestClient, http } from 'viem';
 
 import { CEX_MARKET_ABI, CURRENT_INSTRUMENT_ABI } from '../../index';
 import {
@@ -43,8 +42,6 @@ const MARKET_ADDRESS = ctx.manifest.contracts.markets[defaultInstrument.marketTy
 if (!MARKET_ADDRESS) {
     throw new Error(`Missing market address in manifest for marketType=${defaultInstrument.marketType}`);
 }
-
-const testClient = createTestClient({ chain: ctx.chain, mode: 'anvil', transport: http(ctx.manifest.rpcUrl) });
 
 const MOCK_CHAINLINK_FEEDER_ABI = [
     {
@@ -110,7 +107,7 @@ async function adjustSpotPrice(spotWad: bigint, { updateRounds = 10, stepSeconds
     await waitForTx(setPriceHash);
 
     for (let i = 0; i < updateRounds; i += 1) {
-        await testClient.increaseTime({ seconds: stepSeconds });
+        await ctx.advanceTime(stepSeconds);
         const updateHash = await ctx.walletClients.admin.writeContract({
             address: INSTRUMENT_ADDRESS,
             abi: CURRENT_INSTRUMENT_ABI,
@@ -212,7 +209,7 @@ describe('devnet IMR simulation (ported from v3-contracts hardhat imrSimulation.
 
         // Crossing a timestamp adds accounting work beyond the same-block gas estimate.
         // Exercise that transition with a bounded gas budget; this test checks IMR, not gas estimation.
-        await testClient.increaseTime({ seconds: 1 });
+        await ctx.advanceTime(1);
         const tradeHash = await attackerWallet.writeContract({
             gas: 1_000_000n,
             address: INSTRUMENT_ADDRESS,
@@ -348,7 +345,7 @@ describe('devnet IMR simulation (ported from v3-contracts hardhat imrSimulation.
 
         // Crossing a timestamp adds accounting work beyond the same-block gas estimate.
         // Exercise that transition with a bounded gas budget; this test checks IMR, not gas estimation.
-        await testClient.increaseTime({ seconds: 1 });
+        await ctx.advanceTime(1);
         const tradeHash = await attackerWallet.writeContract({
             gas: 1_000_000n,
             address: INSTRUMENT_ADDRESS,

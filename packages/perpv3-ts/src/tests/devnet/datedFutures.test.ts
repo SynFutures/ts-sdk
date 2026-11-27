@@ -1,5 +1,5 @@
 import type { Address, Hash } from 'viem';
-import { createTestClient, createWalletClient, http } from 'viem';
+import { createWalletClient, http } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import {
@@ -40,8 +40,6 @@ if (!quoteInfo) {
 
 const QUOTE_TOKEN = quoteInfo.address;
 const QUOTE_UNIT = 10n ** BigInt(quoteInfo.decimals);
-
-const testClient = createTestClient({ chain: ctx.chain, mode: 'anvil', transport: http(ctx.manifest.rpcUrl) });
 
 const SETTLING_DURATION_SECONDS = 30 * 60;
 
@@ -234,7 +232,7 @@ describe('devnet dated futures', () => {
             );
         }
 
-        await testClient.increaseTime({ seconds: toSettling });
+        await ctx.advanceTime(toSettling);
         await waitForTx(
             await ctx.walletClients.admin.writeContract({
                 address: INSTRUMENT_ADDRESS,
@@ -252,7 +250,7 @@ describe('devnet dated futures', () => {
         );
         expect(settling.amm.status).toBe(Status.SETTLING);
 
-        await testClient.increaseTime({ seconds: SETTLING_DURATION_SECONDS + 1 });
+        await ctx.advanceTime(SETTLING_DURATION_SECONDS + 1);
 
         await waitForTx(
             await ctx.walletClients.admin.writeContract({

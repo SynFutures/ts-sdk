@@ -95,7 +95,15 @@ export function createDevnetContext() {
         observer: { address: manifest.contracts.observer, version: 'current' },
     };
 
+    async function advanceTime(seconds: number) {
+        const { timestamp } = await publicClient.getBlock();
+        await publicClient.transport.request({
+            method: 'evm_setNextBlockTimestamp',
+            params: [Number(timestamp) + seconds],
+        });
+    }
     return {
+        advanceTime,
         manifest,
         preset,
         chain,
