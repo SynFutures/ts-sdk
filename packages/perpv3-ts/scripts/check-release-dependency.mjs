@@ -1,5 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import process from 'node:process';
 
 const VIEM_KIT = '@derivation-tech/viem-kit';
 
@@ -13,13 +16,19 @@ if (overrides?.[VIEM_KIT]) {
     throw new Error('Replace the local viem-kit override with a released catalog version before publishing.');
 }
 
-// A direct local spec in the published manifest would bypass the override check above.
-const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-for (const field of ['dependencies', 'peerDependencies', 'optionalDependencies']) {
-    const spec = manifest[field]?.[VIEM_KIT];
-    if (typeof spec === 'string' && /^(link|file):/.test(spec)) {
-        throw new Error(
-            `Replace the local viem-kit ${field} entry (${spec}) with a released version before publishing.`
-        );
+// Let pnpm expand the catalog exactly as it will for publication.
+const temporary = mkdtempSync(join(tmpdir(), 'perpv3-release-check-'));
+try {
+    const archive = join(temporary, 'package.tgz');
+    execFileSync('pnpm', ['pack', '--out', archive], {
+        cwd: new URL('../', import.meta.url),
+        env: { ...process.env, pnpm_config_ignore_scripts: 'true' },
+    });
+    const packed = JSON.parse(execFileSync('tar', ['-xOf', archive, 'package/package.json'], { encoding: 'utf8' }));
+    const version = packed.dependencies?.[VIEM_KIT];
+    if (typeof version !== 'string' || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) {
+        throw new Error(`Packed viem-kit dependency must be an exact stable version; got ${version}`);
     }
+} finally {
+    rmSync(temporary, { recursive: true, force: true });
 }

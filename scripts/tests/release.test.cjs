@@ -148,7 +148,12 @@ test('prepublishOnly rejects the local viem-kit override and allows removal of t
     );
     const check = ['-C', 'packages/perpv3-ts', 'run', 'prepublishOnly'];
     assert.match(run('pnpm', check, 1), /Replace the local viem-kit override/);
-    writeFileSync(configFile, config);
+    const file = join(cwd, packageFiles[1]);
+    writeJson(file, { ...readJson(file), dependencies: { '@derivation-tech/viem-kit': 'catalog:' } });
+    const catalog = (version) => config + `\ncatalog:\n    '@derivation-tech/viem-kit': '${version}'\n`;
+    writeFileSync(configFile, catalog('1.0.0-rc.4'));
+    assert.match(run('pnpm', check, 1), /exact stable version; got 1.0.0-rc.4/);
+    writeFileSync(configFile, catalog('1.0.0'));
     run('pnpm', check);
 });
 
@@ -159,7 +164,7 @@ test('prepublishOnly rejects a direct local viem-kit dependency', (t) => {
     const check = ['-C', 'packages/perpv3-ts', 'run', 'prepublishOnly'];
     for (const spec of ['link:../../viem-kit', 'file:./vendor/local-fixture.tgz']) {
         writeJson(manifestFile, { ...manifest, dependencies: { '@derivation-tech/viem-kit': spec } });
-        assert.match(run('pnpm', check, 1), /Replace the local viem-kit dependencies entry/);
+        assert.match(run('pnpm', check, 1), /exact stable version/);
     }
     writeJson(manifestFile, { ...manifest, dependencies: { '@derivation-tech/viem-kit': '1.0.0' } });
     run('pnpm', check);
