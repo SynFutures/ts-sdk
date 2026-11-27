@@ -198,7 +198,6 @@
         "@synfutures/v3-contracts": "^0.0.2",
         "@types/jest": "^30.0.0",
         "@types/node": "22.20.7",
-        "dotenv": "^18.0.10",
         "esbuild": "0.28.2",
         "jest": "^30.5.2",
         "publint": "0.3.25",

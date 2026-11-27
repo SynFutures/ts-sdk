@@ -11,7 +11,7 @@
  *   npm run demo -- --chain base --signer alice --instrument ETH-USDC
  */
 
-import * as dotenv from 'dotenv';
+import { loadExampleEnv } from './env';
 import { runDemos, listAvailableDemos } from './framework/runner';
 
 // Import demo modules to register them
@@ -113,7 +113,7 @@ if (args.length > 0) {
 }
 
 // Load signer configuration only for explicit execution.
-dotenv.config();
+loadExampleEnv();
 
 // Run demos
 runDemos(options)

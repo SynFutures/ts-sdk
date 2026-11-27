@@ -2,9 +2,11 @@ import type { Address } from 'viem';
 import { randomUUID } from 'crypto';
 import { HistoryModule, HISTORY_RANGE, PublicModule } from '@synfutures/perpv3-ts/apis';
 import { HttpClient } from '@synfutures/perpv3-ts/utils';
-import 'dotenv/config';
+import { loadExampleEnv } from './env';
 import { ApiSign } from './sign';
 import { PERP_EXPIRY } from '@synfutures/perpv3-ts';
+
+loadExampleEnv();
 
 const CHAIN_ID = 143;
 const INSTRUMENT = '0x73ada1ea346cc3908f41cf67a040f0acd7808be0' as Address;

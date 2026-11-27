@@ -7,7 +7,9 @@ import {
     PERP_EXPIRY,
     PublicWebsocketClient,
 } from '@synfutures/perpv3-ts';
-import 'dotenv/config';
+import { loadExampleEnv } from './env';
+
+loadExampleEnv();
 
 const CHAIN_ID = 143;
 const SYMBOL = 'BTC/USDC';
