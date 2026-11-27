@@ -732,13 +732,13 @@ export interface FetchMmOrderRealtimeItem {
 export type FetchMmOrderRealtimeResponse = FetchMmOrderRealtimeItem[];
 
 export interface FetchTokenCoinsWithSymbolItem {
-    currentPrice: number;
-    high24h: number;
-    imageUrl: string;
-    low24h: number;
-    priceChangePercentage24H: number;
-    symbol: string;
-    updateTime: number;
+    currentPrice?: number;
+    high24h?: number;
+    imageUrl?: string;
+    low24h?: number;
+    priceChangePercentage24H?: number;
+    symbol?: string;
+    updateTime?: number;
 }
 export type FetchTokenCoinsWithSymbolResponse = FetchTokenCoinsWithSymbolItem[];
 
@@ -763,7 +763,7 @@ export interface FetchMmLiquidityListItem {
     lowerPrice: string;
     rid: number;
     sqrtEntryPX96: string;
-    symbol: string;
+    symbol?: string;
     tickLower: number;
     tickUpper: number;
     traderAddr: string;

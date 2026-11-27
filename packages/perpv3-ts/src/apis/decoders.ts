@@ -629,7 +629,7 @@ function decodeList<T>(value: unknown, label: string, decode: DecodeRow<T>): T[]
 function decodePage<T>(value: unknown, label: string, decode: DecodeRow<T>): { list: T[]; totalCount: number } {
     const page = requireRecord(value, label);
     return {
-        list: decodeList(page.list, label + '.list', decode),
+        list: decodeList(page.list === null ? [] : page.list, label + '.list', decode),
         totalCount: requireNumber(page, 'totalCount', label + '.totalCount'),
     };
 }
@@ -727,7 +727,7 @@ export function decodeMmLiquidityList(value: unknown): FetchMmLiquidityListRespo
         lowerPrice: requireString(record, 'lowerPrice', `${label}.lowerPrice`),
         rid: requireNumber(record, 'rid', `${label}.rid`),
         sqrtEntryPX96: requireString(record, 'sqrtEntryPX96', `${label}.sqrtEntryPX96`),
-        symbol: requireString(record, 'symbol', `${label}.symbol`),
+        symbol: optionalString(record, 'symbol', `${label}.symbol`),
         tickLower: requireNumber(record, 'tickLower', `${label}.tickLower`),
         tickUpper: requireNumber(record, 'tickUpper', `${label}.tickUpper`),
         traderAddr: requireString(record, 'traderAddr', `${label}.traderAddr`),
@@ -779,16 +779,16 @@ export function decodeMmOrderRealtime(value: unknown): FetchMmOrderRealtimeRespo
 
 export function decodeTokenCoinsWithSymbol(value: unknown): FetchTokenCoinsWithSymbolResponse {
     return decodeList(value, 'TokenCoinsWithSymbol', (record, label) => ({
-        currentPrice: requireNumber(record, 'currentPrice', `${label}.currentPrice`),
-        high24h: requireNumber(record, 'high24h', `${label}.high24h`),
-        imageUrl: requireString(record, 'imageUrl', `${label}.imageUrl`),
-        low24h: requireNumber(record, 'low24h', `${label}.low24h`),
-        priceChangePercentage24H: requireNumber(
+        currentPrice: optionalNumber(record, 'currentPrice', `${label}.currentPrice`),
+        high24h: optionalNumber(record, 'high24h', `${label}.high24h`),
+        imageUrl: optionalString(record, 'imageUrl', `${label}.imageUrl`),
+        low24h: optionalNumber(record, 'low24h', `${label}.low24h`),
+        priceChangePercentage24H: optionalNumber(
             record,
             'priceChangePercentage24H',
             `${label}.priceChangePercentage24H`
         ),
-        symbol: requireString(record, 'symbol', `${label}.symbol`),
-        updateTime: requireNumber(record, 'updateTime', `${label}.updateTime`),
+        symbol: optionalString(record, 'symbol', `${label}.symbol`),
+        updateTime: optionalNumber(record, 'updateTime', `${label}.updateTime`),
     }));
 }

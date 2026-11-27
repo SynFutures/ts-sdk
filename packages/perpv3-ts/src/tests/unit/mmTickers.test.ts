@@ -81,6 +81,18 @@ describe('MarketMakerModule request contracts', () => {
             'baseVolume'
         );
         await expect(rows.fetchOrderRealtime({ chainId: 1, address: 'test' })).rejects.toThrow('balance');
+        await expect(
+            new MarketMakerModule(
+                createMockHttpClient({}, [{ symbol: 'ETH', currentPrice: 0 }]),
+                signer
+            ).fetchTokenCoinsWithSymbol()
+        ).resolves.toMatchObject([{ symbol: 'ETH', currentPrice: 0 }]);
+        await expect(
+            new MarketMakerModule(createMockHttpClient({}, { totalCount: 0, list: null }), signer).fetchTradeHistory({
+                chainId: 1,
+                address: 'test',
+            })
+        ).resolves.toEqual({ totalCount: 0, list: [] });
         const pages = new MarketMakerModule(createMockHttpClient({}, { list: [] }), signer);
         await expect(pages.fetchTradeHistory({ chainId: 1, address: 'test' })).rejects.toThrow('totalCount');
     });
