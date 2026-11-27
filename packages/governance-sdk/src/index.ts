@@ -28,9 +28,10 @@ function withoutSender(tx: PopulatedTransaction): PopulatedTransaction {
     return unsigned;
 }
 
-function multiplierHundredths(factor: number): BigNumber {
-    const [whole, fraction = ''] = factor.toFixed(2).split('.');
-    return BigNumber.from(whole).mul(100).add(fraction);
+function multiplierHundredths(factor: number): number {
+    const nearest = Math.round(factor * 100);
+    // Compare at the original scale so an exact decimal such as 1.1 does not round up twice.
+    return nearest / 100 < factor ? nearest + 1 : nearest;
 }
 
 async function estimate(

@@ -66,6 +66,18 @@ test('claim status and four unsigned methods preserve calldata, sender and gas e
     assert.deepEqual(Object.keys(createTgeClient(provider)), ['airdrop']);
 });
 
+test('gas multipliers round positive fractional hundredths upward', async () => {
+    const provider = providerWith((method) => {
+        assert.equal(method, 'eth_estimateGas');
+        return '0x186a0'; // 100,000 gas
+    });
+    const { airdrop, governance } = createTgeClient(provider, 1.001, config);
+    const claim = await airdrop.claim(vault, 0, 1, account, proof);
+    assert.equal(claim.gasLimit.toString(), '101000');
+    const stake = await governance.stake(1, { gasLimitMultiple: 0.001 });
+    assert.equal(stake.gasLimit.toString(), '1000');
+});
+
 test('a 1.1 multiplier stays at 110 hundredths and from stays off the transaction', async () => {
     const estimates = [];
     const provider = providerWith((method, params) => {
