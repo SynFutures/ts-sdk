@@ -97,7 +97,12 @@ preserve fixed regression inputs and expectations without selecting a live chain
 ## Published package checks
 
 `verify:consumer` checks the existing build through one `pnpm pack` tarball, with
-lifecycle hooks disabled. It runs strict `publint` and `attw --profile node16`, then
+lifecycle hooks disabled. It installs that tarball into an empty npm project. While
+viem-kit is unreleased, only that dependency is overridden with the reviewed tarball.
+Without the override, npm resolves the packed dependency from its registry. For a private
+release, set `NPM_CONFIG_USERCONFIG` to a scoped npmrc. Only the install subprocess
+receives this configuration and its optional `NODE_AUTH_TOKEN`.
+The verifier runs strict `publint` and `attw --profile node16`, then
 compiles and executes ESM/CJS consumers, checks all public entries and shared class/logger
 identity, and bundles a browser consumer using a direct esbuild dependency.
 TypeScript consumers must use exports-aware resolution (`Node16`, `NodeNext` or

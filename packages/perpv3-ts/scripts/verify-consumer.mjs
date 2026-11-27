@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -43,25 +43,40 @@ try {
     log(run('pnpm', ['exec', 'publint', archivePath, '--strict'], packageDir).trim());
     // The SDK uses exports-aware resolution (Node16/NodeNext/Bundler), not legacy node10.
     log(run('pnpm', ['exec', 'attw', archivePath, '--profile', 'node16'], packageDir).trim());
-    const installed = join(consumer, 'node_modules/@synfutures/perpv3-ts');
-    mkdirSync(installed, { recursive: true });
-    run('tar', ['-xzf', join(temporary, archive), '-C', installed, '--strip-components=1']);
+    const kit = '@derivation-tech/viem-kit';
+    const overrides = JSON.parse(run('pnpm', ['config', 'get', 'overrides', '--json'], workspaceDir));
+    const override = overrides?.[kit];
+    const kitArchive = override?.startsWith('file:') ? resolve(workspaceDir, override.slice(5)) : undefined;
+    const fixture = {
+        private: true,
+        type: 'module',
+        dependencies: { [manifest.name]: `file:${archivePath}` },
+        devDependencies: { '@types/node': manifest.devDependencies['@types/node'] },
+        ...(kitArchive && { overrides: { [kit]: `file:${kitArchive}` } }),
+    };
+    writeFileSync(join(consumer, 'package.json'), JSON.stringify(fixture));
+    // A caller testing a released private dependency may supply a scoped npmrc for installation only.
+    const userconfig = !kitArchive && process.env.NPM_CONFIG_USERCONFIG;
+    execFileSync('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], {
+        cwd: consumer,
+        env: {
+            ...env,
+            NPM_CONFIG_USERCONFIG: userconfig || '/dev/null',
+            ...(userconfig && { NODE_AUTH_TOKEN: process.env.NODE_AUTH_TOKEN }),
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const installed = join(consumer, 'node_modules', manifest.name);
     const packed = JSON.parse(readFileSync(join(installed, 'package.json'), 'utf8'));
     assert(!Object.values(packed.dependencies).includes('catalog:'), 'Unresolved catalog dependency');
-    for (const name of [...Object.keys(manifest.dependencies), '@types/node']) {
-        const link = join(consumer, 'node_modules', name);
-        mkdirSync(dirname(link), { recursive: true });
-        symlinkSync(resolve(packageDir, 'node_modules', name), link, 'dir');
-    }
-    const overrides = JSON.parse(run('pnpm', ['config', 'get', 'overrides', '--json'], workspaceDir));
-    const override = overrides?.['@derivation-tech/viem-kit'];
-    if (override?.startsWith('file:')) {
+    if (kitArchive) {
         const expected = join(temporary, 'viem-kit');
         mkdirSync(expected);
-        run('tar', ['-xzf', resolve(workspaceDir, override.slice(5)), '-C', expected, '--strip-components=1']);
-        sameFiles(expected, resolve(packageDir, 'node_modules/@derivation-tech/viem-kit'));
+        run('tar', ['-xzf', kitArchive, '-C', expected, '--strip-components=1']);
+        const kitManifest = JSON.parse(readFileSync(join(expected, 'package.json'), 'utf8'));
+        assert.equal(packed.dependencies[kit], kitManifest.version, 'Packed dependency must match vendored kit');
+        sameFiles(expected, join(consumer, 'node_modules', kit));
     }
-    writeFileSync(join(consumer, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
     cpSync(join(packageDir, 'typecheck/consumer.ts'), join(consumer, 'index.mts'));
     cpSync(join(packageDir, 'typecheck/consumer.ts'), join(consumer, 'index.cts'));
     writeFileSync(
@@ -112,7 +127,7 @@ try {
     );
     run(consumerNode, ['--disallow-code-generation-from-strings', browser]);
     log(
-        `Packed consumer passed on Node ${run(consumerNode, ['-p', 'process.versions.node']).trim()}: ${entries.length} ESM/CJS entries, NodeNext types, shared entry identity, calldata/parser runtime, browser bundle, exact viem-kit tarball files`
+        `Packed consumer passed on Node ${run(consumerNode, ['-p', 'process.versions.node']).trim()}: ${entries.length} ESM/CJS entries, NodeNext types, shared entry identity, calldata/parser runtime, browser bundle, clean npm install`
     );
 } catch (error) {
     if (error.stdout) log(error.stdout.toString());
