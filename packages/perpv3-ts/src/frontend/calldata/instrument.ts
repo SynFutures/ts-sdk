@@ -23,7 +23,7 @@ import {
     encodeRemoveParam,
     encodeTradeParam,
 } from '../../utils/encode';
-import { isDelegated, requireAddress } from './shared';
+import { isDelegated } from './shared';
 import type {
     TransactionRoute,
     AddLiquidityEncodingParam,
@@ -109,7 +109,7 @@ export function encodeMarketOrderTransaction(
     const txArgs = encodeTradeParam(tradeParam);
 
     if (isDelegated(options)) {
-        const traderAddress = requireAddress(options.traderAddress, 'traderAddress for tradeFor');
+        const traderAddress = options.traderAddress;
         const calldata = encodeFunctionData({
             abi: getABI(param.instrument.version, 'Instrument'),
             functionName: 'tradeFor',
@@ -145,7 +145,7 @@ export function encodeLimitOrderTransaction(
     const txArgs = encodePlaceParam(placeParam);
 
     if (isDelegated(options)) {
-        const traderAddress = requireAddress(options.traderAddress, 'traderAddress for placeFor');
+        const traderAddress = options.traderAddress;
         return encodeForCallTransaction(
             param.instrument.address,
             traderAddress,
@@ -194,7 +194,7 @@ export function encodeCancelOrderTransaction(
 
     if (param.ticks.length <= maxCancelCount) {
         if (useCancelFor) {
-            const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for cancelFor');
+            const traderAddress = options.traderAddress;
             return encodeForCallTransaction(
                 param.instrument.address,
                 traderAddress,
@@ -222,7 +222,7 @@ export function encodeCancelOrderTransaction(
             { subAccountAddress, routerAddress }
         );
     }
-    const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for cancelFor');
+    const traderAddress = options.traderAddress;
     return encodeRouterBatchTransaction(
         routerAddress,
         subAccountAddress,
@@ -246,7 +246,7 @@ export function encodeAdjustMarginTransaction(
     const txArgs = encodeAdjustParam(adjustParam);
 
     if (isDelegated(options)) {
-        const traderAddress = requireAddress(options.traderAddress, 'traderAddress for adjustFor');
+        const traderAddress = options.traderAddress;
         const calldata = encodeFunctionData({
             abi: getABI(param.instrument.version, 'Instrument'),
             functionName: 'tradeFor',
@@ -290,7 +290,7 @@ export function encodeBatchPlaceScaledLimitOrderTransaction(
     });
 
     if (isDelegated(options)) {
-        const traderAddress = requireAddress(options.traderAddress, 'traderAddress for batchPlaceFor');
+        const traderAddress = options.traderAddress;
         const calldata = encodeFunctionData({
             abi: getABI(param.instrument.version, 'Instrument'),
             functionName: 'batchPlaceFor',
@@ -334,7 +334,7 @@ export function encodeCrossLimitOrderTransaction(
     });
 
     if (isDelegated(options)) {
-        const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for crossLimit useFor');
+        const traderAddress = options.traderAddress;
         const callDatas = [
             encodeFunctionData({
                 abi: getABI(param.instrument.version, 'Instrument'),
@@ -408,7 +408,7 @@ export function encodeAddLiquidityTransaction(
     const txArgs = encodeAddParam(addParam);
 
     if (isDelegated(options)) {
-        const traderAddress = requireAddress(options.traderAddress, 'traderAddress for addFor');
+        const traderAddress = options.traderAddress;
         const calldata = encodeFunctionData({
             abi: getABI(param.instrument.version, 'Instrument'),
             functionName: 'addFor',

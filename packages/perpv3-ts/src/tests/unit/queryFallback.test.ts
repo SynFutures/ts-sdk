@@ -181,6 +181,17 @@ describe('PerpClient fallback (API -> rpcFallback)', () => {
         expect(rpc.publicClient.multicall).not.toHaveBeenCalled();
     });
 
+    test('reads each latest order book level at the height returned by its context', async () => {
+        const config = buildMockRpcConfig(ZERO_ADDRESS, 1);
+        const client = new PerpClient(config, userSetting, ZERO_ADDRESS, 1);
+        await client.getOrderBook();
+        expect(config.publicClient.multicall).toHaveBeenCalledTimes(1);
+        const reads = jest.mocked(config.publicClient.readContract).mock.calls;
+        expect(reads.length).toBeGreaterThan(1);
+        for (const [request] of reads) expect(request).toMatchObject({ blockNumber: 0n });
+        await expect(client.getOrderBook(1, { blockTag: 'pending' })).rejects.toThrow('cannot be pinned');
+    });
+
     test('block zero bypasses the API and pins every liquidity read', async () => {
         const rpcFallback = buildMockRpcConfig(ZERO_ADDRESS, 0xffffffff);
         const signer = {

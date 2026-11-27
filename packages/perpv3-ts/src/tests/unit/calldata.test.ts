@@ -204,6 +204,31 @@ describe('frontend calldata encoding', () => {
         expect(decodeInstrument(tx.data)).toEqual({ functionName: 'settle', args: [1_700_000_000, targetAddress] });
     });
 
+    it('forwards a native deposit through the requested router and preserves its value', () => {
+        const gate = { address: '0x0000000000000000000000000000000000000066', version: 'current' } as const;
+        const tokenAddress = '0x0000000000000000000000000000000000000000';
+        const tx = contractCallEncoder.encodeDeposit({ tokenAddress, amount: 75n }, gate, {
+            route: 'router',
+            routerAddress,
+            subAccountAddress,
+            traderAddress,
+        });
+        expect(tx).toMatchObject({ to: routerAddress, value: 75n });
+        const outer = decodeRouter(tx.data);
+        const [sub, trader, target, inner, strict] = outer.args as readonly [string, string, string, Hex, boolean];
+        expect([outer.functionName, sub, trader, target, strict]).toEqual([
+            'batch',
+            subAccountAddress,
+            traderAddress,
+            gate.address,
+            false,
+        ]);
+        expect(decodeFunctionData({ abi: CURRENT_GATE_ABI, data: inner })).toEqual({
+            functionName: 'depositFor',
+            args: [traderAddress, encodeDepositParam(tokenAddress, 75n)],
+        });
+    });
+
     it('uses ABI order for gate for-call encoding', () => {
         const gateAddress = { address: '0x0000000000000000000000000000000000000066', version: 'current' } as const;
         const tokenAddress = '0x0000000000000000000000000000000000000077';

@@ -2,7 +2,7 @@ import { encodeFunctionData, ethAddress, zeroAddress } from 'viem';
 import type { ContractDeployment } from '../../abis';
 import { getABI, CURRENT_GATE_ABI, CURRENT_GELATO_RELAY_ROUTER_ABI } from '../../abis';
 import { encodeDepositParam, encodeWithdrawParam } from '../../utils/encode';
-import { isDelegated, requireAddress } from './shared';
+import { isDelegated } from './shared';
 import type { TransactionRoute, DepositEncodingParam, TransactionParam, WithdrawEncodingParam } from './types';
 
 export function encodeDepositTransaction(
@@ -21,7 +21,7 @@ export function encodeDepositTransaction(
 
     if (isDelegated(options)) {
         if (gate.version === 'legacy') throw new Error('Legacy Gate does not support delegated transfers');
-        const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for depositFor');
+        const traderAddress = options.traderAddress;
         const depositForCalldata = encodeFunctionData({
             abi: CURRENT_GATE_ABI,
             functionName: 'depositFor',
@@ -75,7 +75,7 @@ export function encodeWithdrawTransaction(
 
     if (isDelegated(options)) {
         if (gate.version === 'legacy') throw new Error('Legacy Gate does not support delegated transfers');
-        const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for withdrawFor');
+        const traderAddress = options.traderAddress;
         const withdrawForCalldata = encodeFunctionData({
             abi: CURRENT_GATE_ABI,
             functionName: 'withdrawFor',
