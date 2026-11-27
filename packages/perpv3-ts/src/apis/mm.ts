@@ -31,12 +31,22 @@ import type {
     FetchTokenCoinsWithSymbolResponse,
 } from './interfaces';
 import { HttpClient, getRequestUrlWithQuery, type QueryParams } from '../utils/http';
+import { requireNumberValue } from './codecs';
 import { ApiAuthSigner } from '../utils';
 import { ApiEnvelope, getApiData, requireApiData } from './base';
 import {
     decodeMmInstrumentInfoList,
     decodeMmPositionList,
     decodeMmTickers,
+    decodeMmAccountTransactionHistory,
+    decodeTradeHistory,
+    decodeMmFundingHistory,
+    decodeMmKline,
+    decodeMmLiquidityHistory,
+    decodeMmLiquidityList,
+    decodeMmOrderHistory,
+    decodeMmOrderRealtime,
+    decodeTokenCoinsWithSymbol,
     decodeMmWalletBalance,
     decodeOrderBookSteps,
 } from './decoders';
@@ -87,7 +97,7 @@ export class MarketMakerModule {
     async fetchServerTime(): Promise<number> {
         const requestUrl = API_URLS.MM.MM_SERVER_TIME;
         const res = await this.makeSignedRequest<ApiEnvelope<number>>(requestUrl);
-        return requireApiData(res, 'MM server time');
+        return requireNumberValue(requireApiData(res, 'MM server time'), 'MM server time');
     }
 
     /**
@@ -153,11 +163,9 @@ export class MarketMakerModule {
             page: params.page ?? DEFAULT_PAGE,
             size: params.size ?? DEFAULT_PAGE_SIZE,
         };
-        const res = await this.makeSignedRequest<ApiEnvelope<FetchMmAccountTransactionHistoryResponse>>(
-            requestUrl,
-            requestParams
-        );
-        return getApiData(res);
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
+        const payload = getApiData(res);
+        return payload === null ? null : decodeMmAccountTransactionHistory(payload);
     }
 
     async fetchTradeHistory(params: FetchTradeHistoryInput): Promise<FetchTradeHistoryResponse | null> {
@@ -171,8 +179,9 @@ export class MarketMakerModule {
             page: params.page ?? DEFAULT_PAGE,
             size: params.size ?? DEFAULT_PAGE_SIZE,
         };
-        const res = await this.makeSignedRequest<ApiEnvelope<FetchTradeHistoryResponse>>(requestUrl, requestParams);
-        return getApiData(res);
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
+        const payload = getApiData(res);
+        return payload === null ? null : decodeTradeHistory(payload);
     }
 
     /**
@@ -203,8 +212,9 @@ export class MarketMakerModule {
             ...(params.endTime !== undefined && { endTime: params.endTime }),
             ...(params.limit !== undefined && { limit: params.limit }),
         };
-        const res = await this.makeSignedRequest<ApiEnvelope<FetchMmFundingHistoryResponse>>(requestUrl, requestParams);
-        return getApiData(res);
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
+        const payload = getApiData(res);
+        return payload === null ? null : decodeMmFundingHistory(payload);
     }
 
     /**
@@ -241,8 +251,9 @@ export class MarketMakerModule {
             ...(params.end !== undefined && { end: params.end }),
             ...(params.limit !== undefined && { limit: params.limit }),
         };
-        const res = await this.makeSignedRequest<ApiEnvelope<FetchMmKlineResponse>>(requestUrl, requestParams);
-        return getApiData(res);
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
+        const payload = getApiData(res);
+        return payload === null ? null : decodeMmKline(payload);
     }
 
     /**
@@ -261,11 +272,9 @@ export class MarketMakerModule {
             page: params.page ?? DEFAULT_PAGE,
             size: params.size ?? DEFAULT_PAGE_SIZE,
         };
-        const res = await this.makeSignedRequest<ApiEnvelope<FetchMmLiquidityHistoryResponse>>(
-            requestUrl,
-            requestParams
-        );
-        return getApiData(res);
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
+        const payload = getApiData(res);
+        return payload === null ? null : decodeMmLiquidityHistory(payload);
     }
 
     /**
@@ -279,8 +288,9 @@ export class MarketMakerModule {
             chainId: params.chainId,
             address: params.address,
         };
-        const res = await this.makeSignedRequest<ApiEnvelope<FetchMmLiquidityListResponse>>(requestUrl, requestParams);
-        return getApiData(res);
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
+        const payload = getApiData(res);
+        return payload === null ? null : decodeMmLiquidityList(payload);
     }
 
     /**
@@ -299,8 +309,9 @@ export class MarketMakerModule {
             page: params.page ?? DEFAULT_PAGE,
             size: params.size ?? DEFAULT_PAGE_SIZE,
         };
-        const res = await this.makeSignedRequest<ApiEnvelope<FetchMmOrderHistoryResponse>>(requestUrl, requestParams);
-        return getApiData(res);
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
+        const payload = getApiData(res);
+        return payload === null ? null : decodeMmOrderHistory(payload);
     }
 
     /**
@@ -314,8 +325,9 @@ export class MarketMakerModule {
             chainId: params.chainId,
             address: params.address,
         };
-        const res = await this.makeSignedRequest<ApiEnvelope<FetchMmOrderRealtimeResponse>>(requestUrl, requestParams);
-        return getApiData(res);
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
+        const payload = getApiData(res);
+        return payload === null ? null : decodeMmOrderRealtime(payload);
     }
 
     /**
@@ -324,7 +336,8 @@ export class MarketMakerModule {
      */
     async fetchTokenCoinsWithSymbol(): Promise<FetchTokenCoinsWithSymbolResponse | null> {
         const requestUrl = API_URLS.MM.MM_TOKEN_COINS_WITH_SYMBOL;
-        const res = await this.makeSignedRequest<ApiEnvelope<FetchTokenCoinsWithSymbolResponse>>(requestUrl);
-        return getApiData(res);
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl);
+        const payload = getApiData(res);
+        return payload === null ? null : decodeTokenCoinsWithSymbol(payload);
     }
 }

@@ -67,6 +67,24 @@ describe('MarketMakerModule.fetchTickers', () => {
 });
 
 describe('MarketMakerModule request contracts', () => {
+    it('validates rows and pagination after a successful envelope', async () => {
+        const signer = {
+            sign: async () => ({
+                'X-ACCESS-KEY': '',
+                'X-ACCESS-SIGN': '',
+                'X-ACCESS-TIMESTAMP': '',
+                'X-ACCESS-PASSPHRASE': '',
+            }),
+        };
+        const rows = new MarketMakerModule(createMockHttpClient({}, [{}]), signer);
+        await expect(rows.fetchKline({ chainId: 1, symbol: 'BTC/USDC', interval: KlineInterval.HOUR })).rejects.toThrow(
+            'baseVolume'
+        );
+        await expect(rows.fetchOrderRealtime({ chainId: 1, address: 'test' })).rejects.toThrow('balance');
+        const pages = new MarketMakerModule(createMockHttpClient({}, { list: [] }), signer);
+        await expect(pages.fetchTradeHistory({ chainId: 1, address: 'test' })).rejects.toThrow('totalCount');
+    });
+
     it('sends the kline interval the server requires', async () => {
         const captured: CapturedRequest = {};
         const module = new MarketMakerModule(createMockHttpClient(captured), {

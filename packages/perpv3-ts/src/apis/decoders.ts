@@ -1,4 +1,16 @@
 import type {
+    FetchMmAccountTransactionHistoryResponse,
+    FetchTradeHistoryResponse,
+    FetchMmFundingHistoryResponse,
+    FetchMmKlineResponse,
+    FetchMmLiquidityHistoryResponse,
+    FetchMmLiquidityListResponse,
+    FetchMmOrderHistoryResponse,
+    FetchMmOrderRealtimeResponse,
+    FetchTokenCoinsWithSymbolResponse,
+    TokenInfoFromApi,
+} from './interfaces';
+import type {
     AmmFromApi,
     ChartLiquidityDetailsFromApi,
     FetchFuturesInstrumentResponse,
@@ -594,4 +606,189 @@ function decodeMmInstrumentInfo(value: unknown, label: string): FetchMmInstrumen
         tip: requireBigInt(record, 'tip', `${label}.tip`),
         tradingFeeRatio: requireNumber(record, 'tradingFeeRatio', `${label}.tradingFeeRatio`),
     };
+}
+
+function decodeTradeToken(value: unknown, label: string): TokenInfoFromApi {
+    const record = requireRecord(value, label);
+    return {
+        address: requireAddress(record, 'address'),
+        symbol: requireString(record, 'symbol'),
+        decimals: requireNumber(record, 'decimals'),
+        image: optionalString(record, 'image', label + '.image'),
+    };
+}
+
+type DecodeRow<T> = (record: UnknownRecord, label: string) => T;
+
+function decodeList<T>(value: unknown, label: string, decode: DecodeRow<T>): T[] {
+    return requireArray(value, label).map((item, i) => {
+        const path = `${label}[${i}]`;
+        return decode(requireRecord(item, path), path);
+    });
+}
+function decodePage<T>(value: unknown, label: string, decode: DecodeRow<T>): { list: T[]; totalCount: number } {
+    const page = requireRecord(value, label);
+    return {
+        list: decodeList(page.list, label + '.list', decode),
+        totalCount: requireNumber(page, 'totalCount', label + '.totalCount'),
+    };
+}
+
+export function decodeMmAccountTransactionHistory(value: unknown): FetchMmAccountTransactionHistoryResponse {
+    return decodePage(value, 'MmAccountTransactionHistory', (record, label) => ({
+        id: requireString(record, 'id', `${label}.id`),
+        timestamp: requireNumber(record, 'timestamp', `${label}.timestamp`),
+        tokenAddress: requireString(record, 'tokenAddress', `${label}.tokenAddress`),
+        tokenInfo: decodeTokenInfo(record.tokenInfo, `${label}.tokenInfo`),
+        txHash: requireString(record, 'txHash', `${label}.txHash`),
+        type: requireNumber(record, 'type', `${label}.type`),
+        typeString: requireString(record, 'typeString', `${label}.typeString`),
+        value: requireString(record, 'value', `${label}.value`),
+        valueUsd: requireString(record, 'valueUsd', `${label}.valueUsd`),
+    }));
+}
+
+export function decodeTradeHistory(value: unknown): FetchTradeHistoryResponse {
+    return decodePage(value, 'TradeHistory', (record, label) => ({
+        balance: requireString(record, 'balance', `${label}.balance`),
+        baseToken: decodeTradeToken(record.baseToken, `${label}.baseToken`),
+        event: requireString(record, 'event', `${label}.event`),
+        expiry: requireNumber(record, 'expiry', `${label}.expiry`),
+        id: requireString(record, 'id', `${label}.id`),
+        instrumentAddress: requireString(record, 'instrumentAddress', `${label}.instrumentAddress`),
+        price: requireString(record, 'price', `${label}.price`),
+        protocolFee: requireString(record, 'protocolFee', `${label}.protocolFee`),
+        quoteToken: decodeTradeToken(record.quoteToken, `${label}.quoteToken`),
+        side: requireString(record, 'side', `${label}.side`),
+        size: requireString(record, 'size', `${label}.size`),
+        symbol: requireString(record, 'symbol', `${label}.symbol`),
+        timestamp: requireNumber(record, 'timestamp', `${label}.timestamp`),
+        tradeFee: requireString(record, 'tradeFee', `${label}.tradeFee`),
+        txHash: requireString(record, 'txHash', `${label}.txHash`),
+        type: requireString(record, 'type', `${label}.type`),
+        typeString: requireString(record, 'typeString', `${label}.typeString`),
+    }));
+}
+
+export function decodeMmFundingHistory(value: unknown): FetchMmFundingHistoryResponse {
+    return decodeList(value, 'MmFundingHistory', (record, label) => ({
+        long: requireString(record, 'long', `${label}.long`),
+        short: requireString(record, 'short', `${label}.short`),
+        timestamp: requireNumber(record, 'timestamp', `${label}.timestamp`),
+    }));
+}
+
+export function decodeMmKline(value: unknown): FetchMmKlineResponse {
+    return decodeList(value, 'MmKline', (record, label) => ({
+        baseVolume: requireNumber(record, 'baseVolume', `${label}.baseVolume`),
+        close: requireNumber(record, 'close', `${label}.close`),
+        closeTime: requireNumber(record, 'closeTime', `${label}.closeTime`),
+        high: requireNumber(record, 'high', `${label}.high`),
+        low: requireNumber(record, 'low', `${label}.low`),
+        open: requireNumber(record, 'open', `${label}.open`),
+        openTime: requireNumber(record, 'openTime', `${label}.openTime`),
+        quoteVolume: requireNumber(record, 'quoteVolume', `${label}.quoteVolume`),
+        symbol: requireString(record, 'symbol', `${label}.symbol`),
+    }));
+}
+
+export function decodeMmLiquidityHistory(value: unknown): FetchMmLiquidityHistoryResponse {
+    return decodePage(value, 'MmLiquidityHistory', (record, label) => ({
+        amount: requireString(record, 'amount', `${label}.amount`),
+        baseToken: decodeTokenInfo(record.baseToken, `${label}.baseToken`),
+        expiry: requireNumber(record, 'expiry', `${label}.expiry`),
+        fairPrice: requireString(record, 'fairPrice', `${label}.fairPrice`),
+        feeEarned: requireString(record, 'feeEarned', `${label}.feeEarned`),
+        id: requireString(record, 'id', `${label}.id`),
+        instrumentAddress: requireString(record, 'instrumentAddress', `${label}.instrumentAddress`),
+        lowerPrice: requireString(record, 'lowerPrice', `${label}.lowerPrice`),
+        lowerTick: requireNumber(record, 'lowerTick', `${label}.lowerTick`),
+        quoteToken: decodeTokenInfo(record.quoteToken, `${label}.quoteToken`),
+        symbol: requireString(record, 'symbol', `${label}.symbol`),
+        timestamp: requireNumber(record, 'timestamp', `${label}.timestamp`),
+        txHash: requireString(record, 'txHash', `${label}.txHash`),
+        type: requireNumber(record, 'type', `${label}.type`),
+        typeString: requireString(record, 'typeString', `${label}.typeString`),
+        upperPrice: requireString(record, 'upperPrice', `${label}.upperPrice`),
+        upperTick: requireNumber(record, 'upperTick', `${label}.upperTick`),
+    }));
+}
+
+export function decodeMmLiquidityList(value: unknown): FetchMmLiquidityListResponse {
+    return decodeList(value, 'MmLiquidityList', (record, label) => ({
+        balance: requireString(record, 'balance', `${label}.balance`),
+        entryFeeIndex: requireString(record, 'entryFeeIndex', `${label}.entryFeeIndex`),
+        entryPrice: requireString(record, 'entryPrice', `${label}.entryPrice`),
+        expiry: requireNumber(record, 'expiry', `${label}.expiry`),
+        instrumentAddr: requireString(record, 'instrumentAddr', `${label}.instrumentAddr`),
+        lastUpdateTime: requireNumber(record, 'lastUpdateTime', `${label}.lastUpdateTime`),
+        lastUpdateTxHash: requireString(record, 'lastUpdateTxHash', `${label}.lastUpdateTxHash`),
+        liquidity: requireString(record, 'liquidity', `${label}.liquidity`),
+        lowerPrice: requireString(record, 'lowerPrice', `${label}.lowerPrice`),
+        rid: requireNumber(record, 'rid', `${label}.rid`),
+        sqrtEntryPX96: requireString(record, 'sqrtEntryPX96', `${label}.sqrtEntryPX96`),
+        symbol: requireString(record, 'symbol', `${label}.symbol`),
+        tickLower: requireNumber(record, 'tickLower', `${label}.tickLower`),
+        tickUpper: requireNumber(record, 'tickUpper', `${label}.tickUpper`),
+        traderAddr: requireString(record, 'traderAddr', `${label}.traderAddr`),
+        upperPrice: requireString(record, 'upperPrice', `${label}.upperPrice`),
+    }));
+}
+
+export function decodeMmOrderHistory(value: unknown): FetchMmOrderHistoryResponse {
+    return decodePage(value, 'MmOrderHistory', (record, label) => ({
+        balance: requireString(record, 'balance', `${label}.balance`),
+        baseToken: decodeTokenInfo(record.baseToken, `${label}.baseToken`),
+        cancelTimestamp: requireNumber(record, 'cancelTimestamp', `${label}.cancelTimestamp`),
+        cancelTxHash: requireString(record, 'cancelTxHash', `${label}.cancelTxHash`),
+        expiry: requireNumber(record, 'expiry', `${label}.expiry`),
+        feeRebate: requireString(record, 'feeRebate', `${label}.feeRebate`),
+        fillTimestamp: requireNumber(record, 'fillTimestamp', `${label}.fillTimestamp`),
+        fillTxHash: requireString(record, 'fillTxHash', `${label}.fillTxHash`),
+        id: requireString(record, 'id', `${label}.id`),
+        instrumentAddress: requireString(record, 'instrumentAddress', `${label}.instrumentAddress`),
+        orderPrice: requireString(record, 'orderPrice', `${label}.orderPrice`),
+        placeTimestamp: requireNumber(record, 'placeTimestamp', `${label}.placeTimestamp`),
+        placeTxHash: requireString(record, 'placeTxHash', `${label}.placeTxHash`),
+        quoteToken: decodeTokenInfo(record.quoteToken, `${label}.quoteToken`),
+        side: requireString(record, 'side', `${label}.side`),
+        size: requireString(record, 'size', `${label}.size`),
+        symbol: requireString(record, 'symbol', `${label}.symbol`),
+        takenBalance: requireString(record, 'takenBalance', `${label}.takenBalance`),
+        takenSize: requireString(record, 'takenSize', `${label}.takenSize`),
+        tradeValue: requireString(record, 'tradeValue', `${label}.tradeValue`),
+        type: requireNumber(record, 'type', `${label}.type`),
+        typeString: requireString(record, 'typeString', `${label}.typeString`),
+    }));
+}
+
+export function decodeMmOrderRealtime(value: unknown): FetchMmOrderRealtimeResponse {
+    return decodeList(value, 'MmOrderRealtime', (record, label) => ({
+        balance: requireString(record, 'balance', `${label}.balance`),
+        lastUpdateTime: requireNumber(record, 'lastUpdateTime', `${label}.lastUpdateTime`),
+        lastUpdateTxHash: requireString(record, 'lastUpdateTxHash', `${label}.lastUpdateTxHash`),
+        limitPrice: requireString(record, 'limitPrice', `${label}.limitPrice`),
+        nonce: requireNumber(record, 'nonce', `${label}.nonce`),
+        oid: requireNumber(record, 'oid', `${label}.oid`),
+        side: requireNumber(record, 'side', `${label}.side`),
+        size: requireString(record, 'size', `${label}.size`),
+        taken: requireString(record, 'taken', `${label}.taken`),
+        tick: requireNumber(record, 'tick', `${label}.tick`),
+    }));
+}
+
+export function decodeTokenCoinsWithSymbol(value: unknown): FetchTokenCoinsWithSymbolResponse {
+    return decodeList(value, 'TokenCoinsWithSymbol', (record, label) => ({
+        currentPrice: requireNumber(record, 'currentPrice', `${label}.currentPrice`),
+        high24h: requireNumber(record, 'high24h', `${label}.high24h`),
+        imageUrl: requireString(record, 'imageUrl', `${label}.imageUrl`),
+        low24h: requireNumber(record, 'low24h', `${label}.low24h`),
+        priceChangePercentage24H: requireNumber(
+            record,
+            'priceChangePercentage24H',
+            `${label}.priceChangePercentage24H`
+        ),
+        symbol: requireString(record, 'symbol', `${label}.symbol`),
+        updateTime: requireNumber(record, 'updateTime', `${label}.updateTime`),
+    }));
 }
