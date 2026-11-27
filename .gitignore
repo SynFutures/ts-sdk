@@ -148,3 +148,4 @@ dist
 packages/perpv3-ts/devnet/.runtime/
 /packages/*/build/
 /packages/*/legacy-plugin-host.d.ts
+/packages/*/legacy-host-types/

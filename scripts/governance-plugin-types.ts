@@ -57,3 +57,32 @@ declare const bareGraphPlugin: import('../packages/oyster-governance-data-source
 bareAirdropModule.synfV3.tx.sendTx({});
 bareGovernanceModule.synfV3.tx.sendTx({});
 bareGraphPlugin.governanceDataSource.synfV3.init();
+
+// Unparameterized plugins retain the transaction overloads, trading modules and typed contracts of the default host.
+const defaults = bareGovernance.synfV3.useDefault();
+bareGraph.synfV3
+    .useDefault()
+    .gate.getPendingParams([])
+    .then((params) => params.pendingDuration.toHexString());
+bareAirdrop.synfV3
+    .useDefault()
+    .config.openLp(address)
+    .then((isOpen) => isOpen.valueOf());
+defaults.gate.deposit(address, amount, signed).then((receipt) => receipt.transactionHash);
+defaults.gate.deposit(address, amount).then((tx) => tx.data);
+defaults.instrument.donateInsuranceFund(address, 0, amount, signed).then((receipt) => receipt.transactionHash);
+defaults.instrument.donateInsuranceFund(address, 0, amount).then((tx) => tx.data);
+defaults.observer.getAllInstruments().then((instruments) => instruments.map((instrument) => instrument.instrumentAddr));
+defaults.configuration.isInverse(address).then((isInverse) => isInverse.valueOf());
+defaults.calc.getWadAtTick(address, 0).then((price) => price.toHexString());
+declare const identifier: Parameters<typeof defaults.simulate.simulateBenchmarkPrice>[0];
+defaults.simulate.simulateBenchmarkPrice(identifier, 0).then((price) => price.toHexString());
+defaults._observer.getAllInstruments();
+defaults._simulate.simulateBenchmarkPrice(identifier, 0);
+defaults.tx.sendTx({});
+bareGovernance.synfV3.contracts.gate.pendingDuration().then((duration) => duration.toHexString());
+bareGovernance.synfV3.contracts.gate.filters.SetPendingDuration();
+// @ts-expect-error The gate contract has no such method.
+bareGovernance.synfV3.contracts.gate.nonexistentMethod();
+// @ts-expect-error Only supported market names can select a feeder factory.
+const invalidMarket = bareGovernance.synfV3.contracts.feederFactoryContracts.invalidMarket;
