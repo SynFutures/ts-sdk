@@ -1,4 +1,4 @@
-import type { Address } from 'viem';
+import { isAddressEqual, type Address } from 'viem';
 import { PublicWebsocketClient } from './apis/websocket';
 import type {
     InstrumentStreamData,
@@ -119,7 +119,7 @@ export class PerpClient {
      * Check if this client is scoped to a specific pair.
      */
     isForPair(instrumentAddress: Address, expiry: number): boolean {
-        return this._instrumentAddress === instrumentAddress && this._expiry === expiry;
+        return this._expiry === expiry && isAddressEqual(this._instrumentAddress, instrumentAddress);
     }
 
     // ============================================================================

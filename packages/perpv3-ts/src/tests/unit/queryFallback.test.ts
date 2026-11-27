@@ -181,6 +181,15 @@ describe('PerpClient fallback (API -> rpcFallback)', () => {
         await expect(inquireByBaseSize(ZERO_ADDRESS, 1, 1n, rpc)).resolves.toBeDefined();
     });
 
+    test('compares the instrument address and expiry when matching pairs', () => {
+        const instrument = '0x000000000000000000000000000000000000dead';
+        const checksum = '0x000000000000000000000000000000000000dEaD';
+        const client = new PerpClient({ chainId: CHAIN_ID }, userSetting, instrument, 1);
+        expect(client.isForPair(checksum, 1)).toBe(true);
+        expect(client.isForPair(ZERO_ADDRESS, 1)).toBe(false);
+        expect(client.isForPair(checksum, 2)).toBe(false);
+    });
+
     test('isolates default WebSockets and shares only an explicitly supplied client', () => {
         const config = { chainId: CHAIN_ID };
         const first = new PerpClient(config, userSetting, ZERO_ADDRESS, 1);
