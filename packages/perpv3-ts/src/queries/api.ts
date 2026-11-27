@@ -87,7 +87,7 @@ export async function fetchOnchainContext(
     const { setting, amm, markPrice } = extractSettingAmmAndMarkPriceInternal(
         instrumentFromApi,
         expiry,
-        perpInfo.gate,
+        perpInfo.gate.address,
         perpInfo.config
     );
 

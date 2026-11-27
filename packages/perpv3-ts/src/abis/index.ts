@@ -1,5 +1,3 @@
-import { base, blast } from 'viem/chains';
-
 import { CURRENT_GATE_ABI } from './latest/gate';
 import { LEGACY_GATE_ABI } from './legacy/gate';
 import { CURRENT_OBSERVER_ABI } from './latest/observer';
@@ -13,11 +11,7 @@ import { LEGACY_CEX_MARKET_ABI } from './legacy/cexMarket';
 import { DEX_V2_MARKET_ABI } from './latest/dexV2Market';
 import { LEGACY_DEX_V2_MARKET_ABI } from './legacy/dexV2Market';
 
-const LEGACY_NETWORKS: number[] = [base.id, blast.id];
-
-export const isLegacyChain = (chainId: number): boolean => LEGACY_NETWORKS.includes(chainId);
-
-export const getAbiVersion = (chainId: number): 'legacy' | 'current' => (isLegacyChain(chainId) ? 'legacy' : 'current');
+export type AbiVersion = 'legacy' | 'current';
 
 export interface ABISet {
     Gate: typeof CURRENT_GATE_ABI | typeof LEGACY_GATE_ABI;
@@ -28,8 +22,8 @@ export interface ABISet {
     DexV2Market: typeof DEX_V2_MARKET_ABI | typeof LEGACY_DEX_V2_MARKET_ABI;
 }
 
-export const getABISet = (chainId: number): ABISet => {
-    const useLegacy = isLegacyChain(chainId);
+export const getABISet = (version: AbiVersion): ABISet => {
+    const useLegacy = version === 'legacy';
 
     return {
         Gate: useLegacy ? LEGACY_GATE_ABI : CURRENT_GATE_ABI,
@@ -41,8 +35,8 @@ export const getABISet = (chainId: number): ABISet => {
     };
 };
 
-export const getABI = (chainId: number, contractName: keyof ABISet): unknown => {
-    const abiSet = getABISet(chainId);
+export const getABI = <K extends keyof ABISet>(version: AbiVersion, contractName: K): ABISet[K] => {
+    const abiSet = getABISet(version);
     return abiSet[contractName];
 };
 

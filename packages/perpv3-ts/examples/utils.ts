@@ -56,7 +56,7 @@ export async function prepare(chainName: string): Promise<{
 
     kit.registerAddressName(perpInfo.config, 'Config');
     kit.registerAddressName(perpInfo.observer, 'Observer');
-    kit.registerAddressName(perpInfo.gate, 'Gate');
+    kit.registerAddressName(perpInfo.gate.address, 'Gate');
     if (perpInfo.guardian) {
         kit.registerAddressName(perpInfo.guardian, 'Guardian');
     }
@@ -72,7 +72,7 @@ export async function prepare(chainName: string): Promise<{
         nativeTokenAddress: kit.nativeTokenInfo.address,
     });
 
-    kit.registerParser(perpInfo.gate, gateParser);
+    kit.registerParser(perpInfo.gate.address, gateParser);
 
     const instrumentParser = createInstrumentParser({
         publicClient,

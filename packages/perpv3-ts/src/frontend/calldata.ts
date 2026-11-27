@@ -1,4 +1,4 @@
-import type { Address } from 'viem';
+import type { PerpInfo } from '../info';
 import { encodeDepositTransaction, encodeWithdrawTransaction } from './calldata/account';
 import {
     encodeAddLiquidityTransaction,
@@ -80,12 +80,12 @@ export class ContractCallEncoder implements IContractCallEncoder {
         return encodeSettleTransaction(param);
     }
 
-    encodeDeposit(param: DepositEncodingParam, gateAddr: Address, options?: TransactionRoute): TransactionParam {
-        return encodeDepositTransaction(param, gateAddr, options);
+    encodeDeposit(param: DepositEncodingParam, gate: PerpInfo['gate'], options?: TransactionRoute): TransactionParam {
+        return encodeDepositTransaction(param, gate, options);
     }
 
-    encodeWithdraw(param: WithdrawEncodingParam, gateAddr: Address, options?: TransactionRoute): TransactionParam {
-        return encodeWithdrawTransaction(param, gateAddr, options);
+    encodeWithdraw(param: WithdrawEncodingParam, gate: PerpInfo['gate'], options?: TransactionRoute): TransactionParam {
+        return encodeWithdrawTransaction(param, gate, options);
     }
 
     encodeApprove(params: ApproveEncodingParam): TransactionParam {

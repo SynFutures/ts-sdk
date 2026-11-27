@@ -23,7 +23,10 @@ const request = {
     functionName: 'deposit',
     args: [payload],
 } satisfies TypedWriteRequest<typeof CURRENT_GATE_ABI, 'deposit'>;
-const encoded = contractCallEncoder.encodeDeposit({ tokenAddress: zeroAddress, amount: 1n }, zeroAddress).data;
+const encoded = contractCallEncoder.encodeDeposit(
+    { tokenAddress: zeroAddress, amount: 1n },
+    { address: zeroAddress, version: 'legacy' }
+).data;
 if (encoded !== encodeFunctionData(request)) {
     throw new Error('Encoder calldata differs from the contract ABI');
 }

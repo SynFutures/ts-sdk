@@ -1,5 +1,6 @@
 import type { Address } from 'viem';
 
+import type { AbiVersion } from './abis';
 import { Errors } from './types';
 
 // ============================================================================
@@ -12,7 +13,7 @@ export interface PerpInfo {
     readonly rangeSpacing: number;
     readonly config: Address;
     readonly observer: Address;
-    readonly gate: Address;
+    readonly gate: { readonly address: Address; readonly version: AbiVersion };
     readonly guardian?: Address;
 }
 
@@ -28,7 +29,7 @@ const PerpInfoMap: Record<number, PerpInfo> = {
         rangeSpacing: 50,
         config: '0xB63902d38738e353f3f52AdD203C418A0bFEa172',
         observer: '0x16Ae357dFe705D1B9862132Dca02e07150876e3E',
-        gate: '0x208B443983D8BcC8578e9D86Db23FbA547071270',
+        gate: { address: '0x208B443983D8BcC8578e9D86Db23FbA547071270', version: 'legacy' },
         guardian: '0xBe0F37274AdADb32441acDB74791de159B0BD87E',
     },
     143: {
@@ -38,7 +39,7 @@ const PerpInfoMap: Record<number, PerpInfo> = {
         rangeSpacing: 50,
         config: '0x15bC3C13cbf5903E78b97208ba1021E5dc1B4470',
         observer: '0x8301188F0a8E96a5e4f1A1CC84F41eBB9Fe8457d',
-        gate: '0x2E32345Bf0592bFf19313831B99900C530D37d90',
+        gate: { address: '0x2E32345Bf0592bFf19313831B99900C530D37d90', version: 'current' },
         guardian: '0x5FE49fb8770A8009335B1d76496c3e07Ca04FC9F',
     },
     10143: {
@@ -48,7 +49,7 @@ const PerpInfoMap: Record<number, PerpInfo> = {
         rangeSpacing: 50,
         config: '0x0506087b6b9A514E924E8d262DF1D50f987635C0',
         observer: '0x486F01dbd17F3EF4A3C889Abca7E22c2f4498e3f',
-        gate: '0xD016AEd1584f3Ec2A09c722797989F64dA605c7e',
+        gate: { address: '0xD016AEd1584f3Ec2A09c722797989F64dA605c7e', version: 'current' },
         guardian: '0x206f0a544C3e0861f7D1AfBA02d627BA8fE2759c',
     },
 };

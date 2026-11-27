@@ -1,3 +1,4 @@
+import type { PerpInfo } from '../../info';
 import type { Address, Hex } from 'viem';
 import { Side, UserSetting } from '../../types';
 
@@ -184,7 +185,7 @@ export interface DepositEncodingParam {
 }
 
 export interface DepositEncoder {
-    encodeDeposit(param: DepositEncodingParam, gateAddress: Address, options?: TransactionRoute): TransactionParam;
+    encodeDeposit(param: DepositEncodingParam, gate: PerpInfo['gate'], options?: TransactionRoute): TransactionParam;
 }
 
 /**
@@ -196,7 +197,7 @@ export interface WithdrawEncodingParam {
 }
 
 export interface WithdrawEncoder {
-    encodeWithdraw(param: WithdrawEncodingParam, gateAddress: Address, options?: TransactionRoute): TransactionParam;
+    encodeWithdraw(param: WithdrawEncodingParam, gate: PerpInfo['gate'], options?: TransactionRoute): TransactionParam;
 }
 
 export interface ApproveEncodingParam {

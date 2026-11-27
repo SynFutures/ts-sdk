@@ -180,7 +180,7 @@ describe('frontend calldata encoding', () => {
     });
 
     it('uses ABI order for gate for-call encoding', () => {
-        const gateAddress = '0x0000000000000000000000000000000000000066';
+        const gateAddress = { address: '0x0000000000000000000000000000000000000066', version: 'current' } as const;
         const tokenAddress = '0x0000000000000000000000000000000000000077';
         const traderAddress = '0x0000000000000000000000000000000000000088';
         const amount = 100n;
@@ -201,6 +201,13 @@ describe('frontend calldata encoding', () => {
                 routerAddress,
             } as never)
         ).toThrow('subAccountAddress is required');
+        expect(() =>
+            contractCallEncoder.encodeDeposit(
+                { tokenAddress, amount },
+                { ...gateAddress, version: 'legacy' },
+                { route: 'for', traderAddress }
+            )
+        ).toThrow('Legacy Gate');
         const depositDecoded = decodeFunctionData({ abi: CURRENT_GATE_ABI, data: depositTx.data });
         const withdrawDecoded = decodeFunctionData({ abi: CURRENT_GATE_ABI, data: withdrawTx.data });
 

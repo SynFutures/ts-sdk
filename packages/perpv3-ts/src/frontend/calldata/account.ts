@@ -1,14 +1,16 @@
-import { encodeFunctionData, ethAddress, zeroAddress, type Address } from 'viem';
-import { CURRENT_GATE_ABI, CURRENT_GELATO_RELAY_ROUTER_ABI } from '../../abis';
+import { encodeFunctionData, ethAddress, zeroAddress } from 'viem';
+import type { PerpInfo } from '../../info';
+import { getABI, CURRENT_GATE_ABI, CURRENT_GELATO_RELAY_ROUTER_ABI } from '../../abis';
 import { encodeDepositParam, encodeWithdrawParam } from '../../utils/encode';
 import { isDelegated, requireAddress } from './shared';
 import type { TransactionRoute, DepositEncodingParam, TransactionParam, WithdrawEncodingParam } from './types';
 
 export function encodeDepositTransaction(
     param: DepositEncodingParam,
-    gateAddr: Address,
+    gate: PerpInfo['gate'],
     options?: TransactionRoute
 ): TransactionParam {
+    const gateAddr = gate.address;
     const subAccountAddress = options?.subAccountAddress;
     const routerAddress = options?.routerAddress;
 
@@ -18,6 +20,7 @@ export function encodeDepositTransaction(
     const value = isNativeToken ? param.amount : 0n;
 
     if (isDelegated(options)) {
+        if (gate.version === 'legacy') throw new Error('Legacy Gate does not support delegated transfers');
         const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for depositFor');
         const depositForCalldata = encodeFunctionData({
             abi: CURRENT_GATE_ABI,
@@ -46,7 +49,11 @@ export function encodeDepositTransaction(
         };
     }
 
-    const calldata = encodeFunctionData({ abi: CURRENT_GATE_ABI, functionName: 'deposit', args: [depositArg] });
+    const calldata = encodeFunctionData({
+        abi: getABI(gate.version, 'Gate'),
+        functionName: 'deposit',
+        args: [depositArg],
+    });
 
     return {
         to: gateAddr,
@@ -57,15 +64,17 @@ export function encodeDepositTransaction(
 
 export function encodeWithdrawTransaction(
     param: WithdrawEncodingParam,
-    gateAddr: Address,
+    gate: PerpInfo['gate'],
     options?: TransactionRoute
 ): TransactionParam {
+    const gateAddr = gate.address;
     const subAccountAddress = options?.subAccountAddress;
     const routerAddress = options?.routerAddress;
 
     const withdrawArg = encodeWithdrawParam(param.tokenAddress, param.amount);
 
     if (isDelegated(options)) {
+        if (gate.version === 'legacy') throw new Error('Legacy Gate does not support delegated transfers');
         const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for withdrawFor');
         const withdrawForCalldata = encodeFunctionData({
             abi: CURRENT_GATE_ABI,
@@ -94,7 +103,11 @@ export function encodeWithdrawTransaction(
         };
     }
 
-    const calldata = encodeFunctionData({ abi: CURRENT_GATE_ABI, functionName: 'withdraw', args: [withdrawArg] });
+    const calldata = encodeFunctionData({
+        abi: getABI(gate.version, 'Gate'),
+        functionName: 'withdraw',
+        args: [withdrawArg],
+    });
 
     return {
         to: gateAddr,
