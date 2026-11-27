@@ -1,3 +1,4 @@
+import type { LegacyPluginHost, LegacyTransactionPlugin } from '../../legacy-plugin-host';
 import { BigNumber, CallOverrides, ethers } from 'ethers';
 import { Erc20Parser, WAD, ZERO, ZERO_ADDRESS } from '@derivation-tech/web3-core';
 import type { GovernanceHost, TxOptions, TxOptionsWithSigner } from '../host';
@@ -24,7 +25,9 @@ function isUTCSameDay(ts1: number, ts2: number): boolean {
     );
 }
 
-export class GovernanceModule<Host extends GovernanceHost = GovernanceHost> implements GovernanceInterface<Host> {
+export class GovernanceModule<Host extends GovernanceHost = LegacyPluginHost & LegacyTransactionPlugin>
+    implements GovernanceInterface<Host>
+{
     synfV3: Host;
 
     stakingVault!: SynFuturesStakingVault;

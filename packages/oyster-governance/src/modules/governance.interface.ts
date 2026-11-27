@@ -1,10 +1,11 @@
+import type { LegacyPluginHost } from '../../legacy-plugin-host';
 import type { GovernanceHost, TxOptions, TxOptionsWithSigner } from '../host';
 import { BigNumber, ethers, CallOverrides } from 'ethers';
 import { SynFuturesStakingVault, SynFuturesToken } from '../typechain';
 import { PendingUnstake, BoostSettings, VotingPowerSettings } from '../types';
 import { ActionType } from '../enum';
 
-export interface GovernanceInterface<Host extends GovernanceHost = GovernanceHost> {
+export interface GovernanceInterface<Host extends GovernanceHost = LegacyPluginHost> {
     readonly synfV3: Host;
     stakingVault: SynFuturesStakingVault;
 

@@ -1,7 +1,8 @@
+import type { LegacyPluginHost } from '../../legacy-plugin-host';
 import type { GovernanceDataSourceInterface } from './governanceDataSource.inteface';
 import { GovernanceDataSourceModule } from './governanceDataSource.module';
 
-export interface GovernanceDataSourcePlugin<Host extends object = object> {
+export interface GovernanceDataSourcePlugin<Host extends object = LegacyPluginHost> {
     governanceDataSource: GovernanceDataSourceInterface<Host>;
 }
 

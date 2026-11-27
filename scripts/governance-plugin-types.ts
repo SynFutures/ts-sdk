@@ -36,3 +36,24 @@ airdrop.claim(address, index, '1', address, [], signed).then((receipt) => receip
 governance.stake(amount, signed).then((receipt) => receipt.transactionHash);
 governance.release(index).then((tx) => tx.data);
 view.getCurrentPendingUnstakes(hosts[0].applicationId);
+
+// These bare public annotations predate host inference and still describe the original chain host.
+declare const bareAirdrop: import('../packages/airdrop/build/airdrop.interface').AirdropInterface;
+declare const bareGovernance: import('../packages/oyster-governance/build/modules/governance.interface').GovernanceInterface;
+declare const bareGraph: GovernanceDataSourceInterface;
+bareAirdrop.synfV3.init();
+bareGovernance.synfV3.useDefault().tx.sendTx({});
+const chainId: number = bareGraph.synfV3.ctx.chainId;
+bareGraph.synfV3.setProvider(bareGraph.synfV3.ctx.provider);
+bareGraph.synfV3.addInitHook(async () => {});
+bareGraph.synfV3.addSetProviderHook(() => {});
+bareGraph.synfV3.registerQuoteInfo(bareGraph.synfV3.ctx.tokenInfo.values().next().value!);
+const gateInterface = bareGraph.synfV3.contracts.gate.interface;
+bareGraph.synfV3.use(governanceDataSourcePlugin('https://example.invalid')).governanceDataSource.getHistoryEvents({});
+
+declare const bareAirdropModule: import('../packages/airdrop/build/airdrop.module').AirdropModule;
+declare const bareGovernanceModule: import('../packages/oyster-governance/build/modules/governance.module').GovernanceModule;
+declare const bareGraphPlugin: import('../packages/oyster-governance-data-source/build/modules/governanceDataSource.plugin').GovernanceDataSourcePlugin;
+bareAirdropModule.synfV3.tx.sendTx({});
+bareGovernanceModule.synfV3.tx.sendTx({});
+bareGraphPlugin.governanceDataSource.synfV3.init();

@@ -1,10 +1,11 @@
+import type { LegacyPluginHost } from '../../legacy-plugin-host';
 import { BigNumber } from 'ethers';
 import { orderBy as _orderBy } from 'lodash';
 import { Graph, GRAPH_PAGE_SIZE, now } from '@derivation-tech/web3-core';
 import { GovernanceDataSourceInterface } from './governanceDataSource.inteface';
 import { QueryEventParam, PendingUnstakeWithTx, TransactionEvent, QueryHistoryParam } from '../types';
 
-export class GovernanceDataSourceModule<Host extends object = object>
+export class GovernanceDataSourceModule<Host extends object = LegacyPluginHost>
     extends Graph
     implements GovernanceDataSourceInterface<Host>
 {

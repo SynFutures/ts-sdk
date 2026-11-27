@@ -8,10 +8,11 @@
     "types": "build/index.d.ts",
     "files": [
         "build",
-        "src"
+        "src",
+        "legacy-plugin-host.d.ts"
     ],
     "scripts": {
-        "build": "tsc -p tsconfig.json",
+        "build": "node ../../scripts/stage-plugin-host.cjs && tsc -p tsconfig.json",
         "test": "node --test test/*.test.cjs",
         "prepack": "npm run build",
         "gen": "typechain --always-generate-overloads --discriminate-types --target ethers-v5 --out-dir ./src/typechain ./src/abis/*.json"
@@ -31,8 +32,15 @@
     "nx": {
         "targets": {
             "build": {
+                "inputs": [
+                    "default",
+                    "^default",
+                    "{workspaceRoot}/scripts/legacy-plugin-host.d.ts",
+                    "{workspaceRoot}/scripts/stage-plugin-host.cjs"
+                ],
                 "outputs": [
-                    "{projectRoot}/build"
+                    "{projectRoot}/build",
+                    "{projectRoot}/legacy-plugin-host.d.ts"
                 ]
             },
             "test": {

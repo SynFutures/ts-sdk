@@ -1,8 +1,9 @@
+import type { LegacyPluginHost } from '../../legacy-plugin-host';
 import type { GovernanceHost } from '../host';
 import type { GovernanceInterface } from './governance.interface';
 import { GovernanceModule } from './governance.module';
 
-export interface GovernancePlugin<Host extends GovernanceHost = GovernanceHost> {
+export interface GovernancePlugin<Host extends GovernanceHost = LegacyPluginHost> {
     governance: GovernanceInterface<Host>;
 }
 

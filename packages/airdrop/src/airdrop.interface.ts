@@ -1,7 +1,8 @@
+import type { LegacyPluginHost } from '../legacy-plugin-host';
 import type { AirdropHost, TxOptions, TxOptionsWithSigner } from './host';
 import { CallOverrides, ethers } from 'ethers';
 
-export interface AirdropInterface<Host extends AirdropHost = AirdropHost> {
+export interface AirdropInterface<Host extends AirdropHost = LegacyPluginHost> {
     readonly synfV3: Host;
     claim(
         index: number,

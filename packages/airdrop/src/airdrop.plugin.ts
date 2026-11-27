@@ -1,8 +1,9 @@
+import type { LegacyPluginHost } from '../legacy-plugin-host';
 import type { AirdropHost } from './host';
 import type { AirdropInterface } from './airdrop.interface';
 import { AirdropModule } from './airdrop.module';
 
-export interface AirdropPlugin<Host extends AirdropHost = AirdropHost> {
+export interface AirdropPlugin<Host extends AirdropHost = LegacyPluginHost> {
     airdrop: AirdropInterface<Host>;
 }
 

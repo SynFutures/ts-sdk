@@ -1,3 +1,4 @@
+import type { LegacyPluginHost, LegacyTransactionPlugin } from '../legacy-plugin-host';
 import type { AirdropHost, TxOptions, TxOptionsWithSigner } from './host';
 import { AirdropInterface } from './airdrop.interface';
 import { CallOverrides, PopulatedTransaction } from 'ethers';
@@ -14,7 +15,9 @@ function hasDistributor<T extends [number, ...unknown[]]>(args: T | WithDistribu
     return typeof args[0] === 'string';
 }
 
-export class AirdropModule<Host extends AirdropHost = AirdropHost> implements AirdropInterface<Host> {
+export class AirdropModule<Host extends AirdropHost = LegacyPluginHost & LegacyTransactionPlugin>
+    implements AirdropInterface<Host>
+{
     synfV3: Host;
     constructor(synfV3: Host) {
         this.synfV3 = synfV3;
