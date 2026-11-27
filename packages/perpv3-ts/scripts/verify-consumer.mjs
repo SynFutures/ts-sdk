@@ -94,6 +94,8 @@ try {
     run('pnpm', ['exec', 'tsc', '-p', join(consumer, 'tsconfig.json')], packageDir);
     run(consumerNode, ['--disallow-code-generation-from-strings', 'dist/index.mjs']);
     run(consumerNode, ['--disallow-code-generation-from-strings', 'dist/index.cjs']);
+    cpSync(join(packageDir, 'typecheck/mixed-consumer.mjs'), join(consumer, 'mixed-consumer.mjs'));
+    run(consumerNode, ['--disallow-code-generation-from-strings', 'mixed-consumer.mjs']);
     const entries = Object.keys(packed.exports).filter((key) => key !== './package.json');
     const importAll = entries
         .map(

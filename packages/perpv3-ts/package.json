@@ -11,6 +11,10 @@
     "types": "./dist/index.d.ts",
     "exports": {
         ".": {
+            "node": {
+                "types": "./dist/index.d.cts",
+                "default": "./dist/index.cjs"
+            },
             "import": {
                 "types": "./dist/index.d.ts",
                 "default": "./dist/index.mjs"
@@ -22,6 +26,10 @@
             "default": "./dist/index.mjs"
         },
         "./types": {
+            "node": {
+                "types": "./dist/types.d.cts",
+                "default": "./dist/types.cjs"
+            },
             "import": {
                 "types": "./dist/types.d.ts",
                 "default": "./dist/types.mjs"
@@ -33,6 +41,10 @@
             "default": "./dist/types.mjs"
         },
         "./actions": {
+            "node": {
+                "types": "./dist/actions.d.cts",
+                "default": "./dist/actions.cjs"
+            },
             "import": {
                 "types": "./dist/actions.d.ts",
                 "default": "./dist/actions.mjs"
@@ -44,6 +56,10 @@
             "default": "./dist/actions.mjs"
         },
         "./queries": {
+            "node": {
+                "types": "./dist/queries.d.cts",
+                "default": "./dist/queries.cjs"
+            },
             "import": {
                 "types": "./dist/queries.d.ts",
                 "default": "./dist/queries.mjs"
@@ -55,6 +71,10 @@
             "default": "./dist/queries.mjs"
         },
         "./apis": {
+            "node": {
+                "types": "./dist/apis.d.cts",
+                "default": "./dist/apis.cjs"
+            },
             "import": {
                 "types": "./dist/apis.d.ts",
                 "default": "./dist/apis.mjs"
@@ -66,6 +86,10 @@
             "default": "./dist/apis.mjs"
         },
         "./abis": {
+            "node": {
+                "types": "./dist/abis.d.cts",
+                "default": "./dist/abis.cjs"
+            },
             "import": {
                 "types": "./dist/abis.d.ts",
                 "default": "./dist/abis.mjs"
@@ -77,6 +101,10 @@
             "default": "./dist/abis.mjs"
         },
         "./parsers": {
+            "node": {
+                "types": "./dist/parsers.d.cts",
+                "default": "./dist/parsers.cjs"
+            },
             "import": {
                 "types": "./dist/parsers.d.ts",
                 "default": "./dist/parsers.mjs"
@@ -88,6 +116,10 @@
             "default": "./dist/parsers.mjs"
         },
         "./frontend": {
+            "node": {
+                "types": "./dist/frontend.d.cts",
+                "default": "./dist/frontend.cjs"
+            },
             "import": {
                 "types": "./dist/frontend.d.ts",
                 "default": "./dist/frontend.mjs"
@@ -99,6 +131,10 @@
             "default": "./dist/frontend.mjs"
         },
         "./utils": {
+            "node": {
+                "types": "./dist/utils.d.cts",
+                "default": "./dist/utils.cjs"
+            },
             "import": {
                 "types": "./dist/utils.d.ts",
                 "default": "./dist/utils.mjs"
@@ -110,6 +146,10 @@
             "default": "./dist/utils.mjs"
         },
         "./math": {
+            "node": {
+                "types": "./dist/math.d.cts",
+                "default": "./dist/math.cjs"
+            },
             "import": {
                 "types": "./dist/math.d.ts",
                 "default": "./dist/math.mjs"
@@ -121,6 +161,10 @@
             "default": "./dist/math.mjs"
         },
         "./constants": {
+            "node": {
+                "types": "./dist/constants.d.cts",
+                "default": "./dist/constants.cjs"
+            },
             "import": {
                 "types": "./dist/constants.d.ts",
                 "default": "./dist/constants.mjs"
