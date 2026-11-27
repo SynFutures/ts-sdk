@@ -11,7 +11,7 @@
         "test": "pnpm -r run test",
         "deps": "pnpm -r i",
         "prepare": "husky",
-        "lint": "eslint . --max-warnings=0",
+        "lint": "oxlint --type-aware --deny-warnings .",
         "format": "prettier --write .",
         "clean": "pnpm -r clean",
         "release": "changeset publish",
@@ -22,15 +22,13 @@
     },
     "devDependencies": {
         "@changesets/cli": "^3.0.3",
-        "@eslint/js": "^10.0.1",
-        "eslint": "^10.15.0",
-        "eslint-config-prettier": "^10.1.8",
-        "globals": "17.14.0",
+        "@types/node": "22.20.7",
         "husky": "^9.1.7",
         "lint-staged": "^17.6.2",
+        "oxlint": "1.95.0",
+        "oxlint-tsgolint": "7.0.2008",
         "prettier": "3.10.1",
-        "typescript": "catalog:",
-        "typescript-eslint": "^8.74.0"
+        "typescript": "catalog:"
     },
     "engines": {
         "node": ">=24 <25",
