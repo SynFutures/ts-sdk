@@ -225,10 +225,20 @@ describe('API decoding', () => {
         expect(getApiData(response)).toBe(0);
     });
 
-    it('normalizes missing API envelope data to null', () => {
-        const response = axiosResponse<ApiEnvelope<number>>({});
+    it.each(['<html>gateway</html>', null, [], {}, { data: [] }, { code: '0', data: null }, { code: 0 }])(
+        'rejects malformed HTTP 200 envelopes instead of returning empty history',
+        async (body) => {
+            const client = new HttpClient();
+            jest.spyOn(client, 'get').mockResolvedValue(axiosResponse(body));
+            const history = new HistoryModule(client, signer);
+            await expect(
+                history.fetchTradeHistory({ chainId: 8453, userAddress: '0x0000000000000000000000000000000000000001' })
+            ).rejects.toThrow('Invalid API response envelope');
+        }
+    );
 
-        expect(getApiData(response)).toBeNull();
+    it('preserves explicit null data', () => {
+        expect(getApiData(apiEnvelopeResponse(null))).toBeNull();
     });
 
     it('unwraps required falsy API envelope data', () => {
@@ -238,7 +248,7 @@ describe('API decoding', () => {
     });
 
     it('throws when required API envelope data is missing', () => {
-        const response = axiosResponse<ApiEnvelope<number>>({});
+        const response = apiEnvelopeResponse(null);
 
         expect(() => requireApiData(response, 'server time')).toThrow('Missing API response data for server time');
     });

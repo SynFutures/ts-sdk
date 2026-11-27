@@ -1,24 +1,38 @@
 import type { AxiosRequestConfig, AxiosResponse } from 'axios';
+import { isRecord } from './codecs';
 import type { ApiSigner } from './interfaces';
 import { getRequestUrlWithQuery, HttpClient, type QueryParams } from '../utils/axios';
 import { ErrorCode, SynfError } from '../types/error';
 
 export type ApiEnvelope<T> = {
     /** 0 on success; the server reports business errors with HTTP 200 and a non-zero code. */
-    code?: number;
+    code: number;
     msg?: string;
-    data?: T | null;
+    data: T | null;
 };
 
 export function getApiData<T>(response: AxiosResponse<ApiEnvelope<T>>): T | null {
     const envelope = response.data;
-    if (typeof envelope?.code === 'number' && envelope.code !== 0) {
-        throw new SynfError(envelope.msg || `API error code ${envelope.code}`, ErrorCode.API_REQUEST_FAILED, {
-            status: response.status,
-            data: envelope,
-        });
+    if (!isRecord(envelope) || !Number.isSafeInteger(envelope.code)) {
+        throw new SynfError(
+            'Invalid API response envelope: expected an object with an integer code',
+            ErrorCode.API_REQUEST_FAILED
+        );
     }
-    return envelope?.data ?? null;
+    if (envelope.code !== 0) {
+        throw new SynfError(
+            (typeof envelope.msg === 'string' && envelope.msg) || `API error code ${envelope.code}`,
+            ErrorCode.API_REQUEST_FAILED,
+            {
+                status: response.status,
+                data: envelope,
+            }
+        );
+    }
+    if (!Object.hasOwn(envelope, 'data') || envelope.data === undefined) {
+        throw new SynfError('Invalid API response envelope: missing data', ErrorCode.API_REQUEST_FAILED);
+    }
+    return envelope.data;
 }
 
 export function requireApiData<T>(response: AxiosResponse<ApiEnvelope<T>>, label: string): T {

@@ -14,5 +14,5 @@ export function axiosResponse<T>(data: T): AxiosResponse<T> {
 }
 
 export function apiEnvelopeResponse<T>(data: T | null): AxiosResponse<ApiEnvelope<T>> {
-    return axiosResponse({ data });
+    return axiosResponse({ code: 0, data });
 }
