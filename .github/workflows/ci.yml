@@ -47,10 +47,17 @@ jobs:
             - name: Test Release Tooling
               run: pnpm run test:release
             - name: Verify PerpV3 Package
-              run: pnpm -C packages/perpv3-ts run verify
+              run: pnpm -C packages/perpv3-ts run verify:build
+            - name: Verify Packed Consumer
+              env:
+                  NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/perpv3-registry.npmrc
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+              run: node packages/perpv3-ts/scripts/verify-consumer.mjs
             - name: Devnet Tests
               run: pnpm -C packages/perpv3-ts run test:devnet
             - name: Verify Node 22 Packed Consumer
               env:
+                  NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/perpv3-registry.npmrc
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
                   PERPV3_CONSUMER_NODE: ${{ steps.consumer-runtime.outputs.node }}
-              run: pnpm -C packages/perpv3-ts run verify:consumer
+              run: node packages/perpv3-ts/scripts/verify-consumer.mjs

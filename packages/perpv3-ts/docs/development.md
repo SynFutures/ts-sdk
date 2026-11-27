@@ -132,9 +132,8 @@ The workflow uses the v2 inputs `version-script`, `publish-script` and `github-t
 Workflows use `scripts/configure-registry.cjs` to create a temporary npm
 config preserving both private registry scopes (`@synfutures` and
 `@derivation-tech`). pnpm reads it through `PNPM_CONFIG_NPMRC_AUTH_FILE`. Its token is
-supplied through `NODE_AUTH_TOKEN` only to the install and release steps, because installing
-the private contract artifacts also requires authentication. Verification steps do not
-receive the registry token.
+supplied through `NODE_AUTH_TOKEN` to workspace installation, publication and the dedicated packed-consumer check.
+Within that check only the npm install subprocess receives credentials for a registry-backed kit.
 
 Changesets 3 skips private-package versioning by default and defaults peer-dependent
 bumps to patch. Describe incompatible public changes with an explicit changeset;

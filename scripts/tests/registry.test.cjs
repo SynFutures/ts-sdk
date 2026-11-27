@@ -63,3 +63,42 @@ for (const registry of [
         assert.equal(existsSync(file), false);
     });
 }
+
+test('a clean consumer installs the released kit through the authenticated scoped registry', async (t) => {
+    const { createServer } = require('node:http');
+    const { writeFileSync, mkdirSync } = require('node:fs');
+    const { installConsumer } = await import('../../packages/perpv3-ts/scripts/install-consumer.mjs');
+    const token = 'fixture-token-never-written';
+    const name = '@derivation-tech/viem-kit';
+    const version = '1.0.0';
+    let archive;
+    const requests = [];
+    const server = createServer((req, res) => {
+        requests.push(req.url);
+        if (req.headers.authorization !== `Bearer ${token}`) return res.writeHead(401).end();
+        if (req.url === '/kit.tgz') return res.end(archive);
+        res.setHeader('Content-Type', 'application/json');
+        res.end(
+            JSON.stringify({
+                name,
+                'dist-tags': { latest: version },
+                versions: {
+                    [version]: { name, version, dist: { tarball: `${registry}/kit.tgz` } },
+                },
+            })
+        );
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => server.close());
+    const registry = `http://127.0.0.1:${server.address().port}`;
+    const { file } = configure(t, registry);
+    const dir = dirname(file);
+    const pkg = join(dir, 'package');
+    mkdirSync(pkg);
+    writeFileSync(join(pkg, 'package.json'), JSON.stringify({ name, version }));
+    archive = spawnSync('tar', ['-czf', '-', 'package'], { cwd: dir }).stdout;
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ private: true, dependencies: { [name]: version } }));
+    await installConsumer(dir, { PATH: process.env.PATH, npm_config_cache: join(dir, 'cache') }, file, token);
+    assert.ok(requests.includes('/kit.tgz'));
+    assert.equal(JSON.parse(readFileSync(join(dir, 'node_modules', name, 'package.json'))).version, version);
+});

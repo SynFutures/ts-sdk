@@ -1,3 +1,4 @@
+import { installConsumer } from './install-consumer.mjs';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { execFileSync } from 'node:child_process';
@@ -53,17 +54,12 @@ try {
         ...(kitArchive && { overrides: { [kit]: `file:${kitArchive}` } }),
     };
     writeFileSync(join(consumer, 'package.json'), JSON.stringify(fixture));
-    // A caller testing a released private dependency may supply a scoped npmrc for installation only.
-    const userconfig = !kitArchive && process.env.NPM_CONFIG_USERCONFIG;
-    execFileSync('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], {
-        cwd: consumer,
-        env: {
-            ...env,
-            NPM_CONFIG_USERCONFIG: userconfig || '/dev/null',
-            ...(userconfig && { NODE_AUTH_TOKEN: process.env.NODE_AUTH_TOKEN }),
-        },
-        stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    await installConsumer(
+        consumer,
+        env,
+        kitArchive ? undefined : process.env.NPM_CONFIG_USERCONFIG,
+        process.env.NODE_AUTH_TOKEN
+    );
     const installed = join(consumer, 'node_modules', manifest.name);
     const packed = JSON.parse(readFileSync(join(installed, 'package.json'), 'utf8'));
     assert(!Object.values(packed.dependencies).includes('catalog:'), 'Unresolved catalog dependency');
