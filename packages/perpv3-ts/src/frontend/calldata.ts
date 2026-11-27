@@ -12,13 +12,13 @@ import {
     encodeRemoveLiquidityTransaction,
     encodeSettleTransaction,
 } from './calldata/instrument';
-import { encodeApproveTransaction } from './calldata/token';
+import { encodeApproveTransaction, encodePermitTransaction } from './calldata/token';
 import type {
     AddLiquidityEncodingOptions,
     AddLiquidityEncodingParam,
     AdjustMarginEncodingOptions,
     AdjustMarginEncodingParam,
-    ApproveEncodingOptions,
+    SignedPermit,
     ApproveEncodingParam,
     BatchPlaceScaledLimitOrderEncodingOptions,
     BatchPlaceScaledLimitOrderEncodingParam,
@@ -106,8 +106,12 @@ export class ContractCallEncoder implements IContractCallEncoder {
         return encodeWithdrawTransaction(param, gateAddr, options);
     }
 
-    encodeApprove(params: ApproveEncodingParam, options?: ApproveEncodingOptions): TransactionParam {
-        return encodeApproveTransaction(params, options);
+    encodeApprove(params: ApproveEncodingParam): TransactionParam {
+        return encodeApproveTransaction(params);
+    }
+
+    encodePermit(permit: SignedPermit): TransactionParam {
+        return encodePermitTransaction(permit);
     }
 }
 

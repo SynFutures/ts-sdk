@@ -210,7 +210,7 @@ describe('frontend calldata encoding', () => {
         const r = `0x${'11'.repeat(32)}` as const;
         const s = `0x${'22'.repeat(32)}` as const;
         const params = { tokenAddress, spenderAddress, amount: 100n } as const;
-        const options = { useApproveFor: true, ownerAddress, deadline: 1_700_000_600 } as const;
+        const options = { ownerAddress, deadline: 1_700_000_600n } as const;
 
         it.each([
             ['00', 27],
@@ -219,7 +219,7 @@ describe('frontend calldata encoding', () => {
             ['1c', 28],
         ] as const)('encodes signature suffix %s as contract recovery value %i', (suffix, expectedV) => {
             const signature = `${r}${s.slice(2)}${suffix}` as const;
-            const tx = contractCallEncoder.encodeApprove(params, { ...options, signature });
+            const tx = contractCallEncoder.encodePermit({ ...params, ...options, signature });
             const decoded = decodeFunctionData({ abi: ERC20_WITH_PERMIT_ABI, data: tx.data });
 
             expect(tx.to).toBe(tokenAddress);
@@ -230,13 +230,13 @@ describe('frontend calldata encoding', () => {
 
         it.each(['02', '1d', 'ff'])('rejects unsupported recovery value %s before encoding', (suffix) => {
             const signature = `${r}${s.slice(2)}${suffix}` as const;
-            expect(() => contractCallEncoder.encodeApprove(params, { ...options, signature })).toThrow();
+            expect(() => contractCallEncoder.encodePermit({ ...params, ...options, signature })).toThrow();
         });
 
         it.each(['0x1234', `0x${'00'.repeat(32)}${s.slice(2)}1b`] as const)(
             'rejects malformed or invalid signature %s before encoding',
             (signature) => {
-                expect(() => contractCallEncoder.encodeApprove(params, { ...options, signature })).toThrow();
+                expect(() => contractCallEncoder.encodePermit({ ...params, ...options, signature })).toThrow();
             }
         );
     });

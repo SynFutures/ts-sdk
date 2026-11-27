@@ -345,16 +345,15 @@ export interface ApproveEncodingParam {
     amount: bigint;
 }
 
-export interface ApproveEncodingOptions extends BaseEncodingOptions {
-    /** Use approveFor for Gelato transactions */
-    useApproveFor?: boolean;
-    signature?: Hex;
-    deadline?: number;
-    ownerAddress?: Address;
+export interface SignedPermit extends ApproveEncodingParam {
+    ownerAddress: Address;
+    deadline: bigint;
+    signature: Hex;
 }
 
 export interface ApproveEncoder {
-    encodeApprove(params: ApproveEncodingParam, options?: ApproveEncodingOptions): TransactionParam;
+    encodeApprove(params: ApproveEncodingParam): TransactionParam;
+    encodePermit(permit: SignedPermit): TransactionParam;
 }
 
 /**

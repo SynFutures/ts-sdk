@@ -1,42 +1,32 @@
-import { encodeFunctionData, parseSignature, type Hex } from 'viem';
+import { encodeFunctionData, parseSignature } from 'viem';
 import { ERC20_WITH_PERMIT_ABI } from '../../abis';
-import { Errors, ErrorCode } from '../../types';
-import { requireAddress } from './shared';
-import type { ApproveEncodingOptions, ApproveEncodingParam, TransactionParam } from './types';
+import type { ApproveEncodingParam, SignedPermit, TransactionParam } from './types';
 
-export function encodeApproveTransaction(
-    params: ApproveEncodingParam,
-    options?: ApproveEncodingOptions
-): TransactionParam {
-    let calldata: Hex;
-
-    if (options?.useApproveFor) {
-        if (!options.signature) {
-            throw Errors.validation('Signature is required for approveFor', ErrorCode.INVALID_PARAM);
-        }
-        if (options.deadline === undefined) {
-            throw Errors.invalidDeadline(options.deadline ?? -1);
-        }
-        const ownerAddress = requireAddress(options.ownerAddress, 'ownerAddress for approveFor');
-
-        const { r, s, yParity } = parseSignature(options.signature);
-
-        calldata = encodeFunctionData({
-            abi: ERC20_WITH_PERMIT_ABI,
-            functionName: 'permit',
-            args: [ownerAddress, params.spenderAddress, params.amount, BigInt(options.deadline), yParity + 27, r, s],
-        });
-    } else {
-        calldata = encodeFunctionData({
+export function encodeApproveTransaction({
+    tokenAddress,
+    spenderAddress,
+    amount,
+}: ApproveEncodingParam): TransactionParam {
+    return {
+        to: tokenAddress,
+        value: 0n,
+        data: encodeFunctionData({
             abi: ERC20_WITH_PERMIT_ABI,
             functionName: 'approve',
-            args: [params.spenderAddress, params.amount],
-        });
-    }
+            args: [spenderAddress, amount],
+        }),
+    };
+}
 
+export function encodePermitTransaction(permit: SignedPermit): TransactionParam {
+    const { r, s, yParity } = parseSignature(permit.signature);
     return {
-        to: params.tokenAddress,
-        data: calldata,
+        to: permit.tokenAddress,
         value: 0n,
+        data: encodeFunctionData({
+            abi: ERC20_WITH_PERMIT_ABI,
+            functionName: 'permit',
+            args: [permit.ownerAddress, permit.spenderAddress, permit.amount, permit.deadline, yParity + 27, r, s],
+        }),
     };
 }

@@ -1,4 +1,5 @@
-import { getContract, WalletClient, Address, Hex } from 'viem';
+import type { SignedPermit } from './calldata/types';
+import { getContract, type WalletClient, type Address } from 'viem';
 import { ERC20_WITH_PERMIT_ABI } from '../abis';
 
 /**
@@ -29,10 +30,10 @@ export async function signErc20PermitTypedData({
     chainId: number;
     walletClient: WalletClient;
     approveAmount: bigint;
-    deadline?: number; // in seconds, default to 1 hour from now
-}): Promise<Hex> {
+    deadline?: bigint; // in seconds, default to 1 hour from now
+}): Promise<SignedPermit> {
     // Set default deadline (1 hour from now) if not provided
-    deadline = deadline || Math.floor(Date.now() / 1000) + 3600;
+    deadline ??= BigInt(Math.floor(Date.now() / 1000) + 3600);
 
     const erc20PermitContract = getContract({
         address: tokenAddress,
@@ -82,5 +83,5 @@ export async function signErc20PermitTypedData({
         account: walletClient.account || ownerAddress,
     });
 
-    return signature;
+    return { ownerAddress, spenderAddress, tokenAddress, amount: approveAmount, deadline, signature };
 }

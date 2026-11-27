@@ -68,10 +68,10 @@ const v = yParity + 27;
 console.log({ r, s, v });
 ```
 
-`encodeApproveTransaction` with `useApproveFor` performs this conversion when
-encoding ERC-20 `permit`: suffixes 0/1 and 27/28 are accepted and encoded as
-27/28; other recovery values are rejected before encoding. This is stricter than
-the removed helper. `signErc20PermitTypedData` remains the SDK's permit-signing helper.
+Pass the result of `signErc20PermitTypedData` directly to
+`contractCallEncoder.encodePermit`. This keeps the signed deadline, token, owner,
+spender and amount together. Use `encodeApprove` for a regular ERC-20 approval.
+`signErc20PermitTypedData` remains the SDK's permit-signing helper.
 
 ## Parser ownership
 
