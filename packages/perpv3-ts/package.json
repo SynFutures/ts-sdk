@@ -193,6 +193,8 @@
         "@arethetypeswrong/cli": "0.18.5",
         "@foundry-rs/anvil": "1.7.1",
         "@jest/globals": "^30.5.2",
+        "@swc/core": "^1.16.22",
+        "@swc/jest": "^0.2.39",
         "@synfutures/v3-contracts": "^0.0.2",
         "@types/jest": "^30.0.0",
         "@types/node": "22.20.7",
@@ -201,7 +203,6 @@
         "eslint": "^10.15.0",
         "jest": "^30.5.2",
         "publint": "0.3.25",
-        "ts-jest": "^29.4.15",
         "tsdown": "0.23.7",
         "tsx": "^4.23.15",
         "typescript": "catalog:"

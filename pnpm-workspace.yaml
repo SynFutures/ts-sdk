@@ -14,6 +14,7 @@ overrides:
 
 # Native binaries are supplied by platform-specific optional dependencies.
 allowBuilds:
+    '@swc/core': false
     '@foundry-rs/anvil': false
     '@parcel/watcher': false
     esbuild: false
