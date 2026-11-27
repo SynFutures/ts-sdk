@@ -166,6 +166,14 @@ test('prepublishOnly rejects a direct local viem-kit dependency', (t) => {
         writeJson(manifestFile, { ...manifest, dependencies: { '@derivation-tech/viem-kit': spec } });
         assert.match(run('pnpm', check, 1), /exact stable version/);
     }
+    for (const field of ['optionalDependencies', 'peerDependencies']) {
+        writeJson(manifestFile, {
+            ...manifest,
+            dependencies: { '@derivation-tech/viem-kit': '1.0.0' },
+            [field]: { '@derivation-tech/viem-kit': '1.0.0-rc.4' },
+        });
+        assert.match(run('pnpm', check, 1), /conflicts with its dependency version/);
+    }
     writeJson(manifestFile, { ...manifest, dependencies: { '@derivation-tech/viem-kit': '1.0.0' } });
     run('pnpm', check);
 });

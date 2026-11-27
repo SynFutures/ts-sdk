@@ -26,6 +26,12 @@ try {
     });
     const packed = JSON.parse(execFileSync('tar', ['-xOf', archive, 'package/package.json'], { encoding: 'utf8' }));
     const version = packed.dependencies?.[VIEM_KIT];
+    for (const field of ['optionalDependencies', 'peerDependencies']) {
+        const other = packed[field]?.[VIEM_KIT];
+        if (other !== undefined && other !== version) {
+            throw new Error(`Packed viem-kit ${field} entry conflicts with its dependency version`);
+        }
+    }
     if (typeof version !== 'string' || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) {
         throw new Error(`Packed viem-kit dependency must be an exact stable version; got ${version}`);
     }
