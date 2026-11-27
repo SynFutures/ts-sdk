@@ -1,7 +1,7 @@
 import { LogDescription, ParamType, TransactionDescription } from '@ethersproject/abi';
 import { ErrorDescription } from '@ethersproject/abi/lib/interface';
 import { ContractParser, formatWad } from '@derivation-tech/web3-core';
-import { SynFuturesStakingVault__factory } from '@synfutures/oyster-governance-abi';
+import { SynFuturesStakingVault__factory } from './typechain';
 
 export class SynFuturesStakingVaultParser extends ContractParser {
     constructor() {

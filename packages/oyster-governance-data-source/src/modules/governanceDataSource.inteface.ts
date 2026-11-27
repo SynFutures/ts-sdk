@@ -1,7 +1,7 @@
-import { BaseInterface } from '@synfutures/oyster-sdk2';
 import { PendingUnstakeWithTx, TransactionEvent, QueryHistoryParam } from '../types';
 
-export interface GovernanceDataSourceInterface extends BaseInterface {
+export interface GovernanceDataSourceInterface<Host extends object = object> {
+    readonly synfV3: Host;
     getLastUnstakeTime(account: string): Promise<number>;
 
     getCurrentPendingUnstakes(account: string): Promise<PendingUnstakeWithTx[]>;

@@ -1,18 +1,21 @@
-import { SynFutureV3Plugin, SynFuturesV3Interface } from '@synfutures/oyster-sdk2';
-import { GovernanceDataSourceInterface } from './governanceDataSource.inteface';
+import type { GovernanceDataSourceInterface } from './governanceDataSource.inteface';
 import { GovernanceDataSourceModule } from './governanceDataSource.module';
 
-export interface GovernanceDataSourcePlugin {
-    governanceDataSource: GovernanceDataSourceInterface;
+export interface GovernanceDataSourcePlugin<Host extends object = object> {
+    governanceDataSource: GovernanceDataSourceInterface<Host>;
 }
 
-export function governanceDataSourcePlugin<T extends SynFuturesV3Interface>(
-    endpoint: string
-): SynFutureV3Plugin<T, GovernanceDataSourcePlugin> {
+// The overloads preserve the concrete host for both direct install() and host.use(plugin()).
+interface Installer<T extends object> {
+    install<Host extends T>(host: Host): Host & GovernanceDataSourcePlugin<Host>;
+    install(host: T): T & GovernanceDataSourcePlugin<T>;
+}
+
+export function governanceDataSourcePlugin<T extends object = object>(endpoint: string): Installer<T> {
     return {
-        install(synfV3: T): T & GovernanceDataSourcePlugin {
-            (synfV3 as any).governanceDataSource = new GovernanceDataSourceModule(synfV3 as any, endpoint);
-            return synfV3 as any as T & GovernanceDataSourcePlugin;
+        install<Host extends T>(synfV3: Host): Host & GovernanceDataSourcePlugin<Host> {
+            const module = new GovernanceDataSourceModule(synfV3, endpoint);
+            return Object.assign(synfV3, { governanceDataSource: module });
         },
     };
 }

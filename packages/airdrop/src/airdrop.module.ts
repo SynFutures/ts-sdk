@@ -1,12 +1,11 @@
+import type { AirdropHost, TxOptions, TxOptionsWithSigner } from './host';
 import { AirdropInterface } from './airdrop.interface';
-import { SynFuturesV3WithPlugins, TxOptions, TxOptionsWithSigner, TxPlugin } from '@synfutures/oyster-sdk2';
 import { CallOverrides, PopulatedTransaction } from 'ethers';
 import { TransactionReceipt } from '@ethersproject/abstract-provider';
 import { type Airdrop, Airdrop__factory } from './typechain';
 import { AirdropContracts } from './const';
 import { AirdropParser } from './parser';
 
-type SynFuturesV3 = SynFuturesV3WithPlugins<[TxPlugin]>;
 type ClaimArgs = [index: number, amount: string, account: string, proof: string[], txOptions?: TxOptions];
 type ReadArgs = [index: number, overrides?: CallOverrides];
 type WithDistributor<T extends unknown[]> = [contractAddress: string, ...T];
@@ -15,9 +14,9 @@ function hasDistributor<T extends [number, ...unknown[]]>(args: T | WithDistribu
     return typeof args[0] === 'string';
 }
 
-export class AirdropModule implements AirdropInterface {
-    synfV3: SynFuturesV3;
-    constructor(synfV3: SynFuturesV3) {
+export class AirdropModule<Host extends AirdropHost = AirdropHost> implements AirdropInterface<Host> {
+    synfV3: Host;
+    constructor(synfV3: Host) {
         this.synfV3 = synfV3;
     }
 
@@ -79,7 +78,7 @@ export class AirdropModule implements AirdropInterface {
         txOptions?: TxOptions
     ): Promise<TransactionReceipt | PopulatedTransaction> {
         const tx = await airdrop.populateTransaction.claim(index, account, amount, proof);
-        return this.synfV3.tx.sendTx(tx, txOptions);
+        return this.synfV3.tx!.sendTx(tx, txOptions);
     }
 
     isClaimed(index: number, overrides?: CallOverrides): Promise<boolean>;

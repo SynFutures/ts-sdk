@@ -1,10 +1,11 @@
+import type { GovernanceHost, TxOptions, TxOptionsWithSigner } from '../host';
 import { BigNumber, ethers, CallOverrides } from 'ethers';
-import { BaseInterface, TxOptions, TxOptionsWithSigner } from '@synfutures/oyster-sdk2';
-import { SynFuturesStakingVault, SynFuturesToken } from '@synfutures/oyster-governance-abi';
+import { SynFuturesStakingVault, SynFuturesToken } from '../typechain';
 import { PendingUnstake, BoostSettings, VotingPowerSettings } from '../types';
 import { ActionType } from '../enum';
 
-export interface GovernanceInterface extends BaseInterface {
+export interface GovernanceInterface<Host extends GovernanceHost = GovernanceHost> {
+    readonly synfV3: Host;
     stakingVault: SynFuturesStakingVault;
 
     token: SynFuturesToken;

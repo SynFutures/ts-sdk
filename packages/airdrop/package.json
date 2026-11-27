@@ -21,7 +21,6 @@
         "@ethersproject/abi": "^5.7.0",
         "@ethersproject/abstract-provider": "^5.7.0",
         "@ethersproject/providers": "^5.7.0",
-        "@synfutures/oyster-sdk2": "^0.0.82",
         "ethers": "^5.7.2"
     },
     "devDependencies": {

@@ -1,7 +1,8 @@
-import { BaseInterface, TxOptions, TxOptionsWithSigner } from '@synfutures/oyster-sdk2';
+import type { AirdropHost, TxOptions, TxOptionsWithSigner } from './host';
 import { CallOverrides, ethers } from 'ethers';
 
-export interface AirdropInterface extends BaseInterface {
+export interface AirdropInterface<Host extends AirdropHost = AirdropHost> {
+    readonly synfV3: Host;
     claim(
         index: number,
         amount: string,

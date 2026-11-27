@@ -1,16 +1,22 @@
-import { AirdropInterface } from './airdrop.interface';
-import { SynFuturesV3Interface, SynFutureV3Plugin } from '@synfutures/oyster-sdk2';
+import type { AirdropHost } from './host';
+import type { AirdropInterface } from './airdrop.interface';
 import { AirdropModule } from './airdrop.module';
 
-export interface AirdropPlugin {
-    airdrop: AirdropInterface;
+export interface AirdropPlugin<Host extends AirdropHost = AirdropHost> {
+    airdrop: AirdropInterface<Host>;
 }
 
-export function airdropPlugin<T extends SynFuturesV3Interface>(): SynFutureV3Plugin<T, AirdropPlugin> {
+// The overloads preserve the concrete host for both direct install() and host.use(plugin()).
+interface Installer<T extends AirdropHost> {
+    install<Host extends T>(host: Host): Host & AirdropPlugin<Host>;
+    install(host: T): T & AirdropPlugin<T>;
+}
+
+export function airdropPlugin<T extends AirdropHost = AirdropHost>(): Installer<T> {
     return {
-        install(synfV3: T): T & AirdropPlugin {
-            (synfV3 as any).airdrop = new AirdropModule(synfV3 as any);
-            return synfV3 as any as T & AirdropPlugin;
+        install<Host extends T>(synfV3: Host): Host & AirdropPlugin<Host> {
+            const module = new AirdropModule(synfV3);
+            return Object.assign(synfV3, { airdrop: module });
         },
     };
 }

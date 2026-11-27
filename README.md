@@ -30,7 +30,7 @@ See [packages/perpv3-ts/README.md](./packages/perpv3-ts/README.md) for detailed 
 | `@synfutures/oyster-governance-data-source` | `governanceDataSourcePlugin(endpoint)` installs the governance subgraph client for paged or cursor-based event history, pending withdrawals, and last unstake time.                                                          |
 | `@synfutures/governance-sdk`                | The signer-based governance client and the provider-scoped unsigned client at `/tge`. [Client documentation](./packages/governance-sdk/README.md)                                                                            |
 
-The three Oyster plugins install on an ethers v5 `SynFuturesV3` host. Their original package names and `build/*` and `src/*` import paths are available from this workspace. For example, applications that supply a signer to a plugin transaction receive the host's transaction receipt.
+The three plugins accept caller-supplied hosts, including an existing ethers v5 `SynFuturesV3` instance. Airdrop and governance define the host operations they use. Governance owns the token and vault bindings for its deployed contracts. The graph plugin needs only its endpoint and a host object. Their original package names and `build/*` and `src/*` import paths are available from this workspace. For example, applications that supply a signer to a plugin transaction receive the host's transaction receipt.
 
 ## 🛠️ Development
 

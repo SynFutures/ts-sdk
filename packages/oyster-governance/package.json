@@ -18,8 +18,7 @@
     "dependencies": {
         "@derivation-tech/web3-core": "^1.0.43",
         "@ethersproject/abi": "^5.7.0",
-        "@synfutures/oyster-governance-abi": "^0.0.1",
-        "@synfutures/oyster-sdk2": "^0.0.83",
+        "@ethersproject/providers": "^5.7.0",
         "ethers": "^5.7.2"
     },
     "devDependencies": {

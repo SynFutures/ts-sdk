@@ -1,29 +1,18 @@
 import { BigNumber, CallOverrides, ethers } from 'ethers';
 import { Erc20Parser, WAD, ZERO, ZERO_ADDRESS } from '@derivation-tech/web3-core';
-import {
-    TxOptions,
-    TxOptionsWithSigner,
-    TxPlugin,
-    SynFuturesV3WithPlugins,
-    utils,
-    wdiv,
-    wmul,
-    max,
-    min,
-} from '@synfutures/oyster-sdk2';
+import type { GovernanceHost, TxOptions, TxOptionsWithSigner } from '../host';
+import { max, min, toPopulatedTxOverrides, wdiv, wmul } from '../utils';
 import {
     SynFuturesStakingVault,
     SynFuturesToken,
     SynFuturesStakingVault__factory,
     SynFuturesToken__factory,
-} from '@synfutures/oyster-governance-abi';
+} from '../typechain';
 import { SynFuturesStakingVaultParser } from '../parser';
 import { STAKE_ADDRESSES, S_TOKENINFO } from '../constants';
 import { PendingUnstake, BoostSettings, VotingPowerSettings } from '../types';
 import { ActionType } from '../enum';
 import { GovernanceInterface } from './governance.interface';
-
-type SynfuturesV3 = SynFuturesV3WithPlugins<[TxPlugin]>;
 
 function isUTCSameDay(ts1: number, ts2: number): boolean {
     const d1 = new Date(ts1 * 1000);
@@ -35,14 +24,14 @@ function isUTCSameDay(ts1: number, ts2: number): boolean {
     );
 }
 
-export class GovernanceModule implements GovernanceInterface {
-    synfV3: SynfuturesV3;
+export class GovernanceModule<Host extends GovernanceHost = GovernanceHost> implements GovernanceInterface<Host> {
+    synfV3: Host;
 
     stakingVault!: SynFuturesStakingVault;
 
     token!: SynFuturesToken;
 
-    constructor(synfV3: SynfuturesV3) {
+    constructor(synfV3: Host) {
         this.synfV3 = synfV3;
 
         this.initContracts();
@@ -79,11 +68,8 @@ export class GovernanceModule implements GovernanceInterface {
         amount: BigNumber,
         txOptions?: TxOptions
     ): Promise<ethers.providers.TransactionReceipt | ethers.PopulatedTransaction> {
-        const unsignedTx = await this.stakingVault.populateTransaction.stake(
-            amount,
-            utils.toPopulatedTxOverrides(txOptions)
-        );
-        return this.synfV3.tx.sendTx(unsignedTx, txOptions);
+        const unsignedTx = await this.stakingVault.populateTransaction.stake(amount, toPopulatedTxOverrides(txOptions));
+        return this.synfV3.tx!.sendTx(unsignedTx, txOptions);
     }
 
     unstake(amount: BigNumber, txOptions: TxOptionsWithSigner): Promise<ethers.providers.TransactionReceipt>;
@@ -94,9 +80,9 @@ export class GovernanceModule implements GovernanceInterface {
     ): Promise<ethers.providers.TransactionReceipt | ethers.PopulatedTransaction> {
         const unsignedTx = await this.stakingVault.populateTransaction.unstake(
             amount,
-            utils.toPopulatedTxOverrides(txOptions)
+            toPopulatedTxOverrides(txOptions)
         );
-        return this.synfV3.tx.sendTx(unsignedTx, txOptions);
+        return this.synfV3.tx!.sendTx(unsignedTx, txOptions);
     }
 
     release(index: number, txOptions: TxOptionsWithSigner): Promise<ethers.providers.TransactionReceipt>;
@@ -107,9 +93,9 @@ export class GovernanceModule implements GovernanceInterface {
     ): Promise<ethers.providers.TransactionReceipt | ethers.PopulatedTransaction> {
         const unsignedTx = await this.stakingVault.populateTransaction.release(
             index,
-            utils.toPopulatedTxOverrides(txOptions)
+            toPopulatedTxOverrides(txOptions)
         );
-        return this.synfV3.tx.sendTx(unsignedTx, txOptions);
+        return this.synfV3.tx!.sendTx(unsignedTx, txOptions);
     }
 
     async getStakingInfo(

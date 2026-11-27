@@ -1,18 +1,23 @@
-import { SynFutureV3Plugin, SynFuturesV3Interface } from '@synfutures/oyster-sdk2';
-import { GovernanceInterface } from './governance.interface';
+import type { GovernanceHost } from '../host';
+import type { GovernanceInterface } from './governance.interface';
 import { GovernanceModule } from './governance.module';
 
-export interface GovernancePlugin {
-    governance: GovernanceInterface;
+export interface GovernancePlugin<Host extends GovernanceHost = GovernanceHost> {
+    governance: GovernanceInterface<Host>;
 }
 
-export function governancePlugin<T extends SynFuturesV3Interface>(): SynFutureV3Plugin<T, GovernancePlugin> {
+// The overloads preserve the concrete host for both direct install() and host.use(plugin()).
+interface Installer<T extends GovernanceHost> {
+    install<Host extends T>(host: Host): Host & GovernancePlugin<Host>;
+    install(host: T): T & GovernancePlugin<T>;
+}
+
+export function governancePlugin<T extends GovernanceHost = GovernanceHost>(): Installer<T> {
     return {
-        install(synfV3: T): T & GovernancePlugin {
-            const plugin = new GovernanceModule(synfV3 as any);
-            synfV3.addSetProviderHook(() => plugin.onSetProvider());
-            (synfV3 as any).governance = plugin;
-            return synfV3 as any as T & GovernancePlugin;
+        install<Host extends T>(synfV3: Host): Host & GovernancePlugin<Host> {
+            const module = new GovernanceModule(synfV3);
+            synfV3.addSetProviderHook(() => module.onSetProvider());
+            return Object.assign(synfV3, { governance: module });
         },
     };
 }

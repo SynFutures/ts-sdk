@@ -17,7 +17,6 @@
     },
     "dependencies": {
         "@derivation-tech/web3-core": "^1.0.43",
-        "@synfutures/oyster-sdk2": "^0.0.83",
         "@types/lodash": "^4.17.0",
         "ethers": "^5.7.2",
         "lodash": "^4.17.21"

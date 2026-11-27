@@ -1,13 +1,11 @@
 # SynFutures airdrop plugin
 
-Install `@synfutures/airdrop` and `@synfutures/oyster-sdk2` from the SynFutures scoped registry. The plugin uses the ethers v5 provider and transaction settings of its Oyster host.
+Install `@synfutures/airdrop` from the SynFutures scoped registry. Supply a host with an ethers v5 provider, parser and address registration, and a transaction sender for claims. An application that already owns a `SynFuturesV3` instance can install the plugin on it.
 
 ```ts
-import { SynFuturesV3 } from '@synfutures/oyster-sdk2';
 import { airdropPlugin } from '@synfutures/airdrop';
 
-const sdk = new SynFuturesV3('base').useDefault().use(airdropPlugin());
-await sdk.init();
+const sdk = airdropPlugin().install(host);
 
 const claimed = await sdk.airdrop.isClaimed(index, { blockTag });
 const unsigned = await sdk.airdrop.claim(index, amount, account, proof);

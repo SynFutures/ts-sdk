@@ -68,9 +68,6 @@ importers:
       '@ethersproject/providers':
         specifier: ^5.7.0
         version: 5.8.0
-      '@synfutures/oyster-sdk2':
-        specifier: ^0.0.82
-        version: 0.0.82
       ethers:
         specifier: ^5.7.2
         version: 5.8.0
@@ -124,12 +121,9 @@ importers:
       '@ethersproject/abi':
         specifier: ^5.7.0
         version: 5.8.0
-      '@synfutures/oyster-governance-abi':
-        specifier: ^0.0.1
-        version: 0.0.1
-      '@synfutures/oyster-sdk2':
-        specifier: ^0.0.83
-        version: 0.0.83
+      '@ethersproject/providers':
+        specifier: ^5.7.0
+        version: 5.8.0
       ethers:
         specifier: ^5.7.2
         version: 5.8.0
@@ -143,9 +137,6 @@ importers:
       '@derivation-tech/web3-core':
         specifier: ^1.0.43
         version: 1.0.44
-      '@synfutures/oyster-sdk2':
-        specifier: ^0.0.83
-        version: 0.0.83
       '@types/lodash':
         specifier: ^4.17.0
         version: 4.17.23
@@ -2112,18 +2103,6 @@ packages:
   '@synfutures/governance-sdk@0.0.5':
     resolution: {integrity: sha512-kiBy5V7uw8oiAX+IXKL0fVK7FpMg30Q49m+PuoRlslTWLzyOHfVL3xky4bwzKLP1dyf2Qc6aNOEudh0BD8z40g==}
 
-  '@synfutures/oyster-abi@0.0.3':
-    resolution: {integrity: sha512-8oWKnx0I65sSbpIF1AfzxU8JMzne5Mdp65IYszD5wpME1ZeIm1HvctutJJHfnPkwHvs16nT8ngtkAaMutRCD8w==}
-
-  '@synfutures/oyster-governance-abi@0.0.1':
-    resolution: {integrity: sha512-Yc8IdcFRgcmu4Ro2Cr/723JUIXtJ0Uyd6z2zXrGBtXvyJMNYFwAZm3y0MrwQUUDZ6iX+9AKyy8WTMXgMb758ag==}
-
-  '@synfutures/oyster-sdk2@0.0.82':
-    resolution: {integrity: sha512-wV66k7glar4cUtiJafhbY31hiwpy1U3nHpZrSXw8kOLawfZkXXjWpyT+apLc6x56lvUWfApJzjnywoD3ax/MLA==}
-
-  '@synfutures/oyster-sdk2@0.0.83':
-    resolution: {integrity: sha512-wkfjoMvMne9R3PLVeTvUzdYZt4xFlipw3nX6xnCLUz+Nmz/1SIGIKWr7UIIHU3haAjFf6G2o9cZq9669e36B6A==}
-
   '@synfutures/v3-contracts@0.0.2':
     resolution: {integrity: sha512-bTaYIvi1ffcdziEV93tUGfjDfnF82PEiYmLgcQOX9v3Ih7BZ+J6JgjA6SMhnNnmYbwVEFfUuBeRhhgkhsTfPDw==}
 
@@ -3947,9 +3926,6 @@ packages:
 
   moment@2.29.1:
     resolution: {integrity: sha512-kHmoybcPV8Sqy59DwNDY3Jefr64lK/by/da0ViFcuA4DH0vQg5Q6Ze5VimxkfQNSC+Mls/Kx53s7TjP1RhFEDQ==}
-
-  moment@2.30.1:
-    resolution: {integrity: sha512-uEmtNhbDOrWPFS+hdjFCBfy9f2YoyzRpwcl+DqpC6taX21FzsTLQVbMV/W7PzNSX6x/bhC1zA3c2UQ5NzH6how==}
 
   mri@1.2.0:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}
@@ -7661,46 +7637,6 @@ snapshots:
       - encoding
       - utf-8-validate
 
-  '@synfutures/oyster-abi@0.0.3':
-    dependencies:
-      ethers: 5.8.0
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
-
-  '@synfutures/oyster-governance-abi@0.0.1':
-    dependencies:
-      ethers: 5.8.0
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
-
-  '@synfutures/oyster-sdk2@0.0.82':
-    dependencies:
-      '@derivation-tech/web3-core': 1.0.44
-      '@synfutures/oyster-abi': 0.0.3
-      axios: 1.12.2
-      ethers: 5.8.0
-      moment: 2.30.1
-    transitivePeerDependencies:
-      - bufferutil
-      - debug
-      - encoding
-      - utf-8-validate
-
-  '@synfutures/oyster-sdk2@0.0.83':
-    dependencies:
-      '@derivation-tech/web3-core': 1.0.44
-      '@synfutures/oyster-abi': 0.0.3
-      axios: 1.12.2
-      ethers: 5.8.0
-      moment: 2.30.1
-    transitivePeerDependencies:
-      - bufferutil
-      - debug
-      - encoding
-      - utf-8-validate
-
   '@synfutures/v3-contracts@0.0.2': {}
 
   '@tsconfig/node10@1.0.11': {}
@@ -10008,8 +9944,6 @@ snapshots:
       ufo: 1.6.1
 
   moment@2.29.1: {}
-
-  moment@2.30.1: {}
 
   mri@1.2.0: {}
 

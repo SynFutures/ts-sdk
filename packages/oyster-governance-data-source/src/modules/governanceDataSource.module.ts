@@ -1,14 +1,16 @@
 import { BigNumber } from 'ethers';
 import { orderBy as _orderBy } from 'lodash';
 import { Graph, GRAPH_PAGE_SIZE, now } from '@derivation-tech/web3-core';
-import { SynFuturesV3Interface } from '@synfutures/oyster-sdk2';
 import { GovernanceDataSourceInterface } from './governanceDataSource.inteface';
 import { QueryEventParam, PendingUnstakeWithTx, TransactionEvent, QueryHistoryParam } from '../types';
 
-export class GovernanceDataSourceModule extends Graph implements GovernanceDataSourceInterface {
-    synfV3: SynFuturesV3Interface;
+export class GovernanceDataSourceModule<Host extends object = object>
+    extends Graph
+    implements GovernanceDataSourceInterface<Host>
+{
+    synfV3: Host;
 
-    constructor(synfV3: SynFuturesV3Interface, endpoint: string) {
+    constructor(synfV3: Host, endpoint: string) {
         super(endpoint);
         this.synfV3 = synfV3;
     }
