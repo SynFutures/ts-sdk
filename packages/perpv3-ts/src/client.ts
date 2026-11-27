@@ -156,179 +156,56 @@ export class PerpClient {
     // Query Methods
     // ============================================================================
 
-    /**
-     * Fetch on-chain context (snapshot) for this pair.
-     *
-     * If this client is created with an API config and `rpcFallback` is provided, this will use the API by default
-     * and fall back to RPC reads when the API request fails.
-     * @param traderAddress - Optional trader address to fetch portfolio
-     * @param signedSize - Optional signed size to fetch quotation
-     * @param options - Optional read options (blockNumber, blockTag) - only used for RPC config
-     * @returns PairSnapshot with required fields and optional quotation
-     */
-    async getSnapshot(traderAddress?: Address, signedSize?: bigint, options?: ReadOptions): Promise<PairSnapshot> {
-        if (isApiConfig(this._config) && this._rpcFallback) {
-            // Market API endpoints require an `ApiSigner`. When no signer is provided, skip the API path entirely and
-            // use `rpcFallback` directly (otherwise we'd just throw and catch to reach the same result).
-            if (!this._config.signer) {
-                return fetchOnchainContext(
-                    this._instrumentAddress,
-                    this._expiry,
-                    this._rpcFallback,
-                    traderAddress,
-                    signedSize,
-                    options
-                );
-            }
-
-            try {
-                return await fetchOnchainContext(
-                    this._instrumentAddress,
-                    this._expiry,
-                    this._config,
-                    traderAddress,
-                    signedSize
-                );
-            } catch (apiError) {
-                try {
-                    return await fetchOnchainContext(
-                        this._instrumentAddress,
-                        this._expiry,
-                        this._rpcFallback,
-                        traderAddress,
-                        signedSize,
-                        options
-                    );
-                } catch (rpcError) {
-                    // eslint-disable-next-line preserve-caught-error -- Both failures are retained in AggregateError.errors.
-                    throw new AggregateError(
-                        [apiError, rpcError],
-                        'PerpClient.getSnapshot failed: API request and rpcFallback request both failed'
-                    );
-                }
-            }
+    private async query<T>(
+        name: string,
+        options: ReadOptions | undefined,
+        read: (config: ApiConfig | RpcConfig) => Promise<T>
+    ): Promise<T> {
+        const rpc = this._rpcFallback;
+        if (!isApiConfig(this._config) || !rpc) return read(this._config);
+        if (!this._config.signer || options?.blockNumber !== undefined || options?.blockTag !== undefined)
+            return read(rpc);
+        let apiError: unknown;
+        try {
+            const result = await read(this._config);
+            if (result !== null) return result;
+            apiError = new Error('API returned null orderBook');
+        } catch (error) {
+            apiError = error;
         }
+        try {
+            return await read(rpc);
+        } catch (error) {
+            throw new AggregateError(
+                [apiError, error],
+                `PerpClient.${name} failed: API request and rpcFallback request both failed`,
+                { cause: error }
+            );
+        }
+    }
 
-        return fetchOnchainContext(
-            this._instrumentAddress,
-            this._expiry,
-            this._config,
-            traderAddress,
-            signedSize,
-            options
+    getSnapshot(traderAddress?: Address, signedSize?: bigint, options?: ReadOptions): Promise<PairSnapshot> {
+        return this.query('getSnapshot', options, (config) =>
+            fetchOnchainContext(this.instrumentAddress, this.expiry, config, traderAddress, signedSize, options)
         );
     }
 
-    /**
-     * Inquire by tick for this pair.
-     * @param tick - Target tick
-     * @param options - Optional read options (blockNumber, blockTag) - only used for RPC config
-     * @returns Object with size and quotation
-     */
-    async getQuotation(tick: number, options?: ReadOptions): Promise<{ size: bigint; quotation: Quotation }> {
-        if (isApiConfig(this._config) && this._rpcFallback) {
-            // Market API endpoints require an `ApiSigner`. When no signer is provided, skip the API path entirely and
-            // use `rpcFallback` directly (otherwise we'd just throw and catch to reach the same result).
-            if (!this._config.signer) {
-                return inquireByTick(this._instrumentAddress, this._expiry, tick, this._rpcFallback, options);
-            }
-
-            try {
-                return await inquireByTick(this._instrumentAddress, this._expiry, tick, this._config);
-            } catch (apiError) {
-                try {
-                    return await inquireByTick(this._instrumentAddress, this._expiry, tick, this._rpcFallback, options);
-                } catch (rpcError) {
-                    // eslint-disable-next-line preserve-caught-error -- Both failures are retained in AggregateError.errors.
-                    throw new AggregateError(
-                        [apiError, rpcError],
-                        'PerpClient.getQuotation failed: API request and rpcFallback request both failed'
-                    );
-                }
-            }
-        }
-
-        return inquireByTick(this._instrumentAddress, this._expiry, tick, this._config, options);
+    getQuotation(tick: number, options?: ReadOptions): Promise<{ size: bigint; quotation: Quotation }> {
+        return this.query('getQuotation', options, (config) =>
+            inquireByTick(this.instrumentAddress, this.expiry, tick, config, options)
+        );
     }
 
-    /**
-     * Inquire by signed base size for this pair.
-     *
-     * If this client is created with an API config and `rpcFallback` is provided, this will use the API by default
-     * and fall back to RPC reads when the API request fails.
-     */
-    async inquire(signedSize: bigint, options?: ReadOptions): Promise<Quotation> {
-        if (isApiConfig(this._config) && this._rpcFallback) {
-            // Market API endpoints require an `ApiSigner`. When no signer is provided, skip the API path entirely and
-            // use `rpcFallback` directly (otherwise we'd just throw and catch to reach the same result).
-            if (!this._config.signer) {
-                return inquireByBaseSize(this._instrumentAddress, this._expiry, signedSize, this._rpcFallback, options);
-            }
-
-            try {
-                return await inquireByBaseSize(this._instrumentAddress, this._expiry, signedSize, this._config);
-            } catch (apiError) {
-                try {
-                    return await inquireByBaseSize(
-                        this._instrumentAddress,
-                        this._expiry,
-                        signedSize,
-                        this._rpcFallback,
-                        options
-                    );
-                } catch (rpcError) {
-                    // eslint-disable-next-line preserve-caught-error -- Both failures are retained in AggregateError.errors.
-                    throw new AggregateError(
-                        [apiError, rpcError],
-                        'PerpClient.inquire failed: API request and rpcFallback request both failed'
-                    );
-                }
-            }
-        }
-
-        return inquireByBaseSize(this._instrumentAddress, this._expiry, signedSize, this._config, options);
+    inquire(signedSize: bigint, options?: ReadOptions): Promise<Quotation> {
+        return this.query('inquire', options, (config) =>
+            inquireByBaseSize(this.instrumentAddress, this.expiry, signedSize, config, options)
+        );
     }
 
-    /**
-     * Fetch order book for this pair.
-     *
-     * If this client is created with an API config and `rpcFallback` is provided, this will use the API by default
-     * and fall back to RPC reads when the API request fails or returns null.
-     * @param length - Optional order book depth (default: 10) - only used for RPC
-     * @param options - Optional read options (blockNumber, blockTag) - only used for RPC config
-     * @returns Order book data with bids/asks
-     */
-    async getOrderBook(length?: number, options?: ReadOptions) {
-        if (isApiConfig(this._config) && this._rpcFallback) {
-            // Market API endpoints require an `ApiSigner`. When no signer is provided, skip the API path entirely and
-            // use `rpcFallback` directly (otherwise we'd just throw and catch to reach the same result).
-            if (!this._config.signer) {
-                return fetchOrderBook(this._instrumentAddress, this._expiry, this._rpcFallback, length, options);
-            }
-
-            let apiError: unknown;
-            try {
-                const apiResult = await fetchOrderBook(this._instrumentAddress, this._expiry, this._config);
-                if (apiResult !== null) {
-                    return apiResult;
-                }
-                apiError = new Error('API returned null orderBook');
-            } catch (error) {
-                apiError = error;
-            }
-
-            try {
-                return await fetchOrderBook(this._instrumentAddress, this._expiry, this._rpcFallback, length, options);
-            } catch (rpcError) {
-                // eslint-disable-next-line preserve-caught-error -- Both failures are retained in AggregateError.errors.
-                throw new AggregateError(
-                    [apiError, rpcError],
-                    'PerpClient.getOrderBook failed: API request and rpcFallback request both failed'
-                );
-            }
-        }
-
-        return fetchOrderBook(this._instrumentAddress, this._expiry, this._config, length, options);
+    getOrderBook(length?: number, options?: ReadOptions) {
+        return this.query('getOrderBook', options, (config) =>
+            fetchOrderBook(this.instrumentAddress, this.expiry, config, length, options)
+        );
     }
 
     // ============================================================================

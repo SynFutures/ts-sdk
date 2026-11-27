@@ -20,6 +20,12 @@ import type { ApiConfig, ReadOptions, RpcConfig } from './config';
 // Unified Data Fetching Functions
 // ============================================================================
 
+function assertApiReadOptions(options?: ReadOptions): void {
+    if (options?.blockNumber !== undefined || options?.blockTag !== undefined) {
+        throw Errors.apiRequestFailed('Block-specific queries require an RPC configuration');
+    }
+}
+
 /**
  * Unified context fetcher that routes to API or RPC based on config type.
  * Automatically fetches portfolio if traderAddress is provided, and quotation if signedSize is provided.
@@ -41,6 +47,7 @@ export async function fetchOnchainContext(
     options?: ReadOptions
 ): Promise<PairSnapshot> {
     if (isApiConfig(config)) {
+        assertApiReadOptions(options);
         // API doesn't support options parameter
         return fetchOnchainContextFromApi(
             instrumentAddress,
@@ -71,6 +78,7 @@ export async function inquireByTick(
     options?: ReadOptions
 ): Promise<{ size: bigint; quotation: Quotation }> {
     if (isApiConfig(config)) {
+        assertApiReadOptions(options);
         // API doesn't support options parameter
         return inquireByTickFromApi(instrumentAddress, expiry, tick, resolveApiConfig(config));
     }
@@ -89,6 +97,7 @@ export async function inquireByBaseSize(
     options?: ReadOptions
 ): Promise<Quotation> {
     if (isApiConfig(config)) {
+        assertApiReadOptions(options);
         const { signer } = config;
         if (!signer) {
             throw Errors.apiRequestFailed('Signer is required for inquireByBaseSize');
@@ -129,6 +138,7 @@ export async function fetchOrderBook(
     options?: ReadOptions
 ): Promise<IFuturesOrderBookAllSteps | null> {
     if (isApiConfig(config)) {
+        assertApiReadOptions(options);
         const { signer } = config;
         if (!signer) {
             throw Errors.apiRequestFailed('Signer is required for fetchOrderBook');

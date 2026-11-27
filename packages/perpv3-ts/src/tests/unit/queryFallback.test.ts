@@ -156,6 +156,25 @@ function buildMockRpcConfig(instrument: Address, expiry: number): RpcConfig {
 describe('PerpClient fallback (API -> rpcFallback)', () => {
     const userSetting = new UserSetting(10, 10, 1n * WAD, 1);
 
+    test('block zero bypasses the API and pins every liquidity read', async () => {
+        const rpcFallback = buildMockRpcConfig(ZERO_ADDRESS, 0xffffffff);
+        const signer = {
+            sign: jest.fn(() => {
+                throw new Error('unexpected API call');
+            }),
+        };
+        const config = { chainId: CHAIN_ID, signer };
+        const client = new PerpClient(config, userSetting, ZERO_ADDRESS, 0xffffffff, { rpcFallback });
+        await client.getOrderBook(0, { blockNumber: 0n });
+        expect(signer.sign).not.toHaveBeenCalled();
+        expect(rpcFallback.publicClient.readContract).toHaveBeenCalledWith(
+            expect.objectContaining({ blockNumber: 0n })
+        );
+        await expect(inquireByBaseSize(ZERO_ADDRESS, 0xffffffff, 1n, config, { blockTag: 'earliest' })).rejects.toThrow(
+            'require an RPC'
+        );
+    });
+
     test.each([
         ['getSnapshot', (client: PerpClient) => client.getSnapshot()],
         ['getQuotation', (client: PerpClient) => client.getQuotation(0)],

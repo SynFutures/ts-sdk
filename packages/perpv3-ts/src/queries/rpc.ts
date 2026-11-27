@@ -251,7 +251,9 @@ export async function fetchOrderBookFromObserver(
     options?: FetchOrderBookOptions
 ): Promise<IFuturesOrderBookAllSteps | null> {
     const { length = 10, ...readOptions } = options ?? {};
+    if (readOptions.blockTag === 'pending') throw new Error('A pending order book cannot be pinned to a mined block');
     const context = await fetchOnchainContext(instrumentAddress, expiry, config, undefined, undefined, readOptions);
+    const pinned = { blockNumber: readOptions.blockNumber ?? BigInt(context.blockInfo.height) };
     const imr = context.instrumentSetting.initialMarginRatio;
     const ratios = getImrStepRatios(imr);
 
@@ -263,7 +265,7 @@ export async function fetchOrderBookFromObserver(
     const liquidityDetailsList = await Promise.all(
         ratioConfigs.map(({ tickDelta }) =>
             tickDelta > 0
-                ? fetchLiquidityDetails(instrumentAddress, expiry, tickDelta, config, readOptions)
+                ? fetchLiquidityDetails(instrumentAddress, expiry, tickDelta, config, pinned)
                 : Promise.resolve(null)
         )
     );
