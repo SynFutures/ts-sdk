@@ -50,3 +50,4 @@ Reject malformed data instead of substituting defaults.
 - API-backed simulation snapshots read the Observer once so quotations, prices and account state share one block.
 - Market candles validate timestamps, prices and volumes before exposing the opening timestamp alias.
 - The market list and pair detail validate token, pricing and funding fields while preserving exact decimal strings.
+- User volume details expose per-instrument volume and token information. A null details list from an empty account decodes to an empty array.

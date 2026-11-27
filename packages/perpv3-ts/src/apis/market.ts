@@ -44,6 +44,7 @@ import {
     decodeQuotation,
     decodeQuotationWithSize,
     decodeQuoteState,
+    decodeUserVolume,
 } from './decoders';
 import { requireArray, requireRecord } from './codecs';
 
@@ -239,8 +240,9 @@ export class MarketModule extends BaseApiModule {
             chainId: params.chainId,
             userAddress: params.userAddress,
         };
-        const res = await this.makeSignedRequest<ApiEnvelope<TotalValueResponse>>(requestUrl, requestParams);
-        return getApiData(res) ?? undefined;
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
+        const data = getApiData(res);
+        return data === null ? undefined : decodeUserVolume(data);
     }
 
     /**

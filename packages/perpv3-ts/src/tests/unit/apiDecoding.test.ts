@@ -781,6 +781,35 @@ describe('API request contracts', () => {
         ).rejects.toThrow('market pair.expiry');
     });
 
+    test('reads per-instrument user volumes and distinguishes absent details from an empty account', async () => {
+        const read = (data: unknown) =>
+            createMarketModule(data).fetchUserTotalValue({ chainId: 8453, userAddress: instrument });
+        const token = { address: instrument, symbol: 'ETH', decimals: 18 };
+        const row = {
+            instrumentAddress: instrument,
+            expiry: 4294967295,
+            quoteAddress: instrument,
+            quoteVolume: '123.456000000000000001',
+            volumeUsd: '124.05',
+            baseToken: token,
+            quoteToken: token,
+            symbol: 'ETH/USDC',
+        };
+        const data = { totalVolumeUsd: '124.05', details: [row] };
+        await expect(read(data)).resolves.toEqual(data);
+        await expect(read(null)).resolves.toBeUndefined();
+        await expect(read({ totalVolumeUsd: '0', details: null })).resolves.toEqual({
+            totalVolumeUsd: '0',
+            details: [],
+        });
+        await expect(read({ totalVolumeUsd: '0' })).rejects.toThrow('user volume.details');
+        await expect(read({ ...data, totalVolumeUsd: 0 })).rejects.toThrow('user volume.totalVolumeUsd');
+        await expect(read({ ...data, details: [{ ...row, volumeUsd: '' }] })).rejects.toThrow('details[0].volumeUsd');
+        await expect(read({ ...data, details: [{ ...row, baseToken: { ...token, decimals: -1 } }] })).rejects.toThrow(
+            'baseToken.decimals'
+        );
+    });
+
     test('sends the parameter names the public API validates', async () => {
         const { httpClient, urls } = requestedUrls(null);
         const market = new MarketModule(httpClient, signer);

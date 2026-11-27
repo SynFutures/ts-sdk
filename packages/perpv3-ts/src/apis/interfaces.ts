@@ -459,7 +459,7 @@ export interface TokenVolumeFromApi {
 }
 export interface TotalVolumeFromApi {
     totalVolumeUsd: string; // normal number string
-    details: TokenPriceFromApi[];
+    details: TokenVolumeFromApi[];
 }
 export type TotalValueResponse = TotalVolumeFromApi | undefined;
 

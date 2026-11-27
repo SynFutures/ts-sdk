@@ -5,6 +5,7 @@ import type {
     FetchMmKlineResponse,
     FetchFuturesPairKlineChartResponse,
     MarketPairWithChainId,
+    TotalVolumeFromApi,
     FetchMmLiquidityHistoryResponse,
     FetchMmLiquidityListResponse,
     FetchMmOrderHistoryResponse,
@@ -679,6 +680,25 @@ function decodeList<T>(value: unknown, label: string, decode: DecodeRow<T>): T[]
         return decode(requireRecord(item, path), path);
     });
 }
+export function decodeUserVolume(value: unknown): TotalVolumeFromApi {
+    const record = requireRecord(value, 'user volume');
+    return {
+        ...record,
+        totalVolumeUsd: decimalString(record, 'totalVolumeUsd', 'user volume'),
+        details: decodeList(record.details === null ? [] : record.details, 'user volume.details', (detail, label) => ({
+            ...detail,
+            instrumentAddress: requireAddress(detail, 'instrumentAddress', label + '.instrumentAddress'),
+            expiry: unsignedInteger(detail, 'expiry', label, 0xffffffff),
+            quoteAddress: requireAddress(detail, 'quoteAddress', label + '.quoteAddress'),
+            quoteVolume: decimalString(detail, 'quoteVolume', label),
+            volumeUsd: decimalString(detail, 'volumeUsd', label),
+            baseToken: decodeTradeToken(detail.baseToken, label + '.baseToken'),
+            quoteToken: decodeTradeToken(detail.quoteToken, label + '.quoteToken'),
+            symbol: requireString(detail, 'symbol', label + '.symbol'),
+        })),
+    };
+}
+
 function decodePage<T>(value: unknown, label: string, decode: DecodeRow<T>): { list: T[]; totalCount: number } {
     const page = requireRecord(value, label);
     return {
