@@ -1,7 +1,31 @@
-import { Side, UserSetting } from '../../types';
-import { DEFAULT_DEADLINE_SECONDS, WAD } from '../../constants';
+import { Side, UserSetting, ValidationError } from '../../types';
+import { DEFAULT_DEADLINE_SECONDS, MIN_TICK, WAD } from '../../constants';
 
 describe('UserSetting', () => {
+    const options = { deadlineSeconds: 60, slippageBps: 50, leverageWad: WAD };
+    it.each([
+        { deadlineSeconds: 1.5 },
+        { deadlineSeconds: -1.5 },
+        { deadlineSeconds: 2 ** 32 },
+        { slippageBps: 1.5 },
+        { slippageBps: -1 },
+        { slippageBps: 10_001 },
+        { markPriceBufferInBps: 1.5 },
+        { markPriceBufferInBps: -1 },
+    ])('rejects invalid settings at construction: %j', (invalid) => {
+        expect(() => new UserSetting({ ...options, ...invalid })).toThrow(ValidationError);
+    });
+    it('checks the absolute deadline against the encoded uint32 boundary', () => {
+        const settings = new UserSetting(options);
+        const last = 0xffff_ffff;
+        expect(settings.getDeadline(last - 60)).toBe(last);
+        for (const timestamp of [1.5, -1, last - 59])
+            expect(() => settings.getDeadline(timestamp)).toThrow(ValidationError);
+    });
+    it('uses the minimum trade tick for a 100% short-side tolerance', () => {
+        const settings = new UserSetting({ ...options, slippageBps: 10_000 });
+        expect(settings.getTradeLimitTick(WAD, Side.SHORT)).toBe(MIN_TICK);
+    });
     it('adds an offset to the supplied block timestamp', () => {
         expect(
             new UserSetting({ deadlineSeconds: 3600, slippageBps: 50, leverageWad: 3n * WAD }).getDeadline(1000)

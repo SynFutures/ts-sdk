@@ -13,6 +13,9 @@ import {
 import { Errors, ErrorCode } from './error';
 import { Condition, Side, sideSign, type QuoteParam, type Setting } from './contract';
 
+const MAX_DEADLINE = 0xffff_ffff;
+export const MAX_SLIPPAGE = RATIO_BASE;
+
 export class UserSetting {
     /**
      * Deadline duration offset, in seconds
@@ -45,7 +48,18 @@ export class UserSetting {
         markPriceBufferInBps?: number;
         strictMode?: boolean;
     }) {
-        // Validate leverage is positive
+        if (!Number.isSafeInteger(deadlineSeconds) || deadlineSeconds > MAX_DEADLINE) {
+            throw Errors.invalidDeadline(deadlineSeconds);
+        }
+        if (!Number.isInteger(slippageBps) || slippageBps < 0 || slippageBps > MAX_SLIPPAGE) {
+            throw Errors.invalidSlippage(slippageBps, MAX_SLIPPAGE);
+        }
+        if (!Number.isSafeInteger(markPriceBufferInBps) || markPriceBufferInBps < 0) {
+            throw Errors.validation(
+                'markPriceBufferInBps must be a non-negative safe integer',
+                ErrorCode.INVALID_PARAM
+            );
+        }
         if (leverageWad <= 0n) {
             throw Errors.invalidLeverage(leverageWad);
         }
@@ -74,10 +88,9 @@ export class UserSetting {
      */
     getDeadline(currentTimestamp?: number): number {
         const now = currentTimestamp ?? Math.floor(Date.now() / 1000);
-        if (this.deadlineSeconds && this.deadlineSeconds > 0) {
-            return now + this.deadlineSeconds;
-        }
-        return now + DEFAULT_DEADLINE_SECONDS;
+        const deadline = now + (this.deadlineSeconds > 0 ? this.deadlineSeconds : DEFAULT_DEADLINE_SECONDS);
+        if (!Number.isSafeInteger(now) || now < 0 || deadline > MAX_DEADLINE) throw Errors.invalidDeadline(deadline);
+        return deadline;
     }
 
     /**
@@ -86,6 +99,7 @@ export class UserSetting {
      */
     getTradeLimitTick(tradePrice: bigint, side: Side): number {
         const sign = sideSign(side);
+        if (sign < 0 && this.slippage === MAX_SLIPPAGE) return MIN_TICK;
         const limitPrice = (tradePrice * (ONE_RATIO + BigInt(sign * this.slippage))) / ONE_RATIO;
         const limitTick = wadToTick(limitPrice);
         return sign > 0 ? limitTick : limitTick + 1;
@@ -136,7 +150,6 @@ export class UserSetting {
 
 const MIN_ORDER_MULTIPLIER = 2;
 const MIN_RANGE_MULTIPLIER = 10;
-export const MAX_SLIPPAGE = 10000;
 export const MAX_CANCEL_ORDER_COUNT = 8;
 
 export class InstrumentSetting {

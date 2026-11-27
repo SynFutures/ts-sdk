@@ -144,7 +144,11 @@ export const Errors = {
      * Specific validation errors
      */
     invalidDeadline: (deadline: number) =>
-        Errors.validation(`Deadline must be positive, got: ${deadline}`, ErrorCode.INVALID_DEADLINE, { deadline }),
+        Errors.validation(
+            `Deadline must use whole seconds and fit a uint32 timestamp, got: ${deadline}`,
+            ErrorCode.INVALID_DEADLINE,
+            { deadline }
+        ),
 
     invalidSlippage: (slippage: number, maxSlippage: number) =>
         Errors.validation(
