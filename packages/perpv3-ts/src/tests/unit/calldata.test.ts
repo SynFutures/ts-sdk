@@ -1,4 +1,12 @@
-import { decodeFunctionData, type Hex } from 'viem';
+import { signErc20PermitTypedData } from '../../frontend/signature';
+import {
+    decodeFunctionData,
+    createWalletClient,
+    custom,
+    encodeAbiParameters,
+    toFunctionSelector,
+    type Hex,
+} from 'viem';
 import {
     CURRENT_GATE_ABI,
     CURRENT_GELATO_RELAY_ROUTER_ABI,
@@ -242,6 +250,54 @@ describe('frontend calldata encoding', () => {
         const s = `0x${'22'.repeat(32)}` as const;
         const params = { tokenAddress, spenderAddress, amount: 100n } as const;
         const options = { ownerAddress, deadline: 1_700_000_600n } as const;
+
+        it.each([undefined, 0n])('encodes the deadline passed to the signer (%s)', async (deadline) => {
+            let signed: { message: { deadline: string; owner: string; spender: string; value: string } } | undefined;
+            const walletClient = createWalletClient({
+                account: ownerAddress,
+                transport: custom({
+                    request: async ({ method, params: rpcParams }) => {
+                        if (method === 'eth_call') {
+                            const [call] = rpcParams as [{ data: string }];
+                            return call.data === toFunctionSelector('name()')
+                                ? encodeAbiParameters([{ type: 'string' }], ['Mock token'])
+                                : encodeAbiParameters([{ type: 'uint256' }], [2n]);
+                        }
+                        if (method === 'eth_signTypedData_v4') {
+                            const [, typedData] = rpcParams as [string, string];
+                            signed = JSON.parse(typedData);
+                            return `${r}${s.slice(2)}1b`;
+                        }
+                        throw new Error('Unexpected RPC method ' + method);
+                    },
+                }),
+            });
+            const permit = await signErc20PermitTypedData({
+                ...params,
+                ownerAddress,
+                chainId: 8453,
+                walletClient,
+                approveAmount: params.amount,
+                deadline,
+            });
+            const tx = contractCallEncoder.encodePermit(permit);
+            expect(permit.deadline).toBe(deadline ?? BigInt(now + 3600));
+            expect(signed?.message).toMatchObject({
+                owner: ownerAddress,
+                spender: spenderAddress,
+                value: '100',
+                deadline: String(permit.deadline),
+            });
+            expect(decodeFunctionData({ abi: ERC20_WITH_PERMIT_ABI, data: tx.data }).args).toEqual([
+                ownerAddress,
+                spenderAddress,
+                100n,
+                permit.deadline,
+                27,
+                r,
+                s,
+            ]);
+        });
 
         it.each([
             ['00', 27],

@@ -2,19 +2,7 @@ import type { SignedPermit } from './calldata/types';
 import { getContract, type WalletClient, type Address } from 'viem';
 import { ERC20_WITH_PERMIT_ABI } from '../abis';
 
-/**
- * Signs an ERC20 permit typed data for the given parameters.
- * use for send permit tx to approve spender to spend owner's token
- *
- * @param ownerAddress - The address of the token owner.
- * @param spenderAddress - The address of the spender.
- * @param tokenAddress - The address of the ERC20 token contract.
- * @param chainId - The ID of the blockchain network.
- * @param walletClient - The wallet client instance for signing the typed data.
- * @param approveAmount - The amount to approve for the spender.
- * @param deadline - The deadline for the permit signature (in seconds, default to 1 hour from now).
- * @returns signature - The signed ERC20 permit typed data.
- */
+/** Sign an ERC-2612 permit and return the same fields the encoder will submit. */
 export async function signErc20PermitTypedData({
     ownerAddress,
     spenderAddress,
@@ -32,7 +20,9 @@ export async function signErc20PermitTypedData({
     approveAmount: bigint;
     deadline?: bigint; // in seconds, default to 1 hour from now
 }): Promise<SignedPermit> {
-    // Set default deadline (1 hour from now) if not provided
+    if (walletClient.account && walletClient.account.address.toLowerCase() !== ownerAddress.toLowerCase()) {
+        throw new Error('Permit owner must match the signing account');
+    }
     deadline ??= BigInt(Math.floor(Date.now() / 1000) + 3600);
 
     const erc20PermitContract = getContract({
@@ -42,18 +32,16 @@ export async function signErc20PermitTypedData({
         client: walletClient,
     });
 
-    const [currentNonceB, tokenNameStr] = await Promise.all([
+    const [nonce, name] = await Promise.all([
         erc20PermitContract.read.nonces([ownerAddress]),
         erc20PermitContract.read.name(),
     ]);
-    const currentNonce = currentNonceB as bigint;
-    const tokenName = tokenNameStr as string;
 
     // Create EIP-712 signature for permit
     const domain = {
-        name: tokenName,
+        name,
         version: '1',
-        chainId: chainId,
+        chainId,
         verifyingContract: tokenAddress,
     };
 
@@ -71,14 +59,14 @@ export async function signErc20PermitTypedData({
         owner: ownerAddress,
         spender: spenderAddress,
         value: approveAmount,
-        nonce: currentNonce,
-        deadline: deadline,
+        nonce,
+        deadline,
     };
 
     const signature = await walletClient.signTypedData({
         domain,
         types,
-        message: message,
+        message,
         primaryType: 'Permit',
         account: walletClient.account || ownerAddress,
     });
