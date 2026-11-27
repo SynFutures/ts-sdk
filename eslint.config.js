@@ -4,7 +4,7 @@ const typescript = require('typescript-eslint');
 
 module.exports = [
     {
-        ignores: ['**/dist/*', '.worktrees/**', 'jest.config.js', 'eslint.config.js', 'templates', '**/*.d.ts'],
+        ignores: ['packages/governance-sdk/build/**', 'packages/governance-sdk/tge/**', '**/dist/*', '.worktrees/**', 'jest.config.js', 'eslint.config.js', 'templates', '**/*.d.ts'],
     },
     eslint.configs.recommended,
     ...typescript.configs.recommended,
@@ -22,7 +22,7 @@ module.exports = [
         },
     },
     {
-        files: ['scripts/**/*.{js,cjs}'],
+        files: ['scripts/**/*.{js,cjs}', 'packages/governance-sdk/**/*.cjs'],
         languageOptions: {
             globals: {
                 Buffer: 'readonly',
