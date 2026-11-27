@@ -174,7 +174,7 @@ catalogs:
 overrides:
   glob@>=9 <=14.0.1: ^14.0.2
   minimatch@>=7 <11.0.1: ^11.0.1
-  '@derivation-tech/viem-kit': file:./vendor/derivation-tech-viem-kit-1.0.0-rc.0.tgz
+  '@derivation-tech/viem-kit': file:./vendor/derivation-tech-viem-kit-1.0.0-rc.1.tgz
 
 importers:
 
@@ -305,8 +305,8 @@ importers:
   packages/perpv3-ts:
     dependencies:
       '@derivation-tech/viem-kit':
-        specifier: file:../../vendor/derivation-tech-viem-kit-1.0.0-rc.0.tgz
-        version: file:vendor/derivation-tech-viem-kit-1.0.0-rc.0.tgz(viem@2.58.7(typescript@7.0.2))
+        specifier: file:../../vendor/derivation-tech-viem-kit-1.0.0-rc.1.tgz
+        version: file:vendor/derivation-tech-viem-kit-1.0.0-rc.1.tgz(viem@2.58.7(typescript@7.0.2))
       viem:
         specifier: 'catalog:'
         version: 2.58.7(typescript@7.0.2)
@@ -615,9 +615,9 @@ packages:
     resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
     engines: {node: '>=0.1.90'}
 
-  '@derivation-tech/viem-kit@file:vendor/derivation-tech-viem-kit-1.0.0-rc.0.tgz':
-    resolution: {integrity: sha512-iMmlRZRRp4lm7dUu2vxd0Anp0K/mrMRCDsBug5bqhwaOxFGWRjzUsarXVP/AHX8C0nmV2oCv6Mt5GO3CxKROgQ==, tarball: file:vendor/derivation-tech-viem-kit-1.0.0-rc.0.tgz}
-    version: 1.0.0-rc.0
+  '@derivation-tech/viem-kit@file:vendor/derivation-tech-viem-kit-1.0.0-rc.1.tgz':
+    resolution: {integrity: sha512-HjwAoS6MOam3ctpvJyhH1b8zA76sBtzEl0bBNLxxpQrNol4++BiLQ4WR3X0Y5lu3oH2BP1FC4WxTyB+IuweJlg==, tarball: file:vendor/derivation-tech-viem-kit-1.0.0-rc.1.tgz}
+    version: 1.0.0-rc.1
     engines: {node: '>=22'}
     peerDependencies:
       '@derivation-tech/viem-ledger': ^0.2.1
@@ -3285,7 +3285,7 @@ snapshots:
   '@colors/colors@1.5.0':
     optional: true
 
-  '@derivation-tech/viem-kit@file:vendor/derivation-tech-viem-kit-1.0.0-rc.0.tgz(viem@2.58.7(typescript@7.0.2))':
+  '@derivation-tech/viem-kit@file:vendor/derivation-tech-viem-kit-1.0.0-rc.1.tgz(viem@2.58.7(typescript@7.0.2))':
     dependencies:
       viem: 2.58.7(typescript@7.0.2)
 
