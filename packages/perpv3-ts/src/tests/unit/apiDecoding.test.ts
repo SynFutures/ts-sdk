@@ -14,7 +14,6 @@ import {
     decodeQuotation,
     decodeQuotationWithSize,
 } from '../../apis/decoders';
-import { getPerpInfo } from '../../info';
 import { parseJsonPreservingLargeIntegers, toBigIntValue } from '../../apis/codecs';
 import { buildOnChainContextFromQuery } from '../../apis/utils';
 import fixture from '../fixtures/simulation-context.json';
@@ -293,47 +292,31 @@ describe('API decoding', () => {
         expect(result?.size).toBe(0n);
     });
 
-    it('uses mark price as benchmark fallback when context priceData is absent', async () => {
-        const instrument = '0x0000000000000000000000000000000000000001';
-        const expiry = 1_700_000_000;
-        const markPrice = 222n;
-
-        const snapshot = await fetchOnchainContext(instrument, expiry, {
+    it('uses one Observer response for the quoted snapshot and omits unrequested account and quote data', async () => {
+        const instrument = fixture.instrumentAddress as Address;
+        const expiry = fixture.context.amm.expiry;
+        const data = pascalCase(fixture.context) as Record<string, unknown>;
+        data.Quotation = pascalCase(createInquirePayload());
+        const config = {
             chainId: 8453,
             signer,
-            fetch: async () =>
-                Response.json({
-                    code: 0,
-                    data: {
-                        instrument: createInstrumentPayload(instrument, expiry, markPrice),
-                    },
-                }),
-        });
-
-        expect(snapshot.instrumentSetting.configAddress).toBe(getPerpInfo(8453).config);
-        expect(snapshot.priceSource).toBe('estimated');
+            fetch: async (url: URL | RequestInfo) => {
+                expect(new URL(String(url)).pathname).toBe('/v4/public/market/getOnChainContext/onChainQuery');
+                return Response.json({ code: 0, data });
+            },
+        };
+        const snapshot = await fetchOnchainContext(instrument, expiry, config);
+        expect(snapshot.quotation).toBeUndefined();
         expect(snapshot.quoteState).toBeNull();
-        expect(() => snapshot.requireQuoteState()).toThrow('not requested');
-        await expect(
-            fetchOnchainContext(
-                instrument,
-                expiry,
-                {
-                    chainId: 8453,
-                    signer,
-                    fetch: async () =>
-                        Response.json({
-                            code: 0,
-                            data: {
-                                instrument: createInstrumentPayload(instrument, expiry, markPrice),
-                            },
-                        }),
-                },
-                instrument
-            )
-        ).rejects.toThrow('quote state missing');
-        expect(snapshot.priceData.markPrice).toBe(markPrice);
-        expect(snapshot.priceData.benchmarkPrice).toBe(markPrice);
+        expect((await fetchOnchainContext(instrument, expiry, config, undefined, 1n)).quotation).toBeDefined();
+        delete data.Quotation;
+        await expect(fetchOnchainContext(instrument, expiry, config, undefined, 1n)).rejects.toThrow(
+            'Quotation missing'
+        );
+        delete data.QuoteState;
+        await expect(fetchOnchainContext(instrument, expiry, config, instrument)).rejects.toThrow(
+            'quote state missing'
+        );
     });
 
     it('decodes a market without a beacon and rejects unknown enum codes', () => {
@@ -631,7 +614,10 @@ function pascalCase(value: unknown): unknown {
 
 describe('PascalCase on-chain query decoding', () => {
     test('preserves valid zeros and snapshot values', () => {
-        const snapshot = buildOnChainContextFromQuery(pascalCase(fixture.context));
+        const snapshot = buildOnChainContextFromQuery(pascalCase(fixture.context), {
+            accountRequested: true,
+            quotationRequested: false,
+        });
         expect(snapshot.amm.liquidity).toBe(BigInt(fixture.context.amm.liquidity));
         expect(snapshot.instrumentSetting.fundingHour).toBe(0);
         expect(snapshot.portfolio.position.size).toBe(0n);
@@ -693,7 +679,9 @@ describe('PascalCase on-chain query decoding', () => {
     });
     test.each([false, 0, 'invalid'])('rejects malformed optional portfolio %s', (Portfolio) => {
         const raw = pascalCase(fixture.context) as Record<string, unknown>;
-        expect(() => buildOnChainContextFromQuery({ ...raw, Portfolio })).toThrow('Portfolio');
+        expect(() =>
+            buildOnChainContextFromQuery({ ...raw, Portfolio }, { accountRequested: true, quotationRequested: false })
+        ).toThrow('Portfolio');
     });
     test.each([null, undefined, '', 'broken', '1.5', '1e-1', '1e999999999', 1.5, Number.MAX_SAFE_INTEGER + 1])(
         'rejects invalid integer %s',

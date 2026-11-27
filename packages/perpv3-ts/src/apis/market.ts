@@ -131,7 +131,10 @@ export class MarketModule extends BaseApiModule {
             return null;
         }
 
-        return buildOnChainContextFromQuery(rawData, !!params.userAddress && params.userAddress !== zeroAddress);
+        return buildOnChainContextFromQuery(rawData, {
+            accountRequested: !!params.userAddress && params.userAddress !== zeroAddress,
+            quotationRequested: params.signedSize !== undefined,
+        });
     }
 
     /**

@@ -60,10 +60,15 @@ function optionalArray(value: unknown, label: string): unknown[] {
     return value == null ? [] : requireArray(value, label);
 }
 
-export function buildOnChainContextFromQuery(value: unknown, accountRequested?: boolean): PairSnapshot {
+export function buildOnChainContextFromQuery(
+    value: unknown,
+    { accountRequested, quotationRequested }: { accountRequested: boolean; quotationRequested: boolean }
+): PairSnapshot {
     const data = requireRecord(value, 'on-chain context');
     if (accountRequested && data.QuoteState == null)
         throw new Error('Account quote state missing from onchain context');
+    if (accountRequested && data.Portfolio == null) throw new Error('Account portfolio missing from onchain context');
+    if (quotationRequested && data.Quotation == null) throw new Error('Quotation missing from onchain context');
     const setting = normalizeSettingFromQuery(data.Setting);
     return new PairSnapshot({
         setting,
@@ -72,12 +77,9 @@ export function buildOnChainContextFromQuery(value: unknown, accountRequested?: 
         priceData: normalizePriceDataFromQuery(data.PriceData),
         spacing: normalizeSpacingFromQuery(data.Spacing),
         blockInfo: normalizeBlockInfoFromQuery(data.BlockInfo),
-        portfolio: data.Portfolio != null ? normalizePortfolioFromQuery(data.Portfolio) : PairSnapshot.emptyPortfolio(),
-        quotation: data.Quotation != null ? normalizeQuotationFromQuery(data.Quotation) : undefined,
-        quoteState:
-            accountRequested !== false && data.QuoteState != null
-                ? normalizeQuoteStateFromQuery(data.QuoteState)
-                : null,
+        portfolio: accountRequested ? normalizePortfolioFromQuery(data.Portfolio) : PairSnapshot.emptyPortfolio(),
+        quotation: quotationRequested ? normalizeQuotationFromQuery(data.Quotation) : undefined,
+        quoteState: accountRequested ? normalizeQuoteStateFromQuery(data.QuoteState) : null,
     });
 }
 

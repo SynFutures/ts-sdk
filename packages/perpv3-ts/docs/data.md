@@ -17,6 +17,11 @@ trigger fallback; it is not a successful empty book. An explicit `blockNumber` o
 reject such reads. Every level of a mined order book uses the snapshot block.
 Pending order books cannot be pinned and are rejected.
 
+API-backed `getSnapshot` uses one Observer call through `/getOnChainContext/onChainQuery`.
+Pass the signed size to include a quotation from the same block as the simulation inputs.
+The lower-level `MarketModule.fetchMarketOnChainContext` returns indexed market data. Its
+instrument height does not pin the separately fetched quotation or account state.
+
 `getSnapshot`, `getQuotation`, `inquire` and `getOrderBook` expose pair-scoped
 reads. Use the functions from `/queries` when the caller already owns the pair
 and configuration. Neither interface sends a transaction.

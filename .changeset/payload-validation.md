@@ -47,3 +47,4 @@ Reject malformed data instead of substituting defaults.
 - Malformed HTTP 200 envelopes throw. Explicit null data remains valid for nullable endpoints.
 - Trade subscriptions share a server topic across initial snapshot limits. Multichain common
   subscriptions use separate sockets to identify market-list updates without a chain ID.
+- API-backed simulation snapshots read the Observer once so quotations, prices and account state share one block.
