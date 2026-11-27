@@ -254,7 +254,8 @@ export class MarketModule extends BaseApiModule {
         const requestUrl = API_URLS.MARKET.KLINE_CHARTS;
         const requestParams = {
             chainId: params.chainId,
-            instrument: params.instrument,
+            // The candle index uses lowercase contract addresses as keys.
+            instrument: params.instrument.toLowerCase(),
             expiry: params.expiry,
             interval: params.interval,
             endTime: params.endTime,

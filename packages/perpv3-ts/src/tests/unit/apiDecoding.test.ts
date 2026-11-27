@@ -814,9 +814,10 @@ describe('API request contracts', () => {
         const { httpClient, urls } = requestedUrls(null);
         const market = new MarketModule(httpClient, signer);
         await market.fetchMarketPairInfo({ chainId: 8453, address: instrument, expiry: 4294967295 });
+        const checksumAddress = '0x04d72Fb4803b4E02F14971e5bD092375Eb330749';
         await market.fetchFuturesPairKlineChart({
             chainId: 8453,
-            instrument,
+            instrument: checksumAddress,
             expiry: 4294967295,
             interval: KlineInterval.HOUR,
             endTime: 1_790_000_000,
@@ -825,7 +826,7 @@ describe('API request contracts', () => {
 
         expect(urls()).toEqual([
             `/v4/public/market/marketPairInfo?chainId=8453&expiry=4294967295&instrument=${instrument}`,
-            `/v4/public/market/kline?chainId=8453&endTime=1790000000&expiry=4294967295&instrument=${instrument}&interval=1h&limit=1000`,
+            `/v4/public/market/kline?chainId=8453&endTime=1790000000&expiry=4294967295&instrument=${checksumAddress.toLowerCase()}&interval=1h&limit=1000`,
             `/v4/public/market/portfolio?chainId=8453&userAddress=${instrument}`,
         ]);
     });
