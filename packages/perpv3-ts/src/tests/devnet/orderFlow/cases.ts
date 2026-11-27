@@ -624,7 +624,7 @@ export async function runTradePullsEoaMarginWithMultipleRanges(): Promise<void> 
         );
 
         const balanceBefore = await getQuoteBalance(traderWallet.account.address);
-        const reserveBefore = before.quoteState.reserve;
+        const reserveBefore = before.requireQuoteState().reserve;
 
         if (useReserve) {
             const depositAmount = tradeParam.amount / QUOTE_SCALER + 1n;
@@ -662,9 +662,9 @@ export async function runTradePullsEoaMarginWithMultipleRanges(): Promise<void> 
         const balanceAfter = await getQuoteBalance(traderWallet.account.address);
         if (useReserve) {
             expect(balanceAfter).toBe(afterDepositBalance);
-            expect(after.quoteState.reserve < afterDepositSnapshot.quoteState.reserve).toBe(true);
+            expect(after.requireQuoteState().reserve < afterDepositSnapshot.requireQuoteState().reserve).toBe(true);
         } else {
-            expect(after.quoteState.reserve).toBe(0n);
+            expect(after.requireQuoteState().reserve).toBe(0n);
             expect(balanceAfter < balanceBefore).toBe(true);
         }
     };

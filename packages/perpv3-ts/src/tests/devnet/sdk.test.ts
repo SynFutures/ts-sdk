@@ -67,7 +67,7 @@ describe('devnet SDK (ported from v3-contracts hardhat sdk_test)', () => {
 
         const after = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, traderAddress);
 
-        expect(after.quoteState.reserve - before.quoteState.reserve).toBe(depositAmount);
+        expect(after.requireQuoteState().reserve - before.requireQuoteState().reserve).toBe(depositAmount);
     });
 
     it('add/remove liquidity works via AddInput/RemoveInput + calldata encoding', async () => {

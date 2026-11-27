@@ -307,6 +307,23 @@ describe('API decoding', () => {
         });
 
         expect(snapshot.instrumentSetting.configAddress).toBe(getPerpInfo(8453).config);
+        expect(snapshot.priceSource).toBe('estimated');
+        expect(snapshot.quoteState).toBeNull();
+        expect(() => snapshot.requireQuoteState()).toThrow('not requested');
+        await expect(
+            fetchOnchainContext(
+                instrument,
+                expiry,
+                {
+                    chainId: 8453,
+                    signer,
+                    httpClient: createHttpClient({
+                        instrument: createInstrumentPayload(instrument, expiry, markPrice),
+                    }),
+                },
+                instrument
+            )
+        ).rejects.toThrow('quote state missing');
         expect(snapshot.priceData.markPrice).toBe(markPrice);
         expect(snapshot.priceData.benchmarkPrice).toBe(markPrice);
     });

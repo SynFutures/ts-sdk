@@ -83,7 +83,7 @@ function buildFixtureContext(customize?: (context: OnchainContext) => void): {
     const portfolio = fixtureSnapshot.portfolio
         ? structuredClone(fixtureSnapshot.portfolio)
         : structuredClone(EMPTY_PORTFOLIO);
-    const quoteState = structuredClone(fixtureSnapshot.quoteState);
+    const quoteState = structuredClone(fixtureSnapshot.requireQuoteState());
     const quotation = fixtureSnapshot.quotation ? structuredClone(fixtureSnapshot.quotation) : undefined;
     const condition = inst.condition;
     const priceData = structuredClone(fixtureSnapshot.priceData);

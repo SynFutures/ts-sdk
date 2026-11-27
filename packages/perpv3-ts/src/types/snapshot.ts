@@ -39,6 +39,11 @@ import { formatExpiryLabel } from '../utils/expiry';
  *
  * This class wraps the raw `OnchainContext` contract struct with computed properties and methods.
  */
+type SnapshotInput = Omit<OnchainContext, 'quoteState'> & {
+    quoteState: QuoteState | null;
+    priceSource?: 'reported' | 'estimated';
+};
+
 export class PairSnapshot {
     public readonly instrumentAddress: Address;
     public readonly expiry: number;
@@ -47,13 +52,15 @@ export class PairSnapshot {
     public readonly amm: Amm;
     public readonly priceData: PriceData;
     public readonly portfolio: Portfolio;
-    public readonly quoteState: QuoteState;
+    public readonly quoteState: QuoteState | null;
+    public readonly priceSource: 'reported' | 'estimated';
     public readonly quotation?: Quotation;
 
-    constructor(options: OnchainContext) {
+    constructor(options: SnapshotInput) {
         this.blockInfo = options.blockInfo;
         this.amm = options.amm;
         this.priceData = options.priceData;
+        this.priceSource = options.priceSource ?? 'reported';
         this.portfolio = options.portfolio;
         this.quoteState = options.quoteState;
         // Extract pair identification from priceData and amm
@@ -68,6 +75,11 @@ export class PairSnapshot {
             options.spacing.range
         );
         this.quotation = options.quotation;
+    }
+
+    requireQuoteState(): QuoteState {
+        if (!this.quoteState) throw Errors.apiRequestFailed('Account quote state was not requested');
+        return this.quoteState;
     }
 
     /**
@@ -101,7 +113,7 @@ export class PairSnapshot {
      * const updatedSnapshot = snapshot.with({ amm: updatedAmm });
      * ```
      */
-    with(overrides: Partial<OnchainContext>): PairSnapshot {
+    with(overrides: Partial<SnapshotInput>): PairSnapshot {
         // Reconstruct setting, condition, and spacing from instrumentSetting if not overridden
         const setting = overrides.setting ?? {
             symbol: this.instrumentSetting.symbol,
@@ -133,7 +145,8 @@ export class PairSnapshot {
             spacing,
             blockInfo: overrides.blockInfo ?? this.blockInfo,
             portfolio: overrides.portfolio ?? this.portfolio,
-            quoteState: overrides.quoteState ?? this.quoteState,
+            quoteState: overrides.quoteState === undefined ? this.quoteState : overrides.quoteState,
+            priceSource: overrides.priceSource ?? this.priceSource,
             quotation,
         });
     }
@@ -364,9 +377,7 @@ export class PairSnapshot {
      *          - `marginGap`: Additional margin needed (0 if sufficient)
      */
     checkMargin(marginRequired: bigint): { allowanceGap: bigint; marginGap: bigint } {
-        const reserve = this.quoteState.reserve;
-        const balance = this.quoteState.balance;
-        const allowance = this.quoteState.allowance;
+        const { reserve, balance, allowance } = this.requireQuoteState();
 
         let allowanceGap = 0n;
         let marginGap = 0n;

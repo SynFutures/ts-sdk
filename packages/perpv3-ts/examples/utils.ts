@@ -200,7 +200,7 @@ export async function ensureMarginAndAllowance(
         const quoteAddress = snapshot.instrumentSetting.quoteAddress;
         const gateAddress = snapshot.instrumentSetting.gateAddress;
         // ERC20 `approve` sets the allowance value (not an additive increase), so we approve the target allowance.
-        const requiredAllowance = snapshot.quoteState.allowance + allowanceGap;
+        const requiredAllowance = snapshot.requireQuoteState().allowance + allowanceGap;
         assertTransactionSuccess(
             await ERC20.approve(publicClient, walletClient, kit, quoteAddress, gateAddress, requiredAllowance)
         );

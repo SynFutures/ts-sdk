@@ -121,20 +121,21 @@ export async function fetchOnchainContext(
         quotation = fetchedQuotation;
     }
 
-    // Always provide quoteState (required field)
-    const quoteState: QuoteState = onChainContextResponse.quoteState
-        ? buildQuoteStateFromApi(onChainContextResponse.quoteState)
-        : PairSnapshot.emptyQuoteState(
-              instrumentFromApi.quote.address as Address,
-              instrumentFromApi.quote.decimals,
-              instrumentFromApi.quote.symbol
-          );
+    const accountRequested = traderAddress !== undefined && traderAddress !== zeroAddress;
+    if (accountRequested && !onChainContextResponse.quoteState) {
+        throw Errors.apiRequestFailed('Account quote state missing from onchain context');
+    }
+    const quoteState =
+        accountRequested && onChainContextResponse.quoteState
+            ? buildQuoteStateFromApi(onChainContextResponse.quoteState)
+            : null;
 
     return new PairSnapshot({
         setting,
         condition: instrumentFromApi.condition,
         amm,
         priceData,
+        priceSource: onChainContextResponse.priceData ? 'reported' : 'estimated',
         spacing,
         blockInfo: instrumentFromApi.blockInfo,
         portfolio,

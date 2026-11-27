@@ -141,7 +141,7 @@ export async function fetchOnchainContext(
         blockInfo: ctx.blockInfo,
         portfolio,
         quotation: signedSize !== undefined ? ctx.quotation : undefined,
-        quoteState,
+        quoteState: includePortfolio ? quoteState : null,
     });
 }
 
