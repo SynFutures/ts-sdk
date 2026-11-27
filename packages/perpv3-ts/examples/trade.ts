@@ -287,13 +287,13 @@ export async function demoAdjustLeverage(context: DemoContext): Promise<void> {
     console.log(`ℹ️ Target leverage: ${formatWad(targetLeverage)}x`);
 
     // Create AdjustInput and simulate
-    const targetLeverageUserSetting = new UserSetting(
-        DefaultUserSetting.deadlineOffset,
-        DefaultUserSetting.slippage,
-        targetLeverage,
-        DefaultUserSetting.markPriceBufferInBps,
-        DefaultUserSetting.strictMode
-    );
+    const targetLeverageUserSetting = new UserSetting({
+        deadlineSeconds: DefaultUserSetting.deadlineOffset,
+        slippageBps: DefaultUserSetting.slippage,
+        leverageWad: targetLeverage,
+        markPriceBufferInBps: DefaultUserSetting.markPriceBufferInBps,
+        strictMode: DefaultUserSetting.strictMode,
+    });
     const adjustInput = new AdjustInput(walletAddress);
 
     const [adjustParam, simulation] = adjustInput.simulate(snapshot, targetLeverageUserSetting);

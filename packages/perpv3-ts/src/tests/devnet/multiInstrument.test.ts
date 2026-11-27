@@ -24,7 +24,7 @@ const { waitForTx, transferQuote, approveQuote, depositQuote } = createDevnetHel
 const QUOTE_UNIT = 10n ** BigInt(defaultQuote.decimals);
 
 function createUserSetting() {
-    return new UserSetting(3600, 50, 4n * WAD);
+    return new UserSetting({ deadlineSeconds: 3600, slippageBps: 50, leverageWad: 4n * WAD });
 }
 
 function uniqueMarketTypes(instruments: typeof ctx.manifest.instruments): string[] {

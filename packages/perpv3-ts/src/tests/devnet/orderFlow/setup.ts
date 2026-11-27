@@ -22,5 +22,5 @@ export const { createUserWallet, waitForTx, transferQuote, approveQuote, deposit
     createDevnetHelpers(ctx, QUOTE_TOKEN);
 
 export function createUserSetting() {
-    return new UserSetting(3600, DEFAULT_SLIPPAGE_BPS, DEFAULT_LEVERAGE);
+    return new UserSetting({ deadlineSeconds: 3600, slippageBps: DEFAULT_SLIPPAGE_BPS, leverageWad: DEFAULT_LEVERAGE });
 }

@@ -33,7 +33,12 @@ import {
     formatWad,
 } from '@synfutures/perpv3-ts/utils';
 
-export const DefaultUserSetting = new UserSetting(10, 10, 3n * WAD, 1); // 10 seconds deadline, 0.1% slippage tolerance, 3x leverage, 1bps margin buffer
+export const DefaultUserSetting = new UserSetting({
+    deadlineSeconds: 10,
+    slippageBps: 10,
+    leverageWad: 3n * WAD,
+    markPriceBufferInBps: 1,
+}); // 10 seconds deadline, 0.1% slippage tolerance, 3x leverage, 1bps margin buffer
 
 export async function prepare(chainName: string): Promise<{
     kit: ChainKit;

@@ -255,7 +255,11 @@ const feeRebateTests = [
 // Helper function to convert PlaceParam to PlaceInput
 function placeParamToInput(
     placeParam: PlaceParam,
-    userSetting: UserSetting = new UserSetting(DEFAULT_DEADLINE, DEFAULT_USER_SLIPPAGE, 3n * WAD)
+    userSetting: UserSetting = new UserSetting({
+        deadlineSeconds: DEFAULT_DEADLINE,
+        slippageBps: DEFAULT_USER_SLIPPAGE,
+        leverageWad: 3n * WAD,
+    })
 ): PlaceInput {
     const baseQuantity = abs(placeParam.size);
     const side = placeParam.size >= 0n ? Side.LONG : Side.SHORT;
@@ -268,7 +272,12 @@ describe('simulatePlace', () => {
             test(`should handle ${testCase.name} - case ${index + 1}`, () => {
                 const { context, instrumentSetting } = buildFixtureContext();
                 // Use markPriceBufferInBps: 0 to match test expectations (no buffer)
-                const userSetting = new UserSetting(testCase.param.deadline, DEFAULT_USER_SLIPPAGE, 3n * WAD, 0);
+                const userSetting = new UserSetting({
+                    deadlineSeconds: testCase.param.deadline,
+                    slippageBps: DEFAULT_USER_SLIPPAGE,
+                    leverageWad: 3n * WAD,
+                    markPriceBufferInBps: 0,
+                });
                 const input = placeParamToInput(testCase.param, userSetting);
 
                 const [placeParam, simulation] = input.simulate(context, userSetting);
@@ -305,9 +314,19 @@ describe('simulatePlace', () => {
                     // For this test, use a leverage that exceeds maxLeverage
                     // maxLeverage = 10000 / IMR, so if IMR = 5000, maxLeverage = 2x
                     // Use 3x leverage which exceeds 2x
-                    userSetting = new UserSetting(testCase.param.deadline, DEFAULT_USER_SLIPPAGE, 3n * WAD, 0);
+                    userSetting = new UserSetting({
+                        deadlineSeconds: testCase.param.deadline,
+                        slippageBps: DEFAULT_USER_SLIPPAGE,
+                        leverageWad: 3n * WAD,
+                        markPriceBufferInBps: 0,
+                    });
                 } else {
-                    userSetting = new UserSetting(testCase.param.deadline, DEFAULT_USER_SLIPPAGE, 3n * WAD, 0);
+                    userSetting = new UserSetting({
+                        deadlineSeconds: testCase.param.deadline,
+                        slippageBps: DEFAULT_USER_SLIPPAGE,
+                        leverageWad: 3n * WAD,
+                        markPriceBufferInBps: 0,
+                    });
                 }
 
                 // Zero size validation now happens in constructor
@@ -339,7 +358,12 @@ describe('simulatePlace', () => {
                 };
 
                 // Use markPriceBufferInBps: 0 to match test expectations (no buffer)
-                const userSetting = new UserSetting(placeParam.deadline, DEFAULT_USER_SLIPPAGE, 3n * WAD, 0);
+                const userSetting = new UserSetting({
+                    deadlineSeconds: placeParam.deadline,
+                    slippageBps: DEFAULT_USER_SLIPPAGE,
+                    leverageWad: 3n * WAD,
+                    markPriceBufferInBps: 0,
+                });
                 const input = placeParamToInput(placeParam, userSetting);
 
                 const [simulatedPlaceParam, simulation] = input.simulate(context, userSetting);
@@ -367,12 +391,12 @@ describe('ScaledLimitOrderInput.simulate', () => {
             FIXTURE_TICK - ORDER_TICK_OFFSET * 2,
             FIXTURE_TICK - ORDER_TICK_OFFSET,
         ];
-        const userSetting = new UserSetting(300, 50, 3n * WAD);
+        const userSetting = new UserSetting({ deadlineSeconds: 300, slippageBps: 50, leverageWad: 3n * WAD });
         const input = new ScaledLimitOrderInput(
             fixtureTraderAddress,
             Side.LONG,
             9n * BASE,
-            scaledTicks,
+            { ticks: scaledTicks },
             BatchOrderSizeDistribution.FLAT
         );
         const result = input.simulate(onchainContext, userSetting);
@@ -404,7 +428,7 @@ describe('CrossLimitOrderInput.simulate', () => {
     it('splits market and limit legs and returns aggregates', () => {
         const { onchainContext } = buildContext();
         const targetTick = FIXTURE_TICK + ORDER_TICK_OFFSET;
-        const userSetting = new UserSetting(300, 50, 3n * WAD);
+        const userSetting = new UserSetting({ deadlineSeconds: 300, slippageBps: 50, leverageWad: 3n * WAD });
         const input = new CrossLimitOrderInput(fixtureTraderAddress, Side.LONG, 5n * BASE, targetTick);
         const swapQuote = new QuotationWithSize(2n * BASE, {
             benchmark: 0n,
@@ -464,7 +488,7 @@ describe('CrossLimitOrderInput.simulate', () => {
         const { onchainContext } = buildContext((ctx) => {
             ctx.spacing.order = 10;
         });
-        const userSetting = new UserSetting(300, 50, 3n * WAD);
+        const userSetting = new UserSetting({ deadlineSeconds: 300, slippageBps: 50, leverageWad: 3n * WAD });
         const targetTick = FIXTURE_TICK + 7; // not aligned to orderSpacing=10
         const input = new CrossLimitOrderInput(fixtureTraderAddress, Side.LONG, 5n * BASE, targetTick);
 
@@ -508,7 +532,7 @@ describe('CrossLimitOrderInput.simulate', () => {
             const farPrice = (ctx.priceData.markPrice * 103n) / 100n; // 3% away from mark (IMR=1%)
             ctx.amm.sqrtPX96 = wadToSqrtX96(farPrice);
         });
-        const userSetting = new UserSetting(300, 50, 3n * WAD);
+        const userSetting = new UserSetting({ deadlineSeconds: 300, slippageBps: 50, leverageWad: 3n * WAD });
         const targetTick = FIXTURE_TICK + ORDER_TICK_OFFSET;
         const input = new CrossLimitOrderInput(fixtureTraderAddress, Side.LONG, 5n * BASE, targetTick);
 

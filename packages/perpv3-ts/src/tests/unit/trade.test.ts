@@ -18,11 +18,11 @@ function tradeInputs(scenario: (typeof scenarios.trades)[number]) {
             margin
         ),
         quotation: new QuotationWithSize(signedSize, parseQuotation(scenario.quotation)),
-        settings: new UserSetting(
-            input.userSetting.deadline,
-            input.userSetting.slippage,
-            input.targetLeverage === undefined ? 3n * WAD : BigInt(input.targetLeverage)
-        ),
+        settings: new UserSetting({
+            deadlineSeconds: input.userSetting.deadline,
+            slippageBps: input.userSetting.slippage,
+            leverageWad: input.targetLeverage === undefined ? 3n * WAD : BigInt(input.targetLeverage),
+        }),
     };
 }
 
@@ -52,7 +52,11 @@ describe('trade simulations with offline numerical fixtures', () => {
         const { input, context, expected } = scenarios.marginAdjustment;
         const snapshot = parseOnchainContext(context);
         const adjustment = new AdjustInput(input.traderAddress as Address, BigInt(input.amount), input.transferIn);
-        const settings = new UserSetting(input.userSetting.deadline, input.userSetting.slippage, 3n * WAD);
+        const settings = new UserSetting({
+            deadlineSeconds: input.userSetting.deadline,
+            slippageBps: input.userSetting.slippage,
+            leverageWad: 3n * WAD,
+        });
         const [params, result] = adjustment.simulate(snapshot, settings);
 
         expect(params.net).toBe(BigInt(expected.net));

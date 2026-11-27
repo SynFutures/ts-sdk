@@ -21,7 +21,11 @@ const traderAddress = '0x0000000000000000000000000000000000000022' as const;
 const routerAddress = '0x0000000000000000000000000000000000000099' as const;
 const subAccountAddress = '0x0000000000000000000000000000000000000100' as const;
 const now = 1_700_000_000;
-const userSetting = new UserSetting(3600, 100, 3_000_000_000_000_000_000n);
+const userSetting = new UserSetting({
+    deadlineSeconds: 3600,
+    slippageBps: 100,
+    leverageWad: 3_000_000_000_000_000_000n,
+});
 const deadline = now + 3600;
 const decodeInstrument = (data: Hex) => decodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, data });
 const decodeRouter = (data: Hex) => decodeFunctionData({ abi: CURRENT_GELATO_RELAY_ROUTER_ABI, data });
@@ -263,7 +267,7 @@ test.each([0, -1, 1.5, 9, NaN, Infinity])('rejects invalid cancel batch size %s 
                 instrumentAddress,
                 expiry: 1,
                 ticks: [1],
-                userSetting: new UserSetting(60, 50, 3n * 10n ** 18n),
+                userSetting: new UserSetting({ deadlineSeconds: 60, slippageBps: 50, leverageWad: 3n * 10n ** 18n }),
             },
             { maxCancelCount }
         )

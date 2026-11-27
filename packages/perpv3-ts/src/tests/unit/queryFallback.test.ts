@@ -152,7 +152,12 @@ function buildMockRpcConfig(instrument: Address, expiry: number): RpcConfig {
 }
 
 describe('PerpClient fallback (API -> rpcFallback)', () => {
-    const userSetting = new UserSetting(10, 10, 1n * WAD, 1);
+    const userSetting = new UserSetting({
+        deadlineSeconds: 10,
+        slippageBps: 10,
+        leverageWad: 1n * WAD,
+        markPriceBufferInBps: 1,
+    });
 
     test('isolates default WebSockets and shares only an explicitly supplied client', () => {
         const config = { chainId: CHAIN_ID };

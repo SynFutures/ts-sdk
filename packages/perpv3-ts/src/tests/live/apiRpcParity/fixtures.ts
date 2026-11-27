@@ -11,7 +11,13 @@ import { isRecord } from '../../helpers/record';
 import type { BaseScenario, RawUserSetting, Scenario, ScenarioType } from './types';
 
 export function buildBaseUserSetting(raw: RawUserSetting): UserSetting {
-    return new UserSetting(raw.deadline, raw.slippage, 3n * WAD, raw.markPriceBufferInBps ?? 0, raw.strictMode);
+    return new UserSetting({
+        deadlineSeconds: raw.deadline,
+        slippageBps: raw.slippage,
+        leverageWad: 3n * WAD,
+        markPriceBufferInBps: raw.markPriceBufferInBps ?? 0,
+        strictMode: raw.strictMode,
+    });
 }
 
 export function createTestApiSigner(): ApiSigner {

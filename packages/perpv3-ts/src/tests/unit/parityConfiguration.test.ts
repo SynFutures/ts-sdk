@@ -33,7 +33,13 @@ test('marketByLeverage applies the scenario leverage instead of the base default
         userSetting: { deadline: 3600, slippage: 0 },
         input: { baseQuantity: fixture.input.baseQuantity, side: 'LONG', targetLeverage: '3000000000000000000' },
     };
-    expect(simulateScenario(scenario, snapshot, new UserSetting(3600, 0, 5n * 10n ** 18n))).toMatchObject([
+    expect(
+        simulateScenario(
+            scenario,
+            snapshot,
+            new UserSetting({ deadlineSeconds: 3600, slippageBps: 0, leverageWad: 5n * 10n ** 18n })
+        )
+    ).toMatchObject([
         { amount: BigInt(fixture.expected.amount) },
         { postPosition: { balance: BigInt(fixture.expected.simulation.postPosition.balance) } },
     ]);

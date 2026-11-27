@@ -149,7 +149,7 @@ describe('simulateAdd', () => {
             };
 
             // Convert string values to proper types for the param object
-            const userSetting = new UserSetting(0, 0, 3n * WAD);
+            const userSetting = new UserSetting({ deadlineSeconds: 0, slippageBps: 0, leverageWad: 3n * WAD });
             const addInput = new AddInput(
                 fixtureTraderAddress,
                 BigInt(input.param.margin),
@@ -300,7 +300,7 @@ describe('simulateAdd', () => {
             },
         };
 
-        const userSetting = new UserSetting(0, 0, 3n * WAD);
+        const userSetting = new UserSetting({ deadlineSeconds: 0, slippageBps: 0, leverageWad: 3n * WAD });
         const addInput = new AddInput(
             fixtureTraderAddress,
             BigInt(input.param.margin),
@@ -345,11 +345,11 @@ describe('simulateAdd', () => {
 // ============================================================================
 
 // Mock dependencies
-const fixtureUserSetting = new UserSetting(
-    addFixtureCase.input.param.userSetting.deadline,
-    addFixtureCase.input.param.userSetting.slippage,
-    3n * WAD
-);
+const fixtureUserSetting = new UserSetting({
+    deadlineSeconds: addFixtureCase.input.param.userSetting.deadline,
+    slippageBps: addFixtureCase.input.param.userSetting.slippage,
+    leverageWad: 3n * WAD,
+});
 
 const fixtureRemoveInput = new RemoveInput(fixtureTraderAddress, fixtureRangeTicks.lower, fixtureRangeTicks.upper);
 const fixtureRangeKey = Range.packKey(fixtureRemoveInput.tickLower, fixtureRemoveInput.tickUpper);
@@ -435,7 +435,11 @@ describe('simulateRemove', () => {
         });
 
         it('should handle different input values', () => {
-            const differentUserSetting = new UserSetting(3600, 2000, 3n * WAD);
+            const differentUserSetting = new UserSetting({
+                deadlineSeconds: 3600,
+                slippageBps: 2000,
+                leverageWad: 3n * WAD,
+            });
             const differentRemoveInput = new RemoveInput(
                 fixtureTraderAddress,
                 fixtureRemoveInput.tickLower,
@@ -457,7 +461,11 @@ describe('simulateRemove', () => {
         });
 
         it('should handle zero slippage', () => {
-            const userSettingWithZeroSlippage = new UserSetting(3600, 0, 3n * WAD);
+            const userSettingWithZeroSlippage = new UserSetting({
+                deadlineSeconds: 3600,
+                slippageBps: 0,
+                leverageWad: 3n * WAD,
+            });
             const removeInputWithZeroSlippage = new RemoveInput(
                 fixtureTraderAddress,
                 fixtureRangeTicks.lower,
@@ -470,7 +478,11 @@ describe('simulateRemove', () => {
         });
 
         it('should handle maximum slippage', () => {
-            const userSettingWithMaxSlippage = new UserSetting(3600, 10000, 3n * WAD); // 100% slippage
+            const userSettingWithMaxSlippage = new UserSetting({
+                deadlineSeconds: 3600,
+                slippageBps: 10000,
+                leverageWad: 3n * WAD,
+            }); // 100% slippage
             const removeInputWithMaxSlippage = new RemoveInput(
                 fixtureTraderAddress,
                 fixtureRangeTicks.lower,
@@ -623,7 +635,7 @@ describe('simulateRemove', () => {
     });
 
     it.each([0, 100, 500])('applies slippage %i and deadline to remove calldata', (slippage) => {
-        const settings = new UserSetting(1800, slippage, 3n * WAD);
+        const settings = new UserSetting({ deadlineSeconds: 1800, slippageBps: slippage, leverageWad: 3n * WAD });
         const [param, result] = fixtureRemoveInput.simulate(fixtureOnchainContext, settings);
         expect(param.expiry).toBe(fixtureOnchainContext.expiry);
         expect(param.deadline).toBe(fixtureBlockInfo.timestamp + 1800);
@@ -632,7 +644,7 @@ describe('simulateRemove', () => {
     });
 
     it('allows add liquidity when AMM is dormant by deriving init price', () => {
-        const userSetting = new UserSetting(0, 0, 3n * WAD);
+        const userSetting = new UserSetting({ deadlineSeconds: 0, slippageBps: 0, leverageWad: 3n * WAD });
         const addInput = new AddInput(fixtureTraderAddress, 1000n * WAD, -1000, 1000);
 
         const spotPrice = tickToWad(0);

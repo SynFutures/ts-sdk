@@ -259,7 +259,7 @@ describe('devnet dated futures integration (ported from v3-contracts hardhat int
                 await depositQuote(wallet, depositAmount);
             }
 
-            const userSetting = new UserSetting(3600, 50, 4n * WAD);
+            const userSetting = new UserSetting({ deadlineSeconds: 3600, slippageBps: 50, leverageWad: 4n * WAD });
 
             const initialAmm = await fetchOnchainContext(
                 INSTRUMENT_ADDRESS,

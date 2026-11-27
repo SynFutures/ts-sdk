@@ -8,19 +8,22 @@ import { PlaceInput, type PlaceSimulation } from './order';
 // Scaled Limit Order
 // ============================================================================
 
+export type ScaledOrderLevels =
+    { ticks: readonly number[]; pricesWad?: never } | { pricesWad: readonly bigint[]; ticks?: never };
+
 export class ScaledLimitOrderInput {
     public readonly traderAddress: Address;
 
     public readonly side: Side;
     public readonly baseQuantity: bigint;
-    public readonly priceInfo: (bigint | number)[];
+    public readonly ticks: readonly number[];
     public readonly sizeDistribution: BatchOrderSizeDistribution;
 
     constructor(
         traderAddress: Address,
         side: Side,
         baseQuantity: bigint,
-        priceInfo: (bigint | number)[],
+        levels: ScaledOrderLevels,
         sizeDistribution: BatchOrderSizeDistribution
     ) {
         if (baseQuantity <= 0n) {
@@ -28,18 +31,20 @@ export class ScaledLimitOrderInput {
                 baseQuantity: baseQuantity.toString(),
             });
         }
-        if (priceInfo.length < MIN_BATCH_ORDER_COUNT || priceInfo.length > MAX_BATCH_ORDER_COUNT) {
+        if (levels.ticks && levels.pricesWad) throw Errors.encoding('Supply either ticks or pricesWad');
+        const ticks = levels.ticks ?? levels.pricesWad.map(wadToTick);
+        if (ticks.length < MIN_BATCH_ORDER_COUNT || ticks.length > MAX_BATCH_ORDER_COUNT) {
             throw Errors.validation(
                 `priceInfo length must be between ${MIN_BATCH_ORDER_COUNT} and ${MAX_BATCH_ORDER_COUNT}`,
                 ErrorCode.INVALID_PARAM,
-                { length: priceInfo.length }
+                { length: ticks.length }
             );
         }
 
         this.traderAddress = traderAddress;
         this.side = side;
         this.baseQuantity = baseQuantity;
-        this.priceInfo = priceInfo;
+        this.ticks = [...ticks];
         this.sizeDistribution = sizeDistribution;
     }
 
@@ -49,11 +54,7 @@ export class ScaledLimitOrderInput {
         // Validate leverage
         userSetting.validateLeverage(instrumentSetting.maxLeverage);
 
-        // Align ticks from priceInfo
-        const alignedTicks = this.priceInfo.map((price) => {
-            const rawTick = typeof price === 'number' ? price : wadToTick(price);
-            return instrumentSetting.alignOrderTick(rawTick);
-        });
+        const alignedTicks = this.ticks.map((tick) => instrumentSetting.alignOrderTick(tick));
 
         // Calculate minOrderSizes directly using tickToWad for efficiency
         const minOrderSizes = alignedTicks.map((tick) => wdivUp(instrumentSetting.minOrderValue, tickToWad(tick)));

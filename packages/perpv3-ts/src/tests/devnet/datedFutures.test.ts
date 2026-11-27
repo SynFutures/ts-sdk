@@ -115,7 +115,7 @@ async function depositQuote(wallet: ReturnType<typeof createUserWallet>, amount:
 }
 
 function createUserSetting() {
-    return new UserSetting(3600, 50, 4n * WAD);
+    return new UserSetting({ deadlineSeconds: 3600, slippageBps: 50, leverageWad: 4n * WAD });
 }
 
 describe('devnet dated futures', () => {

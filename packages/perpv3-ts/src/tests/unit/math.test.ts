@@ -291,7 +291,7 @@ describe('math.ts', () => {
         });
 
         test('getLimitTickForTrade operations', () => {
-            const userSetting = new UserSetting(600, 50, 3n * WAD);
+            const userSetting = new UserSetting({ deadlineSeconds: 600, slippageBps: 50, leverageWad: 3n * WAD });
             const tradePrice = tickToWad(250);
             const longLimit = userSetting.getTradeLimitTick(tradePrice, Side.LONG);
             const shortLimit = userSetting.getTradeLimitTick(tradePrice, Side.SHORT);

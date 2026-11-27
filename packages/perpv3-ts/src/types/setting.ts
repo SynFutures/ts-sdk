@@ -32,21 +32,27 @@ export class UserSetting {
     public readonly markPriceBufferInBps: number;
     public readonly strictMode?: boolean;
 
-    constructor(
-        deadline: number,
-        slippage: number,
-        leverage: bigint,
-        markPriceBufferInBps: number = 0,
-        strictMode?: boolean
-    ) {
+    constructor({
+        deadlineSeconds,
+        slippageBps,
+        leverageWad,
+        markPriceBufferInBps = 0,
+        strictMode,
+    }: {
+        deadlineSeconds: number;
+        slippageBps: number;
+        leverageWad: bigint;
+        markPriceBufferInBps?: number;
+        strictMode?: boolean;
+    }) {
         // Validate leverage is positive
-        if (leverage <= 0n) {
-            throw Errors.invalidLeverage(leverage);
+        if (leverageWad <= 0n) {
+            throw Errors.invalidLeverage(leverageWad);
         }
 
-        this.deadlineSeconds = deadline;
-        this.slippage = slippage;
-        this.leverage = leverage;
+        this.deadlineSeconds = deadlineSeconds;
+        this.slippage = slippageBps;
+        this.leverage = leverageWad;
         this.markPriceBufferInBps = markPriceBufferInBps;
         this.strictMode = strictMode;
     }

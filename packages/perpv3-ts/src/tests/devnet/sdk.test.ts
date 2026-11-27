@@ -34,7 +34,7 @@ const DEFAULT_SLIPPAGE_BPS = 50;
 const DEFAULT_LEVERAGE = 4n * WAD;
 
 function createUserSetting() {
-    return new UserSetting(3600, DEFAULT_SLIPPAGE_BPS, DEFAULT_LEVERAGE);
+    return new UserSetting({ deadlineSeconds: 3600, slippageBps: DEFAULT_SLIPPAGE_BPS, leverageWad: DEFAULT_LEVERAGE });
 }
 
 describe('devnet SDK (ported from v3-contracts hardhat sdk_test)', () => {

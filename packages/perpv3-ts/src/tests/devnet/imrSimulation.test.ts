@@ -158,7 +158,7 @@ describe('devnet IMR simulation (ported from v3-contracts hardhat imrSimulation.
         const tickUpper = lpBeforeAdd.instrumentSetting.alignRangeTickUpper(lpBeforeAdd.amm.tick + alpha1_1Delta);
 
         const lpInitialMargin = 100_000n * WAD;
-        const addUserSetting = new UserSetting(3600, 50, 2n * WAD);
+        const addUserSetting = new UserSetting({ deadlineSeconds: 3600, slippageBps: 50, leverageWad: 2n * WAD });
         const [addParam, addSim] = new AddInput(
             lpWallet.account.address,
             lpInitialMargin,
@@ -198,7 +198,7 @@ describe('devnet IMR simulation (ported from v3-contracts hardhat imrSimulation.
 
         const leverage = 19n * WAD;
         expect(attackerBeforeTrade.instrumentSetting.maxLeverage >= leverage).toBe(true);
-        const tradeUserSetting = new UserSetting(3600, 50, leverage);
+        const tradeUserSetting = new UserSetting({ deadlineSeconds: 3600, slippageBps: 50, leverageWad: leverage });
 
         const [tradeParam] = new TradeInput(
             attackerWallet.account.address,
@@ -295,7 +295,7 @@ describe('devnet IMR simulation (ported from v3-contracts hardhat imrSimulation.
         const tickUpper = lpBeforeAdd.instrumentSetting.alignRangeTickUpper(lpBeforeAdd.amm.tick + alpha1_1Delta);
 
         const lpInitialMargin = 100_000n * WAD;
-        const addUserSetting = new UserSetting(3600, 50, 2n * WAD);
+        const addUserSetting = new UserSetting({ deadlineSeconds: 3600, slippageBps: 50, leverageWad: 2n * WAD });
         const [addParam, addSim] = new AddInput(
             lpWallet.account.address,
             lpInitialMargin,
@@ -334,7 +334,7 @@ describe('devnet IMR simulation (ported from v3-contracts hardhat imrSimulation.
 
         const leverage = 19n * WAD;
         expect(attackerBeforeTrade.instrumentSetting.maxLeverage >= leverage).toBe(true);
-        const tradeUserSetting = new UserSetting(3600, 50, leverage);
+        const tradeUserSetting = new UserSetting({ deadlineSeconds: 3600, slippageBps: 50, leverageWad: leverage });
 
         const [tradeParam] = new TradeInput(
             attackerWallet.account.address,

@@ -363,7 +363,7 @@ export async function demoScaledLimitOrder(context: DemoContext): Promise<void> 
         walletAddress,
         Side.LONG,
         baseQuantity,
-        priceLevels,
+        { ticks: priceLevels },
         BatchOrderSizeDistribution.FLAT
     );
 

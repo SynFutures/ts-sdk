@@ -54,7 +54,13 @@ export function simulateScenario(scenario: Scenario, snapshot: PairSnapshot, set
 }
 
 function withLeverage(settings: UserSetting, leverage: bigint, buffer = settings.markPriceBufferInBps): UserSetting {
-    return new UserSetting(settings.deadlineOffset, settings.slippage, leverage, buffer, settings.strictMode);
+    return new UserSetting({
+        deadlineSeconds: settings.deadlineOffset,
+        slippageBps: settings.slippage,
+        leverageWad: leverage,
+        markPriceBufferInBps: buffer,
+        strictMode: settings.strictMode,
+    });
 }
 
 export async function executeScenario({

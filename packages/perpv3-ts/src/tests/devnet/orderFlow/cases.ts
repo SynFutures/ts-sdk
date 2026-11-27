@@ -270,7 +270,11 @@ export async function runSharedRangeLiquidityFlow(): Promise<void> {
         traderBeforeAdd.instrumentSetting.maxLeverage < DEFAULT_LEVERAGE
             ? traderBeforeAdd.instrumentSetting.maxLeverage
             : DEFAULT_LEVERAGE;
-    const userSetting = new UserSetting(3600, DEFAULT_SLIPPAGE_BPS, leverage);
+    const userSetting = new UserSetting({
+        deadlineSeconds: 3600,
+        slippageBps: DEFAULT_SLIPPAGE_BPS,
+        leverageWad: leverage,
+    });
 
     const { tick: ammTick } = traderBeforeAdd.amm;
     const delta = traderBeforeAdd.instrumentSetting.minTickDelta;
@@ -446,7 +450,11 @@ export async function runSameTickOrderFlow(): Promise<void> {
         trader0Before.instrumentSetting.maxLeverage < 10n * WAD
             ? trader0Before.instrumentSetting.maxLeverage
             : 10n * WAD;
-    const userSetting = new UserSetting(3600, DEFAULT_SLIPPAGE_BPS, leverage);
+    const userSetting = new UserSetting({
+        deadlineSeconds: 3600,
+        slippageBps: DEFAULT_SLIPPAGE_BPS,
+        leverageWad: leverage,
+    });
 
     const placeShortOrder = async (wallet: ReturnType<typeof createUserWallet>, tick: number) => {
         const before = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, wallet.account.address);
@@ -543,7 +551,7 @@ export async function runTradePullsEoaMarginWithMultipleRanges(): Promise<void> 
     const { instrumentSetting } = lpBefore;
 
     const leverage = instrumentSetting.maxLeverage < 5n * WAD ? instrumentSetting.maxLeverage : 5n * WAD;
-    const userSetting = new UserSetting(3600, 5000, leverage);
+    const userSetting = new UserSetting({ deadlineSeconds: 3600, slippageBps: 5000, leverageWad: leverage });
 
     const delta = instrumentSetting.minTickDelta;
     const narrowLower = instrumentSetting.alignRangeTickLower(lpBefore.amm.tick - delta);
@@ -713,7 +721,7 @@ export async function runMultiOrderFillAndCancelFlow(): Promise<void> {
 
     // Mirrors the Hardhat test that opens a position before running cross-order trades,
     // so subsequent taker trades are not constrained by minTradeValue checks.
-    const userSetting = new UserSetting(3600, 5000, 5n * WAD);
+    const userSetting = new UserSetting({ deadlineSeconds: 3600, slippageBps: 5000, leverageWad: 5n * WAD });
 
     const takerBeforeOpen = await fetchOnchainContext(
         INSTRUMENT_ADDRESS,

@@ -31,7 +31,12 @@ import { WAD } from '@synfutures/perpv3-ts/constants';
 import type { RpcConfig } from '@synfutures/perpv3-ts/queries';
 
 export async function simulateLongTrade(rpc: RpcConfig, instrument: Address, trader: Address) {
-    const settings = new UserSetting(10, 10, 3n * WAD, 1);
+    const settings = new UserSetting({
+        deadlineSeconds: 10,
+        slippageBps: 10,
+        leverageWad: 3n * WAD,
+        markPriceBufferInBps: 1,
+    });
     const client = new PerpClient(rpc, settings, instrument, PERP_EXPIRY);
     const size = parseUnits('1', 18);
     const snapshot = await client.getSnapshot(trader, size);
