@@ -20,7 +20,6 @@ import type {
     FetchFuturesPairKlineChartInput,
     FetchFuturesPairDepthChartInput,
     FetchFuturesPairDepthChartResponse,
-    KlineDataFromApi,
     FetchFuturesPairKlineChartResponse,
     FetchMarketPairInfoInput,
     FetchMarketPairInfoResponse,
@@ -38,6 +37,7 @@ import {
     decodeDepthChartLiquidityDetails,
     decodeFuturesInstrument,
     decodeGateBalances,
+    decodeMarketKline,
     decodeOrderBookSteps,
     decodePortfolioList,
     decodePriceData,
@@ -258,12 +258,8 @@ export class MarketModule extends BaseApiModule {
             endTime: params.endTime,
             limit: params.limit ?? 1000,
         };
-        const res = await this.makeSignedRequest<ApiEnvelope<KlineDataFromApi[]>>(requestUrl, requestParams);
-        const rawData = getApiData(res) ?? [];
-        return rawData.map((d) => ({
-            ...d,
-            timestamp: d.openTimestamp,
-        }));
+        const res = await this.makeSignedRequest<ApiEnvelope<unknown>>(requestUrl, requestParams);
+        return decodeMarketKline(getApiData(res) ?? []);
     }
 
     /**

@@ -900,7 +900,7 @@ export interface KlineDataFromApi {
     symbol: string;
     closeTimestamp: number;
 }
-export type FetchFuturesPairKlineChartResponse = KlineDataFromApi[] | null;
+export type FetchFuturesPairKlineChartResponse = (KlineDataFromApi & { timestamp: number })[];
 //  depth chart
 export interface FetchFuturesPairDepthChartInput {
     chainId: number;

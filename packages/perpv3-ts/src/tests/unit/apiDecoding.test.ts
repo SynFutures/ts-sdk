@@ -708,6 +708,34 @@ describe('API request contracts', () => {
         return { httpClient, urls: () => get.mock.calls.map(([url]) => url) };
     }
 
+    test('decodes complete candles, including zero values, and rejects malformed rows', async () => {
+        const candle = {
+            openTimestamp: 0,
+            closeTimestamp: 60,
+            open: 1.5,
+            high: 2,
+            low: 1,
+            close: 2,
+            quoteVolume: 0,
+            baseVolume: 0,
+            symbol: 'ETH/USDC',
+        };
+        const read = (data: unknown) =>
+            createMarketModule(data).fetchFuturesPairKlineChart({
+                chainId: 8453,
+                instrument,
+                expiry: 4294967295,
+                interval: KlineInterval.MINUTE,
+                endTime: 60,
+            });
+        await expect(read([candle])).resolves.toEqual([{ ...candle, timestamp: 0 }]);
+        await expect(read(null)).resolves.toEqual([]);
+        await expect(read({})).rejects.toThrow('market kline');
+        await expect(read([{ ...candle, openTimestamp: undefined }])).rejects.toThrow('market kline[0].openTimestamp');
+        await expect(read([{ ...candle, closeTimestamp: 1.5 }])).rejects.toThrow('closeTimestamp');
+        await expect(read([{ ...candle, high: false }])).rejects.toThrow('market kline[0].high');
+    });
+
     test('sends the parameter names the public API validates', async () => {
         const { httpClient, urls } = requestedUrls(null);
         const market = new MarketModule(httpClient, signer);

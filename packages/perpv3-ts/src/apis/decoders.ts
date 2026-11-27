@@ -3,6 +3,7 @@ import type {
     FetchTradeHistoryResponse,
     FetchMmFundingHistoryResponse,
     FetchMmKlineResponse,
+    FetchFuturesPairKlineChartResponse,
     FetchMmLiquidityHistoryResponse,
     FetchMmLiquidityListResponse,
     FetchMmOrderHistoryResponse,
@@ -676,6 +677,32 @@ export function decodeMmFundingHistory(value: unknown): FetchMmFundingHistoryRes
         short: requireString(record, 'short', `${label}.short`),
         timestamp: requireNumber(record, 'timestamp', `${label}.timestamp`),
     }));
+}
+
+function unsignedInteger(record: UnknownRecord, key: string, label: string, max = Number.MAX_SAFE_INTEGER): number {
+    const value = requireNumber(record, key, `${label}.${key}`);
+    if (!Number.isSafeInteger(value) || value < 0 || value > max)
+        throw new Error(`Invalid ${label}.${key}: expected unsigned integer up to ${max}`);
+    return value;
+}
+
+export function decodeMarketKline(value: unknown): FetchFuturesPairKlineChartResponse {
+    return decodeList(value, 'market kline', (record, label) => {
+        const openTimestamp = unsignedInteger(record, 'openTimestamp', label);
+        return {
+            ...record,
+            openTimestamp,
+            timestamp: openTimestamp,
+            closeTimestamp: unsignedInteger(record, 'closeTimestamp', label),
+            open: requireNumber(record, 'open', label + '.open'),
+            high: requireNumber(record, 'high', label + '.high'),
+            low: requireNumber(record, 'low', label + '.low'),
+            close: requireNumber(record, 'close', label + '.close'),
+            baseVolume: requireNumber(record, 'baseVolume', label + '.baseVolume'),
+            quoteVolume: requireNumber(record, 'quoteVolume', label + '.quoteVolume'),
+            symbol: requireString(record, 'symbol', label + '.symbol'),
+        };
+    });
 }
 
 export function decodeMmKline(value: unknown): FetchMmKlineResponse {

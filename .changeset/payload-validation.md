@@ -48,3 +48,4 @@ Reject malformed data instead of substituting defaults.
 - Trade subscriptions share a server topic across initial snapshot limits. Multichain common
   subscriptions use separate sockets to identify market-list updates without a chain ID.
 - API-backed simulation snapshots read the Observer once so quotations, prices and account state share one block.
+- Market candles validate timestamps, prices and volumes before exposing the opening timestamp alias.
