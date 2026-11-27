@@ -1,5 +1,5 @@
 import { encodeFunctionData, ethAddress, zeroAddress } from 'viem';
-import type { PerpInfo } from '../../info';
+import type { ContractDeployment } from '../../abis';
 import { getABI, CURRENT_GATE_ABI, CURRENT_GELATO_RELAY_ROUTER_ABI } from '../../abis';
 import { encodeDepositParam, encodeWithdrawParam } from '../../utils/encode';
 import { isDelegated, requireAddress } from './shared';
@@ -7,7 +7,7 @@ import type { TransactionRoute, DepositEncodingParam, TransactionParam, Withdraw
 
 export function encodeDepositTransaction(
     param: DepositEncodingParam,
-    gate: PerpInfo['gate'],
+    gate: ContractDeployment,
     options?: TransactionRoute
 ): TransactionParam {
     const gateAddr = gate.address;
@@ -64,7 +64,7 @@ export function encodeDepositTransaction(
 
 export function encodeWithdrawTransaction(
     param: WithdrawEncodingParam,
-    gate: PerpInfo['gate'],
+    gate: ContractDeployment,
     options?: TransactionRoute
 ): TransactionParam {
     const gateAddr = gate.address;

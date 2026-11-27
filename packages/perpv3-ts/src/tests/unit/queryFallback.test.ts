@@ -147,7 +147,7 @@ function buildMockRpcConfig(instrument: Address, expiry: number): RpcConfig {
     return {
         chainId: CHAIN_ID,
         publicClient,
-        observerAddress: OBSERVER_ADDRESS,
+        observer: { address: OBSERVER_ADDRESS, version: 'current' },
     };
 }
 
@@ -167,6 +167,18 @@ describe('PerpClient fallback (API -> rpcFallback)', () => {
         expect(new PerpClient(config, userSetting, ZERO_ADDRESS, 1, { websocket: first.websocket }).websocket).toBe(
             first.websocket
         );
+    });
+
+    test('rejects a legacy Observer context before sending an RPC request', async () => {
+        const rpc = buildMockRpcConfig(ZERO_ADDRESS, 1);
+        const client = new PerpClient(
+            { ...rpc, observer: { ...rpc.observer, version: 'legacy' } },
+            userSetting,
+            ZERO_ADDRESS,
+            1
+        );
+        await expect(client.getSnapshot()).rejects.toThrow('current Observer');
+        expect(rpc.publicClient.multicall).not.toHaveBeenCalled();
     });
 
     test('block zero bypasses the API and pins every liquidity read', async () => {
@@ -201,7 +213,7 @@ describe('PerpClient fallback (API -> rpcFallback)', () => {
         });
         const rpcFallback: RpcConfig = {
             chainId: CHAIN_ID,
-            observerAddress: OBSERVER_ADDRESS,
+            observer: { address: OBSERVER_ADDRESS, version: 'current' },
             publicClient: mockPublicClient({ multicall: failRpc, readContract: failRpc }),
         };
         const client = new PerpClient(

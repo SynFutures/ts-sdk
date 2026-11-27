@@ -35,7 +35,7 @@ function assertApiReadOptions(options?: ReadOptions): void {
  * @param config - API or RPC configuration
  * @param traderAddress - Optional trader address to fetch portfolio
  * @param signedSize - Optional signed size to fetch quotation
- * @param options - Optional read options (blockNumber, blockTag) - only used for RPC config
+ * @param options - Optional read options (blockNumber, blockTag) - requires an RPC configuration
  * @returns PairSnapshot with required fields and optional quotation
  */
 export async function fetchOnchainContext(
@@ -48,7 +48,6 @@ export async function fetchOnchainContext(
 ): Promise<PairSnapshot> {
     if (isApiConfig(config)) {
         assertApiReadOptions(options);
-        // API doesn't support options parameter
         return fetchOnchainContextFromApi(instrumentAddress, expiry, config, traderAddress, signedSize);
     }
     return fetchOnchainContextFromRpc(instrumentAddress, expiry, config, traderAddress, signedSize, options);
@@ -61,7 +60,7 @@ export async function fetchOnchainContext(
  * @param expiry - Expiry timestamp
  * @param tick - Target tick
  * @param config - API or RPC configuration
- * @param options - Optional read options (blockNumber, blockTag) - only used for RPC config
+ * @param options - Optional read options (blockNumber, blockTag) - requires an RPC configuration
  * @returns Object with size and quotation
  */
 export async function inquireByTick(
@@ -73,7 +72,6 @@ export async function inquireByTick(
 ): Promise<{ size: bigint; quotation: Quotation }> {
     if (isApiConfig(config)) {
         assertApiReadOptions(options);
-        // API doesn't support options parameter
         return inquireByTickFromApi(instrumentAddress, expiry, tick, config);
     }
     return inquireByTickFromRpc(instrumentAddress, expiry, tick, config, options);
@@ -96,7 +94,6 @@ export async function inquireByBaseSize(
         if (!signer) {
             throw Errors.apiRequestFailed('Signer is required for inquireByBaseSize');
         }
-        // API doesn't support options parameter
         const market = createQueryMarketModule(config);
         const quotation = await market.fetchFuturesInstrumentInquire({
             chainId: config.chainId,

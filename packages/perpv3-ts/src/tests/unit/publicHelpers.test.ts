@@ -8,7 +8,7 @@ import { Condition, QuoteType, Side, Status, type Amm } from '../../types';
 describe('Public helpers', () => {
     test('rejects an unsupported chain while retaining Base configuration', () => {
         expect(() => getPerpInfo(987654321)).toThrow();
-        expect(getPerpInfo(8453).observer).toBe('0x16Ae357dFe705D1B9862132Dca02e07150876e3E');
+        expect(getPerpInfo(8453).observer.address).toBe('0x16Ae357dFe705D1B9862132Dca02e07150876e3E');
     });
     const makeAmm = (overrides: Partial<Amm>): Amm => ({
         expiry: 0,

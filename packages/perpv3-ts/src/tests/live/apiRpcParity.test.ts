@@ -61,7 +61,7 @@ async function prepareScenario(scenario: Scenario): Promise<PreparedScenario> {
     const rpcConfig: RpcConfig = {
         chainId: scenario.chainId,
         publicClient,
-        observerAddress,
+        observer: { address: observerAddress, version: 'current' },
     };
 
     return { scenario, userSetting, onchainContext, rpcConfig };

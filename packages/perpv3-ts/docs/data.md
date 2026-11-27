@@ -7,14 +7,15 @@ An `ApiConfig.baseUrl` creates an instance-owned HTTP client without mutating th
 caller's configuration. Direct query helpers also resolve this setting. Without it,
 HTTP requests go to `https://base-api.synfutures.com` and the public WebSocket to
 `wss://base-api.synfutures.com/v4/public/ws`, the Base deployment.
-`RpcConfig` supplies `chainId`, `publicClient` and `observerAddress`; these values
+`RpcConfig` supplies `chainId`, `publicClient` and an `observer` descriptor with its address and ABI version. These values
 must describe the same deployment.
 
 For API-backed clients, `rpcFallback` must use the same chain ID. Signed market
 queries without a signer go directly to the configured RPC fallback. If both
 paths fail, the aggregate error retains both causes. An absent order book can
-trigger fallback; it is not a successful empty book. `ReadOptions.blockNumber`
-and `blockTag` apply to RPC reads, not API snapshots.
+trigger fallback; it is not a successful empty book. An explicit `blockNumber` or `blockTag` selects RPC directly. API-only clients
+reject such reads. Every level of a mined order book uses the snapshot block.
+Pending order books cannot be pinned and are rejected.
 
 `getSnapshot`, `getQuotation`, `inquire` and `getOrderBook` expose pair-scoped
 reads. Use the functions from `/queries` when the caller already owns the pair
@@ -40,7 +41,7 @@ Node.js 22 and later (the supported range), Chrome and Edge 114+, Firefox 135+ a
 Safari 18.4+. In older browsers the query throws on such an integer instead of
 returning a rounded value.
 
-HTTP 5xx responses can be retried for GET, HEAD and OPTIONS, subject to the
+HTTP 5xx responses can be retried for GET, subject to the
 configured retry limit and backoff. POST, PUT and DELETE are not automatically
 repeated. A failed response does not prove that a write did not happen.
 A successful HTTP envelope must include integer code zero and a data field. An explicit
@@ -51,7 +52,8 @@ Query serialization retains explicit `0` and `false` and omits nullish values.
 ## WebSockets
 
 Use `PerpClient` subscription methods for a bound pair, or `PublicWebsocketClient`
-from `/apis` for explicit subscription management. Each subscription returns an
+from `/apis` for explicit subscription management. A pair client owns its default
+WebSocket. Pass `{ websocket }` to share an existing connection and its options. Each subscription returns an
 unsubscribe operation; release it when the owning view or workflow ends. Identical wire
 topics remain subscribed until their last typed or raw subscriber is removed. Events from
 a replaced socket cannot reset the active connection or deliver stale data. A trades

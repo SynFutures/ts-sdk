@@ -37,7 +37,7 @@ export function resolveChain(chainId: number): Chain | undefined {
 export function resolveObserverAddress(chainId: number): Address | undefined {
     try {
         const perpInfo = getPerpInfo(chainId);
-        return perpInfo.observer;
+        return perpInfo.observer.address;
     } catch {
         return undefined;
     }

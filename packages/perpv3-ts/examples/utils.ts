@@ -60,7 +60,7 @@ export async function prepare(chainName: string): Promise<{
     const kit = new ChainKit(chain, { publicClient });
 
     kit.registerAddressName(perpInfo.config, 'Config');
-    kit.registerAddressName(perpInfo.observer, 'Observer');
+    kit.registerAddressName(perpInfo.observer.address, 'Observer');
     kit.registerAddressName(perpInfo.gate.address, 'Gate');
     if (perpInfo.guardian) {
         kit.registerAddressName(perpInfo.guardian, 'Guardian');
@@ -90,7 +90,7 @@ export async function prepare(chainName: string): Promise<{
     });
 
     const instrumentAddresses = (await publicClient.readContract({
-        address: perpInfo.observer,
+        address: perpInfo.observer.address,
         abi: CURRENT_OBSERVER_ABI,
         functionName: 'getAllInstrumentList',
     })) as readonly Address[];
@@ -99,7 +99,7 @@ export async function prepare(chainName: string): Promise<{
     for (const instrumentAddress of instrumentAddresses) {
         try {
             const result = await publicClient.readContract({
-                address: perpInfo.observer,
+                address: perpInfo.observer.address,
                 abi: CURRENT_OBSERVER_ABI,
                 functionName: 'getInstrument',
                 args: [instrumentAddress, PERP_EXPIRY],

@@ -21,6 +21,6 @@ export function isDelegated(route?: TransactionRoute): route is Extract<Transact
         requireAddress(route.traderAddress, 'traderAddress');
         return true;
     }
-    if (route.route !== undefined && route.route !== 'direct') throw Errors.encoding('Unknown transaction route');
+    if (route.route !== 'direct') throw Errors.encoding('Unknown transaction route');
     return false;
 }

@@ -1,7 +1,7 @@
 import { buildDepthLevels } from '../utils/depth';
 import type { Address } from 'viem';
 import { zeroAddress } from 'viem';
-import { CURRENT_OBSERVER_ABI } from '../abis';
+import { getABI } from '../abis';
 import type { IFuturesOrderBook, IFuturesOrderBookAllSteps, OrderDataFromApi } from '../apis/interfaces';
 import { alphaWadToTickDelta, ratioToWad } from '../math';
 import { RATIO_BASE, WAD } from '../constants';
@@ -19,6 +19,11 @@ import {
     type QuoteState,
 } from '../types';
 import type { ReadOptions, RpcConfig } from './config';
+
+function currentObserverAbi(config: RpcConfig) {
+    if (config.observer.version !== 'current') throw new Error('This query requires a current Observer deployment');
+    return getABI('current', 'Observer');
+}
 
 export type { OnchainContext, PairSnapshot } from '../types';
 
@@ -39,8 +44,8 @@ export async function fetchOnchainContext(
     const [rawContext] = await config.publicClient.multicall({
         contracts: [
             {
-                address: config.observerAddress,
-                abi: CURRENT_OBSERVER_ABI,
+                address: config.observer.address,
+                abi: currentObserverAbi(config),
                 functionName: 'fetchOnChainContext',
                 args: [instrumentAddress, expiry, traderAddress ?? zeroAddress, signedSize ?? 0n],
             },
@@ -154,8 +159,8 @@ export async function inquireByTick(
 ): Promise<{ size: bigint; quotation: Quotation }> {
     const { blockNumber, blockTag } = options ?? {};
     const [size, quotation] = await config.publicClient.readContract({
-        address: config.observerAddress,
-        abi: CURRENT_OBSERVER_ABI,
+        address: config.observer.address,
+        abi: currentObserverAbi(config),
         functionName: 'inquireByTick',
         args: [instrumentAddress, expiry, tick],
         blockNumber,
@@ -176,8 +181,8 @@ export async function inquireByBaseSize(
 ): Promise<Quotation> {
     const { blockNumber, blockTag } = options ?? {};
     const [quotation] = (await config.publicClient.readContract({
-        address: config.observerAddress,
-        abi: CURRENT_OBSERVER_ABI,
+        address: config.observer.address,
+        abi: currentObserverAbi(config),
         functionName: 'inquireByBase',
         args: [instrumentAddress, expiry, signedSize],
         blockNumber,
@@ -197,8 +202,8 @@ export async function fetchLiquidityDetails(
     const { blockNumber, blockTag } = options ?? {};
 
     const [rawAmm, rawTids, rawPearls, rawBlockInfo] = (await config.publicClient.readContract({
-        address: config.observerAddress,
-        abi: CURRENT_OBSERVER_ABI,
+        address: config.observer.address,
+        abi: getABI(config.observer.version, 'Observer'),
         functionName: 'liquidityDetails',
         args: [instrumentAddress, expiry, tickDelta],
         blockNumber,

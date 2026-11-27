@@ -1,5 +1,5 @@
 import { encodeFunctionData, type Address, type Hex } from 'viem';
-import { CURRENT_GELATO_RELAY_ROUTER_ABI, CURRENT_INSTRUMENT_ABI } from '../../abis';
+import { getABI, CURRENT_GELATO_RELAY_ROUTER_ABI, CURRENT_INSTRUMENT_ABI } from '../../abis';
 import {
     Errors,
     ErrorCode,
@@ -111,16 +111,20 @@ export function encodeMarketOrderTransaction(
     if (isDelegated(options)) {
         const traderAddress = requireAddress(options.traderAddress, 'traderAddress for tradeFor');
         const calldata = encodeFunctionData({
-            abi: CURRENT_INSTRUMENT_ABI,
+            abi: getABI(param.instrument.version, 'Instrument'),
             functionName: 'tradeFor',
             args: [traderAddress, txArgs],
         });
-        return encodeForCallTransaction(param.instrumentAddress, traderAddress, calldata, options);
+        return encodeForCallTransaction(param.instrument.address, traderAddress, calldata, options);
     }
 
     return toTransactionParam(
-        param.instrumentAddress,
-        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'trade', args: [txArgs] })
+        param.instrument.address,
+        encodeFunctionData({
+            abi: getABI(param.instrument.version, 'Instrument'),
+            functionName: 'trade',
+            args: [txArgs],
+        })
     );
 }
 
@@ -143,10 +147,10 @@ export function encodeLimitOrderTransaction(
     if (isDelegated(options)) {
         const traderAddress = requireAddress(options.traderAddress, 'traderAddress for placeFor');
         return encodeForCallTransaction(
-            param.instrumentAddress,
+            param.instrument.address,
             traderAddress,
             encodeFunctionData({
-                abi: CURRENT_INSTRUMENT_ABI,
+                abi: getABI(param.instrument.version, 'Instrument'),
                 functionName: 'placeFor',
                 args: [traderAddress, txArgs],
             }),
@@ -155,8 +159,12 @@ export function encodeLimitOrderTransaction(
     }
 
     return toTransactionParam(
-        param.instrumentAddress,
-        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'place', args: [txArgs] })
+        param.instrument.address,
+        encodeFunctionData({
+            abi: getABI(param.instrument.version, 'Instrument'),
+            functionName: 'place',
+            args: [txArgs],
+        })
     );
 }
 
@@ -173,25 +181,29 @@ export function encodeCancelOrderTransaction(
     const useCancelFor = isDelegated(options);
     const encodeCancelFor = (traderAddress: Address, ticks: number[]) =>
         encodeFunctionData({
-            abi: CURRENT_INSTRUMENT_ABI,
+            abi: getABI(param.instrument.version, 'Instrument'),
             functionName: 'cancelFor',
             args: [traderAddress, encodeCancel(ticks)],
         });
     const encodeDirectCancel = (ticks: number[]) =>
-        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'cancel', args: [encodeCancel(ticks)] });
+        encodeFunctionData({
+            abi: getABI(param.instrument.version, 'Instrument'),
+            functionName: 'cancel',
+            args: [encodeCancel(ticks)],
+        });
 
     if (param.ticks.length <= maxCancelCount) {
         if (useCancelFor) {
             const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for cancelFor');
             return encodeForCallTransaction(
-                param.instrumentAddress,
+                param.instrument.address,
                 traderAddress,
                 encodeCancelFor(traderAddress, param.ticks),
                 options
             );
         }
 
-        return toTransactionParam(param.instrumentAddress, encodeDirectCancel(param.ticks));
+        return toTransactionParam(param.instrument.address, encodeDirectCancel(param.ticks));
     }
 
     const tickGroups: number[][] = [];
@@ -200,7 +212,7 @@ export function encodeCancelOrderTransaction(
     }
 
     if (!useCancelFor) {
-        return encodeInstrumentMulticall(param.instrumentAddress, tickGroups.map(encodeDirectCancel));
+        return encodeInstrumentMulticall(param.instrument.address, tickGroups.map(encodeDirectCancel));
     }
 
     if (!subAccountAddress || !routerAddress) {
@@ -215,7 +227,7 @@ export function encodeCancelOrderTransaction(
         routerAddress,
         subAccountAddress,
         traderAddress,
-        tickGroups.map(() => param.instrumentAddress),
+        tickGroups.map(() => param.instrument.address),
         tickGroups.map((ticks) => encodeCancelFor(traderAddress, ticks))
     );
 }
@@ -236,16 +248,20 @@ export function encodeAdjustMarginTransaction(
     if (isDelegated(options)) {
         const traderAddress = requireAddress(options.traderAddress, 'traderAddress for adjustFor');
         const calldata = encodeFunctionData({
-            abi: CURRENT_INSTRUMENT_ABI,
+            abi: getABI(param.instrument.version, 'Instrument'),
             functionName: 'tradeFor',
             args: [traderAddress, txArgs],
         });
-        return encodeForCallTransaction(param.instrumentAddress, traderAddress, calldata, options);
+        return encodeForCallTransaction(param.instrument.address, traderAddress, calldata, options);
     }
 
     return toTransactionParam(
-        param.instrumentAddress,
-        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'trade', args: [txArgs] })
+        param.instrument.address,
+        encodeFunctionData({
+            abi: getABI(param.instrument.version, 'Instrument'),
+            functionName: 'trade',
+            args: [txArgs],
+        })
     );
 }
 
@@ -276,16 +292,20 @@ export function encodeBatchPlaceScaledLimitOrderTransaction(
     if (isDelegated(options)) {
         const traderAddress = requireAddress(options.traderAddress, 'traderAddress for batchPlaceFor');
         const calldata = encodeFunctionData({
-            abi: CURRENT_INSTRUMENT_ABI,
+            abi: getABI(param.instrument.version, 'Instrument'),
             functionName: 'batchPlaceFor',
             args: [traderAddress, txArgs],
         });
-        return encodeForCallTransaction(param.instrumentAddress, traderAddress, calldata, options);
+        return encodeForCallTransaction(param.instrument.address, traderAddress, calldata, options);
     }
 
     return toTransactionParam(
-        param.instrumentAddress,
-        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'batchPlace', args: [txArgs] })
+        param.instrument.address,
+        encodeFunctionData({
+            abi: getABI(param.instrument.version, 'Instrument'),
+            functionName: 'batchPlace',
+            args: [txArgs],
+        })
     );
 }
 
@@ -317,12 +337,12 @@ export function encodeCrossLimitOrderTransaction(
         const traderAddress = requireAddress(options?.traderAddress, 'traderAddress for crossLimit useFor');
         const callDatas = [
             encodeFunctionData({
-                abi: CURRENT_INSTRUMENT_ABI,
+                abi: getABI(param.instrument.version, 'Instrument'),
                 functionName: 'tradeFor',
                 args: [traderAddress, tradeArgs],
             }),
             encodeFunctionData({
-                abi: CURRENT_INSTRUMENT_ABI,
+                abi: getABI(param.instrument.version, 'Instrument'),
                 functionName: 'placeFor',
                 args: [traderAddress, placeArgs],
             }),
@@ -333,17 +353,25 @@ export function encodeCrossLimitOrderTransaction(
                 routerAddress,
                 subAccountAddress,
                 traderAddress,
-                [param.instrumentAddress, param.instrumentAddress],
+                [param.instrument.address, param.instrument.address],
                 callDatas
             );
         }
 
-        return encodeInstrumentMulticall(param.instrumentAddress, callDatas);
+        return encodeInstrumentMulticall(param.instrument.address, callDatas);
     }
 
-    return encodeInstrumentMulticall(param.instrumentAddress, [
-        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'trade', args: [tradeArgs] }),
-        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'place', args: [placeArgs] }),
+    return encodeInstrumentMulticall(param.instrument.address, [
+        encodeFunctionData({
+            abi: getABI(param.instrument.version, 'Instrument'),
+            functionName: 'trade',
+            args: [tradeArgs],
+        }),
+        encodeFunctionData({
+            abi: getABI(param.instrument.version, 'Instrument'),
+            functionName: 'place',
+            args: [placeArgs],
+        }),
     ]);
 }
 
@@ -355,14 +383,18 @@ export function encodeFillLimitOrderTransaction(param: FillLimitOrderEncodingPar
         target: param.target,
     };
     return toTransactionParam(
-        param.instrumentAddress,
-        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'fill', args: [encodeFillParam(fillParam)] })
+        param.instrument.address,
+        encodeFunctionData({
+            abi: getABI(param.instrument.version, 'Instrument'),
+            functionName: 'fill',
+            args: [encodeFillParam(fillParam)],
+        })
     );
 }
 
 export function encodeAddLiquidityTransaction(
     param: AddLiquidityEncodingParam,
-    options: TransactionRoute = {}
+    options?: TransactionRoute
 ): TransactionParam {
     const deadline = param.userSetting.getDeadline();
     const addParam: AddParam = {
@@ -378,22 +410,22 @@ export function encodeAddLiquidityTransaction(
     if (isDelegated(options)) {
         const traderAddress = requireAddress(options.traderAddress, 'traderAddress for addFor');
         const calldata = encodeFunctionData({
-            abi: CURRENT_INSTRUMENT_ABI,
+            abi: getABI(param.instrument.version, 'Instrument'),
             functionName: 'addFor',
             args: [traderAddress, txArgs],
         });
-        return encodeForCallTransaction(param.instrumentAddress, traderAddress, calldata, options);
+        return encodeForCallTransaction(param.instrument.address, traderAddress, calldata, options);
     }
 
     return toTransactionParam(
-        param.instrumentAddress,
-        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'add', args: [txArgs] })
+        param.instrument.address,
+        encodeFunctionData({ abi: getABI(param.instrument.version, 'Instrument'), functionName: 'add', args: [txArgs] })
     );
 }
 
 export function encodeRemoveLiquidityTransaction(
     param: RemoveLiquidityEncodingParam,
-    options: TransactionRoute = {}
+    options?: TransactionRoute
 ): TransactionParam {
     const deadline = param.userSetting.getDeadline();
     const removeParam: RemoveParam = {
@@ -410,21 +442,29 @@ export function encodeRemoveLiquidityTransaction(
         if (options.traderAddress.toLowerCase() !== param.traderAddress.toLowerCase())
             throw Errors.encoding('removeFor trader does not match the packed target');
         // removeFor takes no trader argument: the packed param already names the target.
-        const calldata = encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'removeFor', args: [txArgs] });
-        return encodeForCallTransaction(param.instrumentAddress, param.traderAddress, calldata, options);
+        const calldata = encodeFunctionData({
+            abi: getABI(param.instrument.version, 'Instrument'),
+            functionName: 'removeFor',
+            args: [txArgs],
+        });
+        return encodeForCallTransaction(param.instrument.address, param.traderAddress, calldata, options);
     }
 
     return toTransactionParam(
-        param.instrumentAddress,
-        encodeFunctionData({ abi: CURRENT_INSTRUMENT_ABI, functionName: 'remove', args: [txArgs] })
+        param.instrument.address,
+        encodeFunctionData({
+            abi: getABI(param.instrument.version, 'Instrument'),
+            functionName: 'remove',
+            args: [txArgs],
+        })
     );
 }
 
 export function encodeSettleTransaction(param: SettleEncodingParam): TransactionParam {
     return toTransactionParam(
-        param.instrumentAddress,
+        param.instrument.address,
         encodeFunctionData({
-            abi: CURRENT_INSTRUMENT_ABI,
+            abi: getABI(param.instrument.version, 'Instrument'),
             functionName: 'settle',
             args: [param.expiry, param.targetAddress],
         })

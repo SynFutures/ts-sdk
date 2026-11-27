@@ -18,7 +18,7 @@ describe('devnet smoke', () => {
         const rpcConfig: RpcConfig = {
             chainId: manifest.chainId,
             publicClient,
-            observerAddress: manifest.contracts.observer,
+            observer: { address: manifest.contracts.observer, version: 'current' },
         };
 
         const snapshot = await fetchOnchainContext(instrument.address, instrument.expiry, rpcConfig);

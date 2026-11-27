@@ -11,6 +11,13 @@ import { LEGACY_CEX_MARKET_ABI } from './legacy/cexMarket';
 import { DEX_V2_MARKET_ABI } from './latest/dexV2Market';
 import { LEGACY_DEX_V2_MARKET_ABI } from './legacy/dexV2Market';
 
+import type { Address } from 'viem';
+
+export interface ContractDeployment {
+    readonly address: Address;
+    readonly version: AbiVersion;
+}
+
 export type AbiVersion = 'legacy' | 'current';
 
 const deployments = {

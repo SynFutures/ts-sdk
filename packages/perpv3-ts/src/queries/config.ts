@@ -1,4 +1,5 @@
-import type { Address, PublicClient } from 'viem';
+import type { ContractDeployment } from '../abis';
+import type { PublicClient } from 'viem';
 import { ApiSigner, AuthInfo } from '../apis/interfaces';
 import type { HttpClientConfig } from '../utils/http';
 import type { ApiAuthSigner } from '../utils/mm';
@@ -20,7 +21,7 @@ export interface ApiConfig extends HttpClientConfig {
 export interface RpcConfig {
     chainId: number;
     publicClient: PublicClient;
-    observerAddress: Address;
+    observer: ContractDeployment;
 }
 
 // Type guards for config discrimination

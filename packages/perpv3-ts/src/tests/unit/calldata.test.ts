@@ -17,6 +17,7 @@ import {
 } from '../../utils/encode';
 
 const instrumentAddress = '0x0000000000000000000000000000000000000011' as const;
+const instrument = { address: instrumentAddress, version: 'current' } as const;
 const traderAddress = '0x0000000000000000000000000000000000000022' as const;
 const routerAddress = '0x0000000000000000000000000000000000000099' as const;
 const subAccountAddress = '0x0000000000000000000000000000000000000100' as const;
@@ -40,7 +41,7 @@ afterEach(() => {
 
 describe('frontend calldata encoding', () => {
     const marketParam = {
-        instrumentAddress,
+        instrument,
         expiry: 1_700_000_000,
         side: Side.SHORT,
         baseQuantity: 1_000_000_000_000_000_000n,
@@ -56,10 +57,22 @@ describe('frontend calldata encoding', () => {
         deadline,
     });
 
+    it('rejects a delegated trade on a legacy instrument before sending calldata', () => {
+        expect(() =>
+            contractCallEncoder.encodeMarketOrder(
+                { ...marketParam, instrument: { ...instrument, version: 'legacy' } },
+                { route: 'for', traderAddress }
+            )
+        ).toThrow('tradeFor');
+    });
+
     it('encodes a direct market order as a signed trade', () => {
         const tx = contractCallEncoder.encodeMarketOrder(marketParam);
 
         expect(tx).toMatchObject({ to: instrumentAddress, value: 0n });
+        expect(() => contractCallEncoder.encodeMarketOrder(marketParam, { useTradeFor: true } as never)).toThrow(
+            'Unknown transaction route'
+        );
         expect(decodeInstrument(tx.data)).toEqual({ functionName: 'trade', args: [tradeArgs] });
     });
 
@@ -98,7 +111,7 @@ describe('frontend calldata encoding', () => {
 
     it('encodes removeFor with the packed param only', () => {
         const removeParam = {
-            instrumentAddress,
+            instrument,
             expiry: 1_700_000_000,
             traderAddress,
             tickLower: -100,
@@ -127,8 +140,8 @@ describe('frontend calldata encoding', () => {
     it('splits cancellations above the batch size into an instrument multicall', () => {
         const ticks = [1, 2, 3];
         const tx = contractCallEncoder.encodeCancelOrder(
-            { instrumentAddress, expiry: 1, ticks, userSetting },
-            { maxCancelCount: 2 }
+            { instrument, expiry: 1, ticks, userSetting },
+            { route: 'direct', maxCancelCount: 2 }
         );
         const multicall = decodeInstrument(tx.data);
 
@@ -143,7 +156,7 @@ describe('frontend calldata encoding', () => {
     it('requires router addresses for batched cancelFor calls', () => {
         expect(() =>
             contractCallEncoder.encodeCancelOrder(
-                { instrumentAddress, expiry: 1, ticks: [1, 2, 3], userSetting },
+                { instrument, expiry: 1, ticks: [1, 2, 3], userSetting },
                 { maxCancelCount: 2, route: 'for', traderAddress }
             )
         ).toThrow('Agent and router addresses required');
@@ -151,7 +164,7 @@ describe('frontend calldata encoding', () => {
 
     it('encodes a direct cross limit order as trade then place in one multicall', () => {
         const tx = contractCallEncoder.encodeCrossLimitOrder({
-            instrumentAddress,
+            instrument,
             expiry: 1_700_000_000,
             side: Side.LONG,
             tradeSize: 1n,
@@ -178,7 +191,7 @@ describe('frontend calldata encoding', () => {
 
     it('encodes settle arguments in ABI order', () => {
         const targetAddress = '0x0000000000000000000000000000000000000122';
-        const tx = contractCallEncoder.encodeSettle({ instrumentAddress, expiry: 1_700_000_000, targetAddress });
+        const tx = contractCallEncoder.encodeSettle({ instrument, expiry: 1_700_000_000, targetAddress });
 
         expect(decodeInstrument(tx.data)).toEqual({ functionName: 'settle', args: [1_700_000_000, targetAddress] });
     });
@@ -264,12 +277,12 @@ test.each([0, -1, 1.5, 9, NaN, Infinity])('rejects invalid cancel batch size %s 
     expect(() =>
         contractCallEncoder.encodeCancelOrder(
             {
-                instrumentAddress,
+                instrument,
                 expiry: 1,
                 ticks: [1],
                 userSetting: new UserSetting({ deadlineSeconds: 60, slippageBps: 50, leverageWad: 3n * 10n ** 18n }),
             },
-            { maxCancelCount }
+            { route: 'direct', maxCancelCount }
         )
     ).toThrow('maxCancelCount must be an integer between 1 and 8');
 });

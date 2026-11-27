@@ -20,10 +20,10 @@ describe('live observer calls', () => {
         if (!Number.isSafeInteger(expiry) || expiry < 0 || expiry > PERP_EXPIRY) {
             throw new Error('PERPV3_EXPIRY must be a uint32 expiry.');
         }
-        const observer = process.env.PERPV3_OBSERVER ?? getPerpInfo(chainId).observer;
+        const observer = process.env.PERPV3_OBSERVER ?? getPerpInfo(chainId).observer.address;
         if (!isAddress(observer)) throw new Error('PERPV3_OBSERVER must be an address.');
         const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
-        const rpcConfig: RpcConfig = { chainId, publicClient, observerAddress: observer };
+        const rpcConfig: RpcConfig = { chainId, publicClient, observer: { address: observer, version: 'current' } };
         const context = await fetchOnchainContext(instrumentAddress, expiry, rpcConfig);
         expect(Number.isFinite(context.amm.tick)).toBe(true);
 

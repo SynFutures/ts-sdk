@@ -275,7 +275,7 @@ test('RPC order books and frontend charts share levels while RPC retains exact i
     const pearls = [{ left: -(WAD + 1n), liquidityNet: 0n }];
     const config = {
         chainId: 1,
-        observerAddress: zeroAddress,
+        observer: { address: zeroAddress, version: 'current' as const },
         publicClient: mockPublicClient({
             multicall: async () => [fixture.context],
             readContract: async () => [amm, [-10], pearls, { height: 1, timestamp: 1 }],

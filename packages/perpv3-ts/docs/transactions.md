@@ -71,7 +71,6 @@ console.log({ r, s, v });
 Pass the result of `signErc20PermitTypedData` directly to
 `contractCallEncoder.encodePermit`. This keeps the signed deadline, token, owner,
 spender and amount together. Use `encodeApprove` for a regular ERC-20 approval.
-`signErc20PermitTypedData` remains the SDK's permit-signing helper.
 
 ## Parser ownership
 

@@ -1,4 +1,4 @@
-import type { PerpInfo } from '../../info';
+import type { ContractDeployment } from '../../abis';
 import type { Address, Hex } from 'viem';
 import { Side, UserSetting } from '../../types';
 
@@ -15,14 +15,14 @@ export interface TransactionParam {
 }
 
 export type TransactionRoute =
-    | { route?: 'direct'; traderAddress?: never; routerAddress?: never; subAccountAddress?: never }
+    | { route: 'direct'; traderAddress?: never; routerAddress?: never; subAccountAddress?: never }
     | { route: 'for'; traderAddress: Address; routerAddress?: never; subAccountAddress?: never }
     | { route: 'router'; traderAddress: Address; routerAddress: Address; subAccountAddress: Address };
 
 export type CancelOrderEncodingOptions = TransactionRoute & { maxCancelCount?: number };
 
 export interface InstrumentEncodingBaseParam {
-    instrumentAddress: Address;
+    instrument: ContractDeployment;
     expiry: number;
 }
 
@@ -185,7 +185,7 @@ export interface DepositEncodingParam {
 }
 
 export interface DepositEncoder {
-    encodeDeposit(param: DepositEncodingParam, gate: PerpInfo['gate'], options?: TransactionRoute): TransactionParam;
+    encodeDeposit(param: DepositEncodingParam, gate: ContractDeployment, options?: TransactionRoute): TransactionParam;
 }
 
 /**
@@ -197,7 +197,11 @@ export interface WithdrawEncodingParam {
 }
 
 export interface WithdrawEncoder {
-    encodeWithdraw(param: WithdrawEncodingParam, gate: PerpInfo['gate'], options?: TransactionRoute): TransactionParam;
+    encodeWithdraw(
+        param: WithdrawEncodingParam,
+        gate: ContractDeployment,
+        options?: TransactionRoute
+    ): TransactionParam;
 }
 
 export interface ApproveEncodingParam {

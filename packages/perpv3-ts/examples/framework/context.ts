@@ -31,7 +31,7 @@ export async function createDemoContext(
     const rpcConfig = {
         chainId: kit.chain.id,
         publicClient,
-        observerAddress: perpInfo.observer,
+        observer: perpInfo.observer,
     };
 
     // Create PerpClient

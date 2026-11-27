@@ -1,4 +1,4 @@
-import type { PerpInfo } from '../info';
+import type { ContractDeployment } from '../abis';
 import { encodeDepositTransaction, encodeWithdrawTransaction } from './calldata/account';
 import {
     encodeAddLiquidityTransaction,
@@ -68,11 +68,11 @@ export class ContractCallEncoder implements IContractCallEncoder {
         return encodeFillLimitOrderTransaction(param);
     }
 
-    encodeAddLiquidity(param: AddLiquidityEncodingParam, options: TransactionRoute = {}): TransactionParam {
+    encodeAddLiquidity(param: AddLiquidityEncodingParam, options?: TransactionRoute): TransactionParam {
         return encodeAddLiquidityTransaction(param, options);
     }
 
-    encodeRemoveLiquidity(param: RemoveLiquidityEncodingParam, options: TransactionRoute = {}): TransactionParam {
+    encodeRemoveLiquidity(param: RemoveLiquidityEncodingParam, options?: TransactionRoute): TransactionParam {
         return encodeRemoveLiquidityTransaction(param, options);
     }
 
@@ -80,11 +80,15 @@ export class ContractCallEncoder implements IContractCallEncoder {
         return encodeSettleTransaction(param);
     }
 
-    encodeDeposit(param: DepositEncodingParam, gate: PerpInfo['gate'], options?: TransactionRoute): TransactionParam {
+    encodeDeposit(param: DepositEncodingParam, gate: ContractDeployment, options?: TransactionRoute): TransactionParam {
         return encodeDepositTransaction(param, gate, options);
     }
 
-    encodeWithdraw(param: WithdrawEncodingParam, gate: PerpInfo['gate'], options?: TransactionRoute): TransactionParam {
+    encodeWithdraw(
+        param: WithdrawEncodingParam,
+        gate: ContractDeployment,
+        options?: TransactionRoute
+    ): TransactionParam {
         return encodeWithdrawTransaction(param, gate, options);
     }
 

@@ -28,7 +28,7 @@ import { formatExpiryLabel } from '../utils/expiry';
  *
  * This class encapsulates:
  * - Raw contract data (amm, priceData, blockInfo)
- * - Trader-specific data (portfolio, quoteState) - always present
+ * - Trader-specific data (portfolio, and quoteState when requested)
  * - Optional quotation (only present when signedSize is provided)
  * - Computed instrument settings (instrumentSetting) - contains setting, condition, and spacing
  * - Pair identification (instrumentAddress, expiry) - defines the trading pair
