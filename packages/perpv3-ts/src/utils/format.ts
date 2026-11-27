@@ -148,7 +148,7 @@ export async function formatTokenAmount(
 ): Promise<string> {
     const info = await resolveTokenInfo(token, deps);
     if (!info) {
-        return `${formatUnitsSafe(value, DEFAULT_DECIMALS, fixedDecimals)} ${isAddress(token) ? token : String(token)}`;
+        return `${toBigInt(value)} base units (${token})`;
     }
     return `${formatUnitsSafe(value, info.decimals, fixedDecimals)} ${info.symbol}`;
 }

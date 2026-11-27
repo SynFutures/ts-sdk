@@ -52,3 +52,4 @@ Reject malformed data instead of substituting defaults.
 - The market list and pair detail validate token, pricing and funding fields while preserving exact decimal strings.
 - User volume details expose per-instrument volume and token information. A null details list from an empty account decodes to an empty array.
 - Market candle requests normalize instrument addresses so checksum and lowercase forms select the same indexed candles.
+- Token amounts in parsed descriptions use labeled base units when token precision is unavailable.

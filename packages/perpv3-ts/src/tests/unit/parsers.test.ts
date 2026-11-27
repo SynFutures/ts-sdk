@@ -115,6 +115,16 @@ describe('SynFutures parser integration', () => {
         expect(formatted).toContain('ticks: [100');
     });
 
+    it('labels base units when a Gate deposit has no token metadata', async () => {
+        const token = '0x0000000000000000000000000000000000000001';
+        const parser = createGateParser();
+        const text = await parser.parseTransaction?.({
+            functionName: 'deposit',
+            args: [encodeDepositParam(token, 1_000_000n)],
+        });
+        expect(text).toContain(`quantity: 1000000 base units (${token})`);
+    });
+
     it('formats gate deposit transactions with token metadata', async () => {
         const parser = createGateParser({
             nativeTokenAddress: ZERO_ADDRESS,
