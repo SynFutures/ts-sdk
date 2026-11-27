@@ -357,18 +357,7 @@ export function decodeQuotation(value: unknown): QuotationFromApi {
 
 export function decodeQuotationWithSize(value: unknown): QuotationFromApi {
     const record = requireRecord(value, 'quotation');
-    return {
-        benchmark: requireBigInt(record, 'benchmark'),
-        sqrtFairPX96: requireBigInt(record, 'sqrtFairPX96'),
-        tick: requireNumber(record, 'tick'),
-        mark: requireBigInt(record, 'mark'),
-        entryNotional: requireBigInt(record, 'entryNotional'),
-        fee: requireBigInt(record, 'fee'),
-        size: requireBigInt(record, 'size'),
-        minAmount: requireBigInt(record, 'minAmount'),
-        sqrtPostFairPX96: requireBigInt(record, 'sqrtPostFairPX96'),
-        postTick: requireNumber(record, 'postTick'),
-    };
+    return { ...decodeQuotation(record), size: requireBigInt(record, 'size') };
 }
 
 export function decodeOrderBookSteps(value: unknown): IFuturesOrderBookAllSteps {
