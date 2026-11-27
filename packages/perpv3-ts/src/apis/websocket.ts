@@ -419,7 +419,7 @@ export interface PublicWebsocketSubscription {
  * Supports orderBook, portfolio, trades, kline, instrument (incl. marketPairInfoChanged),
  * instrumentBasicInfo, common (blockNumChanged/marketListChanged), and raw fallback.
  */
-export class PublicWebsocketClient {
+class PublicWebsocketConnection {
     private readonly url: string;
     private readonly headers: Record<string, string>;
     private readonly wsFactory?: WebSocketFactory;
@@ -439,14 +439,16 @@ export class PublicWebsocketClient {
     private socket: WebSocketLike | null = null;
     private pingTimer?: ReturnType<typeof setInterval>;
     private reconnectTimer?: ReturnType<typeof setTimeout>;
-    private nextRequestId = 1;
     private manuallyClosed = false;
     private reconnectAttempts = 0;
     private readonly subscriptions = new PublicWsSubscriptionRegistry();
 
     private readonly activeTopics = new Set<string>();
 
-    constructor(options?: PublicWebsocketClientOptions) {
+    constructor(
+        options?: PublicWebsocketClientOptions,
+        protected readonly requestIds = { next: 1 }
+    ) {
         this.url = options?.url ?? DEFAULT_PUBLIC_WS_URL;
         this.headers = buildWebSocketHeaders(this.url, options?.headers);
         this.wsFactory = options?.wsFactory;
@@ -472,6 +474,10 @@ export class PublicWebsocketClient {
     // -----------------------------------------------------------------------
 
     public connect(): void {
+        this.connectSocket();
+    }
+
+    private connectSocket(): void {
         if (
             this.socket &&
             (this.socket.readyState === WS_READY_STATE.CONNECTING || this.socket.readyState === WS_READY_STATE.OPEN)
@@ -682,7 +688,7 @@ export class PublicWebsocketClient {
         }
 
         const delay = Math.min(this.reconnectDelayMs * Math.pow(2, this.reconnectAttempts), 30_000);
-        this.reconnectTimer = setTimeout(() => this.connect(), delay);
+        this.reconnectTimer = setTimeout(() => this.connectSocket(), delay);
         this.reconnectAttempts++;
     }
 
@@ -731,7 +737,7 @@ export class PublicWebsocketClient {
     }
 
     private sendRequest(method: PublicWsRequestMethod, params: object): void {
-        const id = this.nextRequestId++;
+        const id = this.requestIds.next++;
         const request = buildPublicWsRequest(id, method, params);
         this.pendingRequests.set(id, { method, params: request.params, sentAtMs: Date.now() });
         this.sendRaw(JSON.stringify(request));
@@ -1017,6 +1023,84 @@ export class PublicWebsocketClient {
         const instrument = data.instrument.toLowerCase();
         const pair = `${instrument}_${data.expiry}`;
         return record.pairSet.has(pair);
+    }
+}
+
+// Market-list frames may omit chainId. Keep common subscriptions for different chains
+// on different sockets so the connection identifies the source even for an empty list.
+export class PublicWebsocketClient extends PublicWebsocketConnection {
+    private primaryCommonChain?: number;
+    private readonly otherCommonChains = new Map<
+        number,
+        { connection: PublicWebsocketConnection; subscribers: number }
+    >();
+    private readonly options: PublicWebsocketClientOptions;
+
+    constructor(options: PublicWebsocketClientOptions = {}) {
+        super(options);
+        this.options = { ...options };
+    }
+
+    override connect(): void {
+        super.connect();
+        for (const { connection } of this.otherCommonChains.values()) connection.connect();
+    }
+
+    override close(): void {
+        for (const { connection } of this.otherCommonChains.values()) connection.close();
+        super.close();
+    }
+
+    override subscribeCommon(
+        params: CommonSubscribeParams,
+        handler: StreamHandler<MarketListChangedData | BlockNumChangedData, CommonSubscribeParams>
+    ): PublicWebsocketSubscription {
+        this.primaryCommonChain ??= params.chainId;
+        if (params.chainId === this.primaryCommonChain) return super.subscribeCommon(params, handler);
+        return this.subscribeOnOtherChain(params.chainId, (connection) => connection.subscribeCommon(params, handler));
+    }
+
+    override subscribeRaw(
+        params: RawSubscribeParams,
+        handler: StreamHandler<GenericStreamData, RawSubscribeParams>,
+        streams?: string | string[]
+    ): PublicWebsocketSubscription {
+        const wire = buildWsRequestParams(params);
+        if (wire.type === 'common') {
+            const chainId = parseOptionalNumber(wire.chainId) ?? 0;
+            this.primaryCommonChain ??= chainId;
+            if (chainId !== this.primaryCommonChain) {
+                return this.subscribeOnOtherChain(chainId, (connection) =>
+                    connection.subscribeRaw(params, handler, streams)
+                );
+            }
+        }
+        return super.subscribeRaw(params, handler, streams);
+    }
+
+    private subscribeOnOtherChain(
+        chainId: number,
+        subscribe: (connection: PublicWebsocketConnection) => PublicWebsocketSubscription
+    ): PublicWebsocketSubscription {
+        const group = this.otherCommonChains.get(chainId) ?? {
+            connection: new PublicWebsocketConnection(this.options, this.requestIds),
+            subscribers: 0,
+        };
+        const subscription = subscribe(group.connection);
+        this.otherCommonChains.set(chainId, group);
+        group.subscribers++;
+        let subscribed = true;
+        return {
+            unsubscribe: () => {
+                if (!subscribed) return;
+                subscribed = false;
+                subscription.unsubscribe();
+                if (--group.subscribers === 0) {
+                    this.otherCommonChains.delete(chainId);
+                    group.connection.close();
+                }
+            },
+        };
     }
 }
 

@@ -52,6 +52,42 @@ describe('PublicWebsocketClient common subscription', () => {
         client.close();
     });
 
+    it('isolates untagged market lists by chain across raw and typed subscriptions and reconnects', () => {
+        const sockets: FakeWebSocket[] = [];
+        const client = new PublicWebsocketClient({ wsFactory: createFakeWebSocketFactory(sockets), pingIntervalMs: 0 });
+        const base = jest.fn(),
+            monad = jest.fn(),
+            raw = jest.fn();
+        client.subscribeCommon({ chainId: 8453, type: 'common' }, base);
+        const rawSub = client.subscribeRaw({ type: 'common', params: { chainId: 143 } }, raw, 'marketListChanged');
+        const monadSub = client.subscribeCommon({ chainId: 143, type: 'common' }, monad);
+        const frame = JSON.stringify({ stream: 'marketListChanged', data: [] });
+        const [a, b] = sockets;
+        a.open();
+        b.open();
+        expect(a.sent).toHaveLength(1);
+        expect(b.sent).toHaveLength(1);
+        expect(JSON.parse(a.sent[0]).id).not.toBe(JSON.parse(b.sent[0]).id);
+        a.message(frame);
+        expect(base.mock.calls[0][0].chainId).toBe(8453);
+        expect(monad).not.toHaveBeenCalled();
+        expect(raw).not.toHaveBeenCalled();
+        client.close();
+        client.connect();
+        sockets[2].open();
+        sockets[3].open();
+        sockets[3].message(frame);
+        expect(base).toHaveBeenCalledTimes(1);
+        expect(monad.mock.calls[0][0].chainId).toBe(143);
+        expect(raw).toHaveBeenCalledTimes(1);
+        rawSub.unsubscribe();
+        rawSub.unsubscribe();
+        expect(sockets[3].readyState).toBe(1);
+        monadSub.unsubscribe();
+        expect(sockets[3].readyState).toBe(3);
+        client.close();
+    });
+
     it('normalizes blockNumChanged numeric fields for common subscribers', () => {
         const sockets: FakeWebSocket[] = [];
         const commonHandler = jest.fn<void, [BlockNumChangedData]>();
