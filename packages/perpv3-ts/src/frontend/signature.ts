@@ -1,5 +1,5 @@
 import type { SignedPermit } from './calldata/types';
-import { getContract, type WalletClient, type Address } from 'viem';
+import { domainSeparator, getContract, type WalletClient, type Address } from 'viem';
 import { ERC20_WITH_PERMIT_ABI } from '../abis';
 
 /** Sign an ERC-2612 permit and return the same fields the encoder will submit. */
@@ -11,6 +11,7 @@ export async function signErc20PermitTypedData({
     walletClient,
     approveAmount,
     deadline,
+    domain: domainOptions,
 }: {
     ownerAddress: Address;
     spenderAddress: Address;
@@ -18,6 +19,7 @@ export async function signErc20PermitTypedData({
     chainId: number;
     walletClient: WalletClient;
     approveAmount: bigint;
+    domain?: { name?: string; version?: string };
     deadline?: bigint; // in seconds, default to 1 hour from now
 }): Promise<SignedPermit> {
     if (walletClient.account && walletClient.account.address.toLowerCase() !== ownerAddress.toLowerCase()) {
@@ -32,18 +34,23 @@ export async function signErc20PermitTypedData({
         client: walletClient,
     });
 
-    const [nonce, name] = await Promise.all([
+    const [nonce, name, separator] = await Promise.all([
         erc20PermitContract.read.nonces([ownerAddress]),
-        erc20PermitContract.read.name(),
+        domainOptions?.name ?? erc20PermitContract.read.name(),
+        erc20PermitContract.read.DOMAIN_SEPARATOR(),
     ]);
 
     // Create EIP-712 signature for permit
     const domain = {
         name,
-        version: '1',
+        version: domainOptions?.version ?? '1',
         chainId,
         verifyingContract: tokenAddress,
     };
+
+    if (domainSeparator({ domain }).toLowerCase() !== separator.toLowerCase()) {
+        throw new Error('Permit domain does not match the token DOMAIN_SEPARATOR');
+    }
 
     const types = {
         Permit: [

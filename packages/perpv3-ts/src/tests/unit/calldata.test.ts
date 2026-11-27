@@ -1,6 +1,7 @@
 import { signErc20PermitTypedData } from '../../frontend/signature';
 import {
     decodeFunctionData,
+    domainSeparator,
     createWalletClient,
     custom,
     encodeAbiParameters,
@@ -276,53 +277,83 @@ describe('frontend calldata encoding', () => {
         const params = { tokenAddress, spenderAddress, amount: 100n } as const;
         const options = { ownerAddress, deadline: 1_700_000_600n } as const;
 
-        it.each([undefined, 0n])('encodes the deadline passed to the signer (%s)', async (deadline) => {
-            let signed: { message: { deadline: string; owner: string; spender: string; value: string } } | undefined;
-            const walletClient = createWalletClient({
-                account: ownerAddress,
-                transport: custom({
-                    request: async ({ method, params: rpcParams }) => {
-                        if (method === 'eth_call') {
-                            const [call] = rpcParams as [{ data: string }];
-                            return call.data === toFunctionSelector('name()')
-                                ? encodeAbiParameters([{ type: 'string' }], ['Mock token'])
-                                : encodeAbiParameters([{ type: 'uint256' }], [2n]);
-                        }
-                        if (method === 'eth_signTypedData_v4') {
-                            const [, typedData] = rpcParams as [string, string];
-                            signed = JSON.parse(typedData);
-                            return `${r}${s.slice(2)}1b`;
-                        }
-                        throw new Error('Unexpected RPC method ' + method);
-                    },
-                }),
-            });
-            const permit = await signErc20PermitTypedData({
-                ...params,
-                ownerAddress,
-                chainId: 8453,
-                walletClient,
-                approveAmount: params.amount,
-                deadline,
-            });
-            const tx = contractCallEncoder.encodePermit(permit);
-            expect(permit.deadline).toBe(deadline ?? BigInt(now + 3600));
-            expect(signed?.message).toMatchObject({
-                owner: ownerAddress,
-                spender: spenderAddress,
-                value: '100',
-                deadline: String(permit.deadline),
-            });
-            expect(decodeFunctionData({ abi: ERC20_WITH_PERMIT_ABI, data: tx.data }).args).toEqual([
-                ownerAddress,
-                spenderAddress,
-                100n,
-                permit.deadline,
-                27,
-                r,
-                s,
-            ]);
-        });
+        it.each([
+            ['1', undefined, undefined, true],
+            ['2', '2', 0n, true],
+            ['2', undefined, 0n, false],
+        ] as const)(
+            'checks token domain v%s with requested version %s and deadline %s',
+            async (tokenVersion, version, deadline, matches) => {
+                let signed:
+                    | {
+                          domain: { version: string };
+                          message: { deadline: string; owner: string; spender: string; value: string };
+                      }
+                    | undefined;
+                const walletClient = createWalletClient({
+                    account: ownerAddress,
+                    transport: custom({
+                        request: async ({ method, params: rpcParams }) => {
+                            if (method === 'eth_call') {
+                                const [call] = rpcParams as [{ data: string }];
+                                if (call.data === toFunctionSelector('DOMAIN_SEPARATOR()')) {
+                                    return domainSeparator({
+                                        domain: {
+                                            name: 'Mock token',
+                                            version: tokenVersion,
+                                            chainId: 8453,
+                                            verifyingContract: tokenAddress,
+                                        },
+                                    });
+                                }
+                                return call.data === toFunctionSelector('name()')
+                                    ? encodeAbiParameters([{ type: 'string' }], ['Mock token'])
+                                    : encodeAbiParameters([{ type: 'uint256' }], [2n]);
+                            }
+                            if (method === 'eth_signTypedData_v4') {
+                                const [, typedData] = rpcParams as [string, string];
+                                signed = JSON.parse(typedData);
+                                return `${r}${s.slice(2)}1b`;
+                            }
+                            throw new Error('Unexpected RPC method ' + method);
+                        },
+                    }),
+                });
+                const signing = signErc20PermitTypedData({
+                    ...params,
+                    ownerAddress,
+                    chainId: 8453,
+                    walletClient,
+                    approveAmount: params.amount,
+                    domain: { version },
+                    deadline,
+                });
+                if (!matches) {
+                    await expect(signing).rejects.toThrow('DOMAIN_SEPARATOR');
+                    expect(signed).toBeUndefined();
+                    return;
+                }
+                const permit = await signing;
+                expect(signed?.domain.version).toBe(tokenVersion);
+                const tx = contractCallEncoder.encodePermit(permit);
+                expect(permit.deadline).toBe(deadline ?? BigInt(now + 3600));
+                expect(signed?.message).toMatchObject({
+                    owner: ownerAddress,
+                    spender: spenderAddress,
+                    value: '100',
+                    deadline: String(permit.deadline),
+                });
+                expect(decodeFunctionData({ abi: ERC20_WITH_PERMIT_ABI, data: tx.data }).args).toEqual([
+                    ownerAddress,
+                    spenderAddress,
+                    100n,
+                    permit.deadline,
+                    27,
+                    r,
+                    s,
+                ]);
+            }
+        );
 
         it.each([
             ['00', 27],

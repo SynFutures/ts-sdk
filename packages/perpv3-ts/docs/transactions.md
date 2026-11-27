@@ -68,6 +68,10 @@ const v = yParity + 27;
 console.log({ r, s, v });
 ```
 
+The permit signer defaults to the token name and EIP-712 version `1`. For a version-2
+token, pass `domain: { version: '2' }`. You can also supply its signing-domain name.
+The SDK checks the token's `DOMAIN_SEPARATOR()` before requesting a signature.
+
 Pass the result of `signErc20PermitTypedData` directly to
 `contractCallEncoder.encodePermit`. This keeps the signed deadline, token, owner,
 spender and amount together. Use `encodeApprove` for a regular ERC-20 approval.
