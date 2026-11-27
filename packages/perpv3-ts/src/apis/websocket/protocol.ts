@@ -136,8 +136,26 @@ function normalizeWsRequestParams(params: Record<string, unknown>): Record<strin
     return normalized;
 }
 
-// Topic identity follows the normalized wire request, independent of object key order.
+// Known streams use the same identity fields as the server. Other raw streams retain the full request key.
 export function wsTopicKey(params: Record<string, unknown>): string {
+    const { type, chainId, instrument, expiry, interval, userAddress, pairs } = params;
+    switch (type) {
+        case 'trades':
+            return JSON.stringify([type, chainId, pairs]);
+        case 'common':
+        case 'blockReceipts':
+        case 'blockReceiptsProposed':
+        case 'txReceipts':
+            return JSON.stringify([type, chainId]);
+        case 'portfolio':
+            return JSON.stringify([type, chainId, userAddress]);
+        case 'orderBook':
+        case 'instrument':
+        case 'instrumentBasicInfo':
+            return JSON.stringify([type, chainId, instrument, expiry]);
+        case 'kline':
+            return JSON.stringify([type, chainId, instrument, expiry, interval]);
+    }
     return JSON.stringify(params, (_key, value: unknown) =>
         isRecord(value) ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) : value
     );

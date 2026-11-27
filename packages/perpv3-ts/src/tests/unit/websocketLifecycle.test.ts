@@ -46,6 +46,24 @@ test('retains overlapping pairs and restores only remaining subscriptions on rec
     client.close();
 });
 
+test.each([true, false])('shares a trades topic across snapshot limits (raw first: %s)', (rawFirst) => {
+    const socket = new FakeWebSocket();
+    const client = new PublicWebsocketClient({ wsFactory: () => socket, pingIntervalMs: 0 });
+    const topic = { type: 'trades' as const, chainId: 8453, pairs: ['pair_123'] };
+    const raw = () => client.subscribeRaw({ type: 'trades', params: { ...topic, tradesLimit: 5 } }, () => {});
+    const typed = () => client.subscribeTrades(topic, () => {});
+    const first = rawFirst ? raw() : typed();
+    socket.open();
+    const second = rawFirst ? typed() : raw();
+    first.unsubscribe();
+    expect(socket.sent.map(parseWsRequest)).toEqual([
+        { method: 'SUBSCRIBE', params: rawFirst ? { ...topic, tradesLimit: 5 } : topic },
+    ]);
+    second.unsubscribe();
+    expect(socket.sent.map(parseWsRequest).map((frame) => frame.method)).toEqual(['SUBSCRIBE', 'UNSUBSCRIBE']);
+    client.close();
+});
+
 test('ignores all delayed events from an obsolete connection', () => {
     class DelayedCloseSocket extends FakeWebSocket {
         close() {
