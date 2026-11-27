@@ -21,7 +21,7 @@ import {
     type OnchainContext,
 } from './contract';
 import type { Address } from 'viem';
-import { formatInTimeZone } from 'date-fns-tz';
+import { formatExpiryLabel } from '../utils/expiry';
 
 /**
  * PairSnapshot represents a snapshot of the complete on-chain state of a trading pair and trader's portfolio.
@@ -82,14 +82,7 @@ export class PairSnapshot {
      * Format: {instrumentSymbol}-{PERP|YYMMDD}
      */
     get pairSymbol(): string {
-        const symbol = this.instrumentSymbol;
-        if (this.expiry === PERP_EXPIRY) {
-            return `${symbol}-PERP`;
-        }
-        // Format expiry as YYMMDD (2-digit year, month, day)
-        const expiryDate = new Date(this.expiry * 1000);
-        const yyMMdd = formatInTimeZone(expiryDate, 'UTC', 'yyMMdd');
-        return `${symbol}-${yyMMdd}`;
+        return `${this.instrumentSymbol}-${formatExpiryLabel(this.expiry, true)}`;
     }
 
     /**

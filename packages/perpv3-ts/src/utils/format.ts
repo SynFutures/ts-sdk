@@ -1,10 +1,9 @@
 import type { Address, Erc20TokenInfo } from '@derivation-tech/viem-kit';
 import { formatUnits, getAddress, isAddress, Multicall } from '@derivation-tech/viem-kit';
-import { formatInTimeZone } from 'date-fns-tz';
 import { sqrtX96ToWad, tickToSqrtX96 } from '../math';
 import { MAX_UINT_16, MAX_UINT_24, Q24 } from '../constants';
 import type { ParserDeps } from '../parsers/types';
-import { PERP_EXPIRY } from '../types';
+import { formatExpiryLabel } from './expiry';
 
 // ============================================================================
 // Exported Constants and Interfaces
@@ -52,8 +51,7 @@ export function formatTimestamp(value: bigint | number | string): string {
 }
 
 export function formatExpiry(expiry: number): string {
-    if (expiry === PERP_EXPIRY) return 'PERP';
-    return formatInTimeZone(new Date(expiry * 1000), 'UTC', 'yyyyMMdd');
+    return formatExpiryLabel(expiry, false);
 }
 
 export function formatRatio(value: bigint | number | string, fixedDecimals = 2): string {
