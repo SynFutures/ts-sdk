@@ -16,6 +16,8 @@ describe('API export surface', () => {
         expect('fetchFuturesInstrumentInquire' in apis).toBe(false);
         expect('fetchMarketOnChainContext' in apis).toBe(false);
         expect('httpClient' in apis).toBe(false);
+        expect(apis).not.toHaveProperty('normalizeMinimalPearlTuple');
+        expect(apis).not.toHaveProperty('API_URLS');
     });
 
     test('legacy function helper compat module is removed from source and build entries', async () => {

@@ -44,3 +44,10 @@ Migrate the SDK to the refactored `@derivation-tech/viem-kit` 1.0 API and remove
   `MarketFromApi.info.beacon` is optional, and `AmmFromApi.status` and
   `SettingFromApi.quoteParam.qtype` use the `Status` and `QuoteType` enums.
   `PortfolioFromApi.position` is the single optional position the server sends, not an array.
+
+- Pass named `deadlineSeconds`, `slippageBps` and `leverageWad` to `UserSetting`. Choose `ticks` or `pricesWad` for scaled orders.
+- Select the ABI by contract version. Use the Gate deployment descriptor from `getPerpInfo` in deposit and withdrawal encoders. The Base deployment pairs a current Observer with a legacy Gate.
+- Select a `direct`, `for` or `router` transaction route. Pass a signed permit directly to `encodePermit`. Regular approvals use `encodeApprove`.
+- Explicit block reads require RPC. RPC order books use the context block for every depth level. An account-free snapshot has a null quote state, and estimated prices expose their source.
+- API configuration accepts native fetch options. Signed module availability is explicit on `PerpClient.market` and `PerpClient.mm`. Each client owns its WebSocket unless a shared client is passed explicitly.
+- Wire normalization and HTTP URL helpers are internal. MM endpoints validate rows and pagination before exposing typed results.

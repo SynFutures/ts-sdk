@@ -12,9 +12,12 @@ import {
     LoggerFactory as UtilsLoggerFactory,
     TransactionRevertedError as UtilsTransactionRevertedError,
 } from '@derivation-tech/viem-kit/utils';
-import { CURRENT_GATE_ABI } from '@synfutures/perpv3-ts/abis';
+import { CURRENT_GATE_ABI, getABI } from '@synfutures/perpv3-ts/abis';
 import { createGateParser } from '@synfutures/perpv3-ts/parsers';
 import { contractCallEncoder } from '@synfutures/perpv3-ts/frontend';
+
+const selectedGate: typeof CURRENT_GATE_ABI = getABI('current', 'Gate');
+if (!selectedGate.length) throw new Error('Missing current Gate ABI');
 
 const payload = encodeDepositParam(zeroAddress, 1n);
 const request = {
