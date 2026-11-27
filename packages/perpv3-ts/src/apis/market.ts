@@ -1,3 +1,4 @@
+import { zeroAddress } from 'viem';
 import { API_URLS } from './constants';
 import type {
     FetchFuturesInstrumentInput,
@@ -130,7 +131,7 @@ export class MarketModule extends BaseApiModule {
             return null;
         }
 
-        return buildOnChainContextFromQuery(rawData);
+        return buildOnChainContextFromQuery(rawData, !!params.userAddress && params.userAddress !== zeroAddress);
     }
 
     /**

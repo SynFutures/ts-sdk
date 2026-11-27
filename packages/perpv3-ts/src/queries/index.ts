@@ -13,7 +13,7 @@ import {
     inquireByTick as inquireByTickFromRpc,
     type FetchOrderBookOptions,
 } from './rpc';
-import { isApiConfig, resolveApiConfig } from './config';
+import { isApiConfig } from './config';
 import type { ApiConfig, ReadOptions, RpcConfig } from './config';
 
 // ============================================================================
@@ -49,13 +49,7 @@ export async function fetchOnchainContext(
     if (isApiConfig(config)) {
         assertApiReadOptions(options);
         // API doesn't support options parameter
-        return fetchOnchainContextFromApi(
-            instrumentAddress,
-            expiry,
-            resolveApiConfig(config),
-            traderAddress,
-            signedSize
-        );
+        return fetchOnchainContextFromApi(instrumentAddress, expiry, config, traderAddress, signedSize);
     }
     return fetchOnchainContextFromRpc(instrumentAddress, expiry, config, traderAddress, signedSize, options);
 }
@@ -80,7 +74,7 @@ export async function inquireByTick(
     if (isApiConfig(config)) {
         assertApiReadOptions(options);
         // API doesn't support options parameter
-        return inquireByTickFromApi(instrumentAddress, expiry, tick, resolveApiConfig(config));
+        return inquireByTickFromApi(instrumentAddress, expiry, tick, config);
     }
     return inquireByTickFromRpc(instrumentAddress, expiry, tick, config, options);
 }
@@ -102,11 +96,10 @@ export async function inquireByBaseSize(
         if (!signer) {
             throw Errors.apiRequestFailed('Signer is required for inquireByBaseSize');
         }
-        const resolved = resolveApiConfig(config);
         // API doesn't support options parameter
-        const market = createQueryMarketModule(resolved);
+        const market = createQueryMarketModule(config);
         const quotation = await market.fetchFuturesInstrumentInquire({
-            chainId: resolved.chainId,
+            chainId: config.chainId,
             instrument: instrumentAddress,
             expiry,
             size: signedSize.toString(),
@@ -143,10 +136,9 @@ export async function fetchOrderBook(
         if (!signer) {
             throw Errors.apiRequestFailed('Signer is required for fetchOrderBook');
         }
-        const resolved = resolveApiConfig(config);
-        const market = createQueryMarketModule(resolved);
+        const market = createQueryMarketModule(config);
         return market.fetchFuturesPairOrderBook({
-            chainId: resolved.chainId,
+            chainId: config.chainId,
             address: instrument,
             expiry,
         });
@@ -160,4 +152,4 @@ export async function fetchOrderBook(
 // Re-export types
 export type { FetchOrderBookOptions } from './rpc';
 export type { ApiConfig, RpcConfig, ReadOptions, BlockTag } from './config';
-export { isApiConfig, isRpcConfig, resolveApiConfig } from './config';
+export { isApiConfig, isRpcConfig } from './config';

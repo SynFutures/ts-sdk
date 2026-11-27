@@ -14,14 +14,13 @@ import {
     inquireByBaseSize,
     inquireByTick,
     isApiConfig,
-    resolveApiConfig,
     type ApiConfig,
     type ReadOptions,
     type RpcConfig,
 } from './queries';
 import { UserSetting, type PairSnapshot, type Quotation } from './types';
 import { MarketMakerModule, MarketModule } from './apis';
-import { defaultHttpClient } from './utils';
+import { HttpClient } from './utils/http';
 
 /**
  * PerpClient is a scoped client for interacting with a specific trading pair (instrument + expiry).
@@ -39,8 +38,8 @@ export class PerpClient {
     private readonly _rpcFallback?: RpcConfig;
     readonly websocket: PublicWebsocketClient;
 
-    private readonly _mm?: MarketMakerModule;
-    private readonly _market?: MarketModule;
+    readonly mm?: MarketMakerModule;
+    readonly market?: MarketModule;
 
     /**
      * Create a new PerpClient instance.
@@ -66,7 +65,7 @@ export class PerpClient {
             | { websocket?: never; wsOptions?: PublicWebsocketClientOptions }
         )
     ) {
-        this._config = isApiConfig(config) ? resolveApiConfig(config) : config;
+        this._config = config;
         this._userSetting = userSetting;
         this._instrumentAddress = instrumentAddress;
         this._expiry = expiry;
@@ -78,12 +77,12 @@ export class PerpClient {
         }
         this.websocket = options?.websocket ?? new PublicWebsocketClient(options?.wsOptions);
         if (isApiConfig(this._config)) {
-            const client = this._config.httpClient ?? defaultHttpClient;
+            const client = new HttpClient(this._config);
             if (this._config.authInfo) {
-                this._mm = new MarketMakerModule(client, this._config.authInfo);
+                this.mm = new MarketMakerModule(client, this._config.authInfo);
             }
             if (this._config.signer) {
-                this._market = new MarketModule(client, this._config.signer);
+                this.market = new MarketModule(client, this._config.signer);
             }
         }
     }
@@ -114,30 +113,6 @@ export class PerpClient {
      */
     get config(): ApiConfig | RpcConfig {
         return this._config;
-    }
-
-    /**
-     * Gets the Market Maker module. Throws an error if not initialized.
-     */
-    get mm(): MarketMakerModule {
-        if (!this._mm) {
-            throw new Error(
-                'MarketMaker module is not initialized. Please check if the config is an API config and has authInfo.'
-            );
-        }
-        return this._mm;
-    }
-
-    /**
-     * Gets the Market module. Throws an error if not initialized.
-     */
-    get market(): MarketModule {
-        if (!this._market) {
-            throw new Error(
-                'Market module is not initialized. Please check if the config is an API config and has signer.'
-            );
-        }
-        return this._market;
     }
 
     /**

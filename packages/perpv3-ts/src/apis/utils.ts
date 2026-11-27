@@ -60,8 +60,10 @@ function optionalArray(value: unknown, label: string): unknown[] {
     return value == null ? [] : requireArray(value, label);
 }
 
-export function buildOnChainContextFromQuery(value: unknown): PairSnapshot {
+export function buildOnChainContextFromQuery(value: unknown, accountRequested?: boolean): PairSnapshot {
     const data = requireRecord(value, 'on-chain context');
+    if (accountRequested && data.QuoteState == null)
+        throw new Error('Account quote state missing from onchain context');
     const setting = normalizeSettingFromQuery(data.Setting);
     return new PairSnapshot({
         setting,
@@ -73,9 +75,9 @@ export function buildOnChainContextFromQuery(value: unknown): PairSnapshot {
         portfolio: data.Portfolio != null ? normalizePortfolioFromQuery(data.Portfolio) : PairSnapshot.emptyPortfolio(),
         quotation: data.Quotation != null ? normalizeQuotationFromQuery(data.Quotation) : undefined,
         quoteState:
-            data.QuoteState != null
+            accountRequested !== false && data.QuoteState != null
                 ? normalizeQuoteStateFromQuery(data.QuoteState)
-                : PairSnapshot.emptyQuoteState(setting.quote, setting.decimals, ''),
+                : null,
     });
 }
 

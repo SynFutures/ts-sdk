@@ -301,9 +301,13 @@ describe('API decoding', () => {
         const snapshot = await fetchOnchainContext(instrument, expiry, {
             chainId: 8453,
             signer,
-            httpClient: createHttpClient({
-                instrument: createInstrumentPayload(instrument, expiry, markPrice),
-            }),
+            fetch: async () =>
+                Response.json({
+                    code: 0,
+                    data: {
+                        instrument: createInstrumentPayload(instrument, expiry, markPrice),
+                    },
+                }),
         });
 
         expect(snapshot.instrumentSetting.configAddress).toBe(getPerpInfo(8453).config);
@@ -317,9 +321,13 @@ describe('API decoding', () => {
                 {
                     chainId: 8453,
                     signer,
-                    httpClient: createHttpClient({
-                        instrument: createInstrumentPayload(instrument, expiry, markPrice),
-                    }),
+                    fetch: async () =>
+                        Response.json({
+                            code: 0,
+                            data: {
+                                instrument: createInstrumentPayload(instrument, expiry, markPrice),
+                            },
+                        }),
                 },
                 instrument
             )

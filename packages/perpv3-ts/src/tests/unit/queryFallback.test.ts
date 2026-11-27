@@ -5,8 +5,6 @@ import { WAD } from '../../constants';
 import { PerpClient } from '../../client';
 import { inquireByBaseSize, type ApiConfig, type RpcConfig } from '../../queries';
 import { UserSetting } from '../../types';
-import { HttpClient } from '../../utils';
-import { apiEnvelopeResponse } from '../helpers/http';
 import { mockPublicClient } from '../helpers/viem';
 
 const CHAIN_ID = 8453;
@@ -336,58 +334,52 @@ describe('PerpClient fallback (API -> rpcFallback)', () => {
         const rpcFallback = buildMockRpcConfig(instrument, expiry);
 
         const signer: ApiSigner = { sign: () => ({ 'X-Api-Nonce': 'test', 'X-Api-Sign': 'test', 'X-Api-Ts': 0 }) };
-        const apiHttpClient = new HttpClient();
+        const getSpy = jest.fn(async () => Response.json({ code: 0, data: null }));
 
         const apiConfig: ApiConfig = {
             chainId: CHAIN_ID,
             signer,
-            httpClient: apiHttpClient,
+            fetch: getSpy,
         };
 
-        const getSpy = jest.spyOn(apiHttpClient, 'get').mockResolvedValue(apiEnvelopeResponse(null));
         const client = new PerpClient(apiConfig, userSetting, instrument, expiry, { rpcFallback });
 
         // length=0 keeps the orderbook-side construction minimal for tests.
         const orderBook = await client.getOrderBook(0);
         expect(orderBook).not.toBeNull();
         expect(getSpy).toHaveBeenCalled();
-
-        getSpy.mockRestore();
     });
 });
 
 describe('direct API query helpers', () => {
-    test('inquireByBaseSize honors an explicit ApiConfig.httpClient', async () => {
+    test('inquireByBaseSize honors an explicit API fetch implementation', async () => {
         const instrument = '0x0000000000000000000000000000000000000001' as Address;
         const expiry = 0xffffffff;
         const signer: ApiSigner = { sign: () => ({ 'X-Api-Nonce': 'test', 'X-Api-Sign': 'test', 'X-Api-Ts': 0 }) };
-        const httpClient = new HttpClient();
-
-        const customGetSpy = jest.spyOn(httpClient, 'get').mockResolvedValue(
-            apiEnvelopeResponse({
-                benchmark: '0',
-                sqrtFairPX96: '0',
-                tick: 0,
-                mark: '0',
-                entryNotional: '0',
-                fee: '0',
-                minAmount: '0',
-                sqrtPostFairPX96: '0',
-                postTick: 0,
+        const customGetSpy = jest.fn(async () =>
+            Response.json({
+                code: 0,
+                data: {
+                    benchmark: '0',
+                    sqrtFairPX96: '0',
+                    tick: 0,
+                    mark: '0',
+                    entryNotional: '0',
+                    fee: '0',
+                    minAmount: '0',
+                    sqrtPostFairPX96: '0',
+                    postTick: 0,
+                },
             })
         );
 
-        try {
-            const quotation = await inquireByBaseSize(instrument, expiry, 1n, {
-                chainId: CHAIN_ID,
-                signer,
-                httpClient,
-            });
+        const quotation = await inquireByBaseSize(instrument, expiry, 1n, {
+            chainId: CHAIN_ID,
+            signer,
+            fetch: customGetSpy,
+        });
 
-            expect(quotation.tick).toBe(0);
-            expect(customGetSpy).toHaveBeenCalled();
-        } finally {
-            customGetSpy.mockRestore();
-        }
+        expect(quotation.tick).toBe(0);
+        expect(customGetSpy).toHaveBeenCalled();
     });
 });
