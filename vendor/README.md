@@ -1,10 +1,10 @@
 # Local SDK dependency
 
-`derivation-tech-viem-kit-1.0.0-rc.4.tgz` is packed from the viem-kit
+`derivation-tech-viem-kit-1.0.0-rc.5.tgz` is packed from the viem-kit
 `refactor/viem-kit-core-hardening` branch at commit
-`4957887148d1478d6e4b9df3cfc2d4e7a5411bc6`. The package version in the archive is set to `1.0.0-rc.4`.
+`6ef27ca7122411f8d5a4cba5c203a14a2093348d`. The package version in the archive is set to `1.0.0-rc.5`.
 
-SHA-256: `cd72c5233eeec3d13b786caf0ed70ff58917066778202205e5ed696e0c183278`.
+SHA-256: `c8c4ded4d8e59c38c5d1c900ceba63095bde4b931cf4f2d49e7cf6df357371f2`.
 
 When viem-kit changes, rebuild the archive from a committed revision and update the
 revision and SHA-256 above. Ledger remains a separately installed optional package; its

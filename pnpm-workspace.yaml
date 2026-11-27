@@ -2,7 +2,7 @@ packages:
     - 'packages/*'
 
 catalog:
-    '@derivation-tech/viem-kit': '1.0.0-rc.4'
+    '@derivation-tech/viem-kit': '1.0.0-rc.5'
     viem: '^2.58.7'
     typescript: '7.0.2'
 
@@ -10,7 +10,7 @@ overrides:
     # Jest and its Istanbul coverage tools still request affected glob and minimatch majors.
     'glob@>=9 <=14.0.1': '^14.0.2'
     'minimatch@>=7 <11.0.1': '^11.0.1'
-    '@derivation-tech/viem-kit': 'file:./vendor/derivation-tech-viem-kit-1.0.0-rc.4.tgz'
+    '@derivation-tech/viem-kit': 'file:./vendor/derivation-tech-viem-kit-1.0.0-rc.5.tgz'
 
 # Native binaries are supplied by platform-specific optional dependencies.
 allowBuilds:
