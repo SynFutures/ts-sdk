@@ -1,3 +1,4 @@
+import { mockPublicClient } from '../helpers/viem';
 import { encodeAddParam, encodeCancelParam, encodeDepositParam, encodeRemoveParam } from '../../utils/encode';
 import {
     createCexMarketParser,
@@ -123,6 +124,30 @@ describe('SynFutures parser integration', () => {
             args: [encodeDepositParam(token, 1_000_000n)],
         });
         expect(text).toContain(`quantity: 1000000 base units (${token})`);
+    });
+
+    it.each([
+        ['name', '1 TST'],
+        ['decimals', '1000000 base units (TST)'],
+        ['symbol', '1 0x0000000000000000000000000000000000000001'],
+    ])('formats Gate deposits when ERC-20 %s() fails', async (failedField, expected) => {
+        const token = '0x0000000000000000000000000000000000000001';
+        const fields = { symbol: 'TST', name: 'Test Token', decimals: 6 };
+        const publicClient = mockPublicClient({
+            multicall: async ({ contracts }: { contracts: { functionName: keyof typeof fields }[] }) =>
+                contracts.map(({ functionName }) =>
+                    functionName === failedField
+                        ? { status: 'failure', error: new Error('Unsupported read') }
+                        : { status: 'success', result: fields[functionName] }
+                ),
+            readContract: jest.fn(),
+        });
+        const parser = createGateParser({ publicClient });
+        const text = await parser.parseTransaction?.({
+            functionName: 'deposit',
+            args: [encodeDepositParam(token, 1_000_000n)],
+        });
+        expect(text).toContain(`quantity: ${expected} }`);
     });
 
     it('formats gate deposit transactions with token metadata', async () => {

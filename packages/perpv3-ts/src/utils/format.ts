@@ -1,4 +1,4 @@
-import type { Address, Erc20TokenInfo } from '@derivation-tech/viem-kit';
+import type { Address } from '@derivation-tech/viem-kit';
 import { formatUnits, getAddress, isAddress, Multicall } from '@derivation-tech/viem-kit';
 import { sqrtX96ToWad, tickToSqrtX96 } from '../math';
 import { MAX_UINT_16, MAX_UINT_24, Q24 } from '../constants';
@@ -115,7 +115,10 @@ export async function formatAddress(address: Address, deps?: ParserDeps): Promis
     return address;
 }
 
-export async function resolveTokenInfo(token: string, deps?: ParserDeps): Promise<Erc20TokenInfo | undefined> {
+export async function resolveTokenInfo(
+    token: string,
+    deps?: ParserDeps
+): Promise<Multicall.Erc20TokenMetadata | undefined> {
     if (!deps) return undefined;
     if (deps.getTokenInfo) {
         const info = await deps.getTokenInfo(token);
@@ -125,14 +128,7 @@ export async function resolveTokenInfo(token: string, deps?: ParserDeps): Promis
         const checksum = getAddress(token as Address);
         try {
             const [fetched] = await Multicall.getErc20TokenInfos(deps.publicClient, [checksum]);
-            if (fetched) {
-                return {
-                    address: checksum,
-                    decimals: fetched.decimals,
-                    symbol: fetched.symbol,
-                    name: fetched.name,
-                };
-            }
+            return fetched ?? undefined;
         } catch {
             // ignore
         }
@@ -147,10 +143,11 @@ export async function formatTokenAmount(
     fixedDecimals = 6
 ): Promise<string> {
     const info = await resolveTokenInfo(token, deps);
-    if (!info) {
-        return `${toBigInt(value)} base units (${token})`;
+    const label = info?.symbol || token;
+    if (info?.decimals === undefined) {
+        return `${toBigInt(value)} base units (${label})`;
     }
-    return `${formatUnitsSafe(value, info.decimals, fixedDecimals)} ${info.symbol}`;
+    return `${formatUnitsSafe(value, info.decimals, fixedDecimals)} ${label}`;
 }
 
 export function formatBoolean(value: boolean): string {
