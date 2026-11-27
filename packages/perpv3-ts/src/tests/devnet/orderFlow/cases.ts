@@ -870,7 +870,10 @@ export async function runMultiOrderFillAndCancelFlow(): Promise<void> {
         crossOneSide
     ).simulate(takerBeforeCrossOne, crossOneQuotation, userSetting);
 
+    // Each fill can mine after the quote timestamp and execute extra accounting in nested calls.
+    const tradeGas = 1_000_000n;
     const crossOneHash = await takerWallet.writeContract({
+        gas: tradeGas,
         address: INSTRUMENT_ADDRESS,
         abi: CURRENT_INSTRUMENT_ABI,
         functionName: 'trade',
@@ -912,11 +915,10 @@ export async function runMultiOrderFillAndCancelFlow(): Promise<void> {
         crossTwoSide
     ).simulate(takerBeforeCrossTwo, crossTwoQuotation, userSetting);
 
-    // Timestamp changes add accounting work beyond the same-block gas estimate.
-    // Exercise that transition explicitly with a bounded local-test gas budget.
+    // Exercise the timestamp transition even on fast runners.
     await ctx.publicClient.transport.request({ method: 'evm_increaseTime', params: [1] });
     const crossTwoHash = await takerWallet.writeContract({
-        gas: 1_000_000n,
+        gas: tradeGas,
         address: INSTRUMENT_ADDRESS,
         abi: CURRENT_INSTRUMENT_ABI,
         functionName: 'trade',
@@ -941,7 +943,9 @@ export async function runMultiOrderFillAndCancelFlow(): Promise<void> {
         userSetting
     );
 
+    await ctx.publicClient.transport.request({ method: 'evm_increaseTime', params: [1] });
     const thirdHash = await takerWallet.writeContract({
+        gas: tradeGas,
         address: INSTRUMENT_ADDRESS,
         abi: CURRENT_INSTRUMENT_ABI,
         functionName: 'trade',
