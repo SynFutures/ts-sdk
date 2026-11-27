@@ -53,13 +53,35 @@ test('claim status and four unsigned methods preserve calldata, sender and gas e
         assert.equal(tx.to, vault);
         assert.equal(tx.data, stakeAbi.encodeFunctionData(method, [3]));
         assert.equal(estimates.at(-1).from, account);
+        assert.equal(tx.from, undefined);
         assert.equal(tx.gasLimit.toString(), '171');
     }
     const explicit = await governance.stake(1, { from: account, gasLimit: 222 });
+    assert.equal(explicit.from, undefined);
     assert.equal(explicit.gasLimit.toString(), '222');
-    assert.equal((await governance.unstake(1, { from: account, disableGasLimit: true })).gasLimit, undefined);
+    const skipped = await governance.unstake(1, { from: account, disableGasLimit: true });
+    assert.equal(skipped.from, undefined);
+    assert.equal(skipped.gasLimit, undefined);
     assert.equal(estimates.length, 4);
     assert.deepEqual(Object.keys(createTgeClient(provider)), ['airdrop']);
+});
+
+test('a 1.1 multiplier stays at 110 hundredths and from stays off the transaction', async () => {
+    const estimates = [];
+    const provider = providerWith((method, params) => {
+        assert.equal(method, 'eth_estimateGas');
+        estimates.push(params[0]);
+        return '0x65';
+    });
+    const { airdrop, governance } = createTgeClient(provider, 1.1, config);
+    const claim = await airdrop.claim(vault, 0, 123, account, proof, { from: account });
+    const stake = await governance.stake(3, { from: account });
+    assert.equal(claim.from, undefined);
+    assert.equal(stake.from, undefined);
+    assert.equal(estimates[0].from, account);
+    assert.equal(estimates[1].from, account);
+    assert.equal(claim.gasLimit.toString(), '111');
+    assert.equal(stake.gasLimit.toString(), '111');
 });
 
 test('one block-tagged aggregate preserves original release indices when sorting', async () => {

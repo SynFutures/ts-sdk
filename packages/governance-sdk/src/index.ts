@@ -22,17 +22,32 @@ export interface UnsignedOptions {
     disableGasLimit?: boolean;
 }
 
+function withoutSender(tx: PopulatedTransaction): PopulatedTransaction {
+    const unsigned = { ...tx };
+    delete unsigned.from;
+    return unsigned;
+}
+
+function multiplierHundredths(factor: number): BigNumber {
+    const [whole, fraction = ''] = factor.toFixed(2).split('.');
+    return BigNumber.from(whole).mul(100).add(fraction);
+}
+
 async function estimate(
     provider: providers.Provider,
     tx: PopulatedTransaction,
     options: UnsignedOptions,
     multiplier: number
 ): Promise<PopulatedTransaction> {
-    if (options.disableGasLimit) return tx;
-    if (options.gasLimit !== undefined) return { ...tx, gasLimit: BigNumber.from(options.gasLimit) };
-    const gas = await provider.estimateGas({ from: options.from, ...tx });
+    const unsigned = withoutSender(tx);
+    if (options.disableGasLimit) return unsigned;
+    if (options.gasLimit !== undefined) return { ...unsigned, gasLimit: BigNumber.from(options.gasLimit) };
+    const request: PopulatedTransaction = { ...unsigned };
+    if (options.from !== undefined) request.from = options.from;
+    const gas = await provider.estimateGas(request);
     const factor = options.gasLimitMultiple ?? multiplier;
-    return { ...tx, gasLimit: factor ? gas.mul(Math.ceil(factor * 100)).div(100) : gas };
+    if (!factor) return { ...unsigned, gasLimit: gas };
+    return { ...unsigned, gasLimit: gas.mul(multiplierHundredths(factor)).div(100) };
 }
 
 export class AirdropClient {
@@ -109,8 +124,7 @@ export class StakingClient {
     }
 
     private async populate(method: 'stake' | 'unstake' | 'release', value: BigNumberish, options: UnsignedOptions) {
-        const { from, gasLimit } = options;
-        const tx = await this.stakingVault.populateTransaction[method](value, { from, gasLimit });
+        const tx = await this.stakingVault.populateTransaction[method](value);
         return estimate(this.provider, tx, options, this.multiplier);
     }
 
