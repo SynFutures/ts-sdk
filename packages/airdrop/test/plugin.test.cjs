@@ -36,13 +36,18 @@ test('chain-selected and explicit distributors preserve reads, calldata and sign
                 assert.ok(parser instanceof AirdropParser);
             },
         },
-        tx: { sendTx: async (tx, opts) => {
-            if (opts === undefined) return tx;
-            assert.equal(opts, options);
-            return receipt;
-        } },
     };
     const { airdrop } = airdropPlugin().install(host);
+    assert.equal(await airdrop.isClaimed(custom, 0), true);
+    await assert.rejects(airdrop.claim(custom, 0, '123', account, []), {
+        name: 'Error',
+        message: /install the transaction plugin.*host\.tx/i,
+    });
+    host.tx = { sendTx: async (tx, opts) => {
+        if (opts === undefined) return tx;
+        assert.equal(opts, options);
+        return receipt;
+    } };
     for (const [address, prefix] of [[AirdropContracts[1], []], [custom, [custom]]]) {
         assert.equal(await airdrop.isClaimed(...prefix, 0, { blockTag: 21 }), true);
         assert.deepEqual(calls.at(-1), [{

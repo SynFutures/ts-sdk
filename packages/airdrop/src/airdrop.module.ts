@@ -67,21 +67,24 @@ export class AirdropModule<Host extends AirdropHost = LegacyPluginHost & LegacyT
     async claim(...args: ClaimArgs | WithDistributor<ClaimArgs>): Promise<TransactionReceipt | PopulatedTransaction> {
         if (hasDistributor(args)) {
             const [distributor, ...claim] = args;
-            return this.submitClaim(this.getAirdrop(distributor), ...claim);
+            return this.submitClaim(distributor, ...claim);
         }
-        return this.submitClaim(this.getAirdrop(), ...args);
+        return this.submitClaim(undefined, ...args);
     }
 
     private async submitClaim(
-        airdrop: Airdrop,
+        distributor: string | undefined,
         index: number,
         amount: string,
         account: string,
         proof: string[],
         txOptions?: TxOptions
     ): Promise<TransactionReceipt | PopulatedTransaction> {
-        const tx = await airdrop.populateTransaction.claim(index, account, amount, proof);
-        return this.synfV3.tx!.sendTx(tx, txOptions);
+        const { tx } = this.synfV3;
+        if (!tx) throw new Error('Install the transaction plugin on host.tx before calling claim.');
+        const airdrop = this.getAirdrop(distributor);
+        const unsignedTx = await airdrop.populateTransaction.claim(index, account, amount, proof);
+        return tx.sendTx(unsignedTx, txOptions);
     }
 
     isClaimed(index: number, overrides?: CallOverrides): Promise<boolean>;

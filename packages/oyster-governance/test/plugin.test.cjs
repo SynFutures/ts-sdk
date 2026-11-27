@@ -16,16 +16,30 @@ test('governance follows provider changes and preserves the host transaction wor
     const options = { signer: ethers.Wallet.createRandom() };
     const host = {
         ctx, addSetProviderHook(hook) { this.hook = hook; },
-        tx: { sendTx: async (tx, opts) => {
-            if (opts === undefined) return tx;
-            assert.equal(opts, options);
-            return receipt;
-        } },
     };
     const { governance } = governancePlugin().install(host);
     assert.equal(ctx.addresses.get(STAKE_ADDRESSES[1]), 'SynFuturesStakingVault');
     assert.ok(ctx.parsers.get(STAKE_ADDRESSES[1]) instanceof SynFuturesStakingVaultParser);
     assert.equal(ctx.tokenInfo.get('s'), S_TOKENINFO[1]);
+    const abi = governance.stakingVault.interface;
+    ctx.multicall3 = { callStatic: { aggregate: async () => ({ returnData: [
+        abi.encodeFunctionResult('pendingDuration', [60]),
+        abi.encodeFunctionResult('accountStakeInfo', [12, []]),
+    ] }) } };
+    const info = await governance.getStakingInfo(options.signer.address);
+    assert.equal(info.stakes.toString(), '12');
+    assert.deepEqual(info.pendingUnstakes, []);
+    for (const method of ['stake', 'unstake', 'release']) {
+        await assert.rejects(governance[method](0), {
+            name: 'Error',
+            message: /install the transaction plugin.*host\.tx/i,
+        });
+    }
+    host.tx = { sendTx: async (tx, opts) => {
+        if (opts === undefined) return tx;
+        assert.equal(opts, options);
+        return receipt;
+    } };
     for (const [method, arg] of [['stake', 12], ['unstake', 4], ['release', 0]]) {
         const tx = await governance[method](arg);
         assert.equal(tx.to, STAKE_ADDRESSES[1]);

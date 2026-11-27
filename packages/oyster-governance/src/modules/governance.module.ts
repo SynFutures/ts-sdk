@@ -15,6 +15,11 @@ import { PendingUnstake, BoostSettings, VotingPowerSettings } from '../types';
 import { ActionType } from '../enum';
 import { GovernanceInterface } from './governance.interface';
 
+function requireTransactionPlugin({ tx }: GovernanceHost) {
+    if (!tx) throw new Error('Install the transaction plugin on host.tx before calling stake, unstake or release.');
+    return tx;
+}
+
 function isUTCSameDay(ts1: number, ts2: number): boolean {
     const d1 = new Date(ts1 * 1000);
     const d2 = new Date(ts2 * 1000);
@@ -71,8 +76,9 @@ export class GovernanceModule<Host extends GovernanceHost = LegacyPluginHost & L
         amount: BigNumber,
         txOptions?: TxOptions
     ): Promise<ethers.providers.TransactionReceipt | ethers.PopulatedTransaction> {
+        const tx = requireTransactionPlugin(this.synfV3);
         const unsignedTx = await this.stakingVault.populateTransaction.stake(amount, toPopulatedTxOverrides(txOptions));
-        return this.synfV3.tx!.sendTx(unsignedTx, txOptions);
+        return tx.sendTx(unsignedTx, txOptions);
     }
 
     unstake(amount: BigNumber, txOptions: TxOptionsWithSigner): Promise<ethers.providers.TransactionReceipt>;
@@ -81,11 +87,12 @@ export class GovernanceModule<Host extends GovernanceHost = LegacyPluginHost & L
         amount: BigNumber,
         txOptions?: TxOptions
     ): Promise<ethers.providers.TransactionReceipt | ethers.PopulatedTransaction> {
+        const tx = requireTransactionPlugin(this.synfV3);
         const unsignedTx = await this.stakingVault.populateTransaction.unstake(
             amount,
             toPopulatedTxOverrides(txOptions)
         );
-        return this.synfV3.tx!.sendTx(unsignedTx, txOptions);
+        return tx.sendTx(unsignedTx, txOptions);
     }
 
     release(index: number, txOptions: TxOptionsWithSigner): Promise<ethers.providers.TransactionReceipt>;
@@ -94,11 +101,12 @@ export class GovernanceModule<Host extends GovernanceHost = LegacyPluginHost & L
         index: number,
         txOptions?: TxOptions
     ): Promise<ethers.providers.TransactionReceipt | ethers.PopulatedTransaction> {
+        const tx = requireTransactionPlugin(this.synfV3);
         const unsignedTx = await this.stakingVault.populateTransaction.release(
             index,
             toPopulatedTxOverrides(txOptions)
         );
-        return this.synfV3.tx!.sendTx(unsignedTx, txOptions);
+        return tx.sendTx(unsignedTx, txOptions);
     }
 
     async getStakingInfo(
