@@ -35,7 +35,7 @@ and `format:check` before package verification. The workspace owns one pinned Pr
 `pnpm run format` formats maintained source, configuration and documentation. Generated ABIs,
 fixed fixtures and devnet snapshots are excluded.
 
-TypeScript 6.0.3 is pinned once in the workspace catalog. Source, examples, tools,
+TypeScript 7.0.2 is pinned once in the workspace catalog. Source, examples, tools,
 tests and documentation snippets use explicit source roots and ambient types.
 Path mappings resolve relative to their config (or use absolute paths for generated
 documentation checks); no compiler `baseUrl` or deprecation suppression is needed.
@@ -164,7 +164,7 @@ dependencies or the local viem-kit override.
 
 Review major upgrades against these current compatibility constraints:
 
-- TypeScript remains 6.0.3 while ts-jest's peer range is below 7. Upgrade that toolchain together.
+- Jest uses SWC for transformation. The separate TypeScript checks validate source, tests, tools and consumers.
 - Development stays on Node 24 LTS. Published SDK compatibility and `@types/node`
   stay on Node 22; a newer development runtime must not silently expand the SDK's APIs.
 - viem-kit remains a reviewed local tarball. Update it through the provenance and

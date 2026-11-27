@@ -1,13 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
-import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { log } from 'node:console';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const require = createRequire(join(root, 'package.json'));
 const cache = join(root, 'node_modules/.cache');
 mkdirSync(cache, { recursive: true });
 const temporary = mkdtempSync(join(cache, 'docs-'));
@@ -43,11 +40,10 @@ try {
             exclude: [],
         })
     );
-    execFileSync(
-        process.execPath,
-        [require.resolve('typescript/bin/tsc'), '--noEmit', '-p', join(temporary, 'tsconfig.json')],
-        { stdio: 'inherit' }
-    );
+    execFileSync('pnpm', ['exec', 'tsc', '--noEmit', '-p', join(temporary, 'tsconfig.json')], {
+        cwd: root,
+        stdio: 'inherit',
+    });
     log(`Checked ${count} TypeScript documentation examples`);
 } finally {
     rmSync(temporary, { recursive: true, force: true });

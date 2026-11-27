@@ -63,7 +63,7 @@ if (
 }
 let rejectedInvalidLeverage = false;
 try {
-    new TypesUserSetting(60, 100, 0n);
+    new TypesUserSetting({ deadlineSeconds: 60, slippageBps: 100, leverageWad: 0n });
 } catch (error) {
     if (!(error instanceof ValidationError)) throw error;
     rejectedInvalidLeverage = true;

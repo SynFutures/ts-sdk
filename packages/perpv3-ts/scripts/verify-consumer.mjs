@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { execFileSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,7 +10,6 @@ import { log } from 'node:console';
 
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const workspaceDir = resolve(packageDir, '../..');
-const require = createRequire(join(packageDir, 'package.json'));
 const manifest = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'));
 const consumerNode = process.env.PERPV3_CONSUMER_NODE || process.execPath;
 const temporary = mkdtempSync(join(tmpdir(), 'perpv3-consumer-'));
@@ -93,7 +91,7 @@ try {
             include: ['index.mts', 'index.cts'],
         })
     );
-    run(process.execPath, [require.resolve('typescript/bin/tsc'), '-p', 'tsconfig.json']);
+    run('pnpm', ['exec', 'tsc', '-p', join(consumer, 'tsconfig.json')], packageDir);
     run(consumerNode, ['--disallow-code-generation-from-strings', 'dist/index.mjs']);
     run(consumerNode, ['--disallow-code-generation-from-strings', 'dist/index.cjs']);
     const entries = Object.keys(packed.exports).filter((key) => key !== './package.json');
