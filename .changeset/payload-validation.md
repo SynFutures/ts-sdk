@@ -40,3 +40,10 @@ Reject malformed data instead of substituting defaults.
 - History responses reject unknown `typeString` and `side` values.
 - A topic whose WebSocket SUBSCRIBE the server rejects is subscribed again by the next
   subscribe call or reconnect.
+
+- Limit-order collateral and batch leverage use the contract's full unsigned 128-bit range.
+- MM ticker queries return an array for both a single symbol and the full market. Account
+  history downloads request the backend's download page size.
+- Malformed HTTP 200 envelopes throw. Explicit null data remains valid for nullable endpoints.
+- Trade subscriptions share a server topic across initial snapshot limits. Multichain common
+  subscriptions use separate sockets to identify market-list updates without a chain ID.

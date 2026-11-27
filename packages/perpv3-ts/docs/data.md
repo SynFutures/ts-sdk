@@ -43,6 +43,9 @@ returning a rounded value.
 HTTP 5xx responses can be retried for GET, HEAD and OPTIONS, subject to the
 configured retry limit and backoff. POST, PUT and DELETE are not automatically
 repeated. A failed response does not prove that a write did not happen.
+A successful HTTP envelope must include integer code zero and a data field. An explicit
+null is valid for nullable endpoints. MM ticker queries return a list even when a symbol
+selects one ticker. Account history downloads use the server download limit of 1,000 rows.
 Query serialization retains explicit `0` and `false` and omits nullish values.
 
 ## WebSockets
@@ -51,7 +54,10 @@ Use `PerpClient` subscription methods for a bound pair, or `PublicWebsocketClien
 from `/apis` for explicit subscription management. Each subscription returns an
 unsubscribe operation; release it when the owning view or workflow ends. Identical wire
 topics remain subscribed until their last typed or raw subscriber is removed. Events from
-a replaced socket cannot reset the active connection or deliver stale data.
+a replaced socket cannot reset the active connection or deliver stale data. A trades
+subscription's initial snapshot limit applies when the pair is first subscribed. Common
+subscriptions for different chains use separate sockets because market-list frames may
+omit the chain ID.
 
 The transport, request/acknowledgment protocol, subscription registry and payload
 normalization have separate owners. Stream schemas validate metadata and required

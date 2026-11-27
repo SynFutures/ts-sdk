@@ -17,7 +17,7 @@ type StreamHandler<TPayload, TParams> = (payload: TPayload, context: { params: T
 
 /**
  * Singleton WebSocket manager that manages WebSocket connections.
- * Ensures only one WebSocket connection per URL, shared across all PerpClient instances.
+ * Shares one PublicWebsocketClient per URL across PerpClient instances.
  */
 export class WebSocketManager {
     private static instance: WebSocketManager;
