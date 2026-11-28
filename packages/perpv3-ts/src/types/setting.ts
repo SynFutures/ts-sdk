@@ -1,9 +1,22 @@
 import type { Address } from 'viem';
-import { abs, ratioToWad, sqrtX96ToTick, tickToWad, wadToTick, wdiv, wdivUp, wmul, wmulDown } from '../math';
+import {
+    abs,
+    ratioToWad,
+    sqrtX96ToTick,
+    tickToSqrtX96,
+    tickToWad,
+    wadToTick,
+    wdiv,
+    wdivUp,
+    wmul,
+    wmulDown,
+} from '../math';
 import {
     DEFAULT_DEADLINE_SECONDS,
     DEFAULT_FUNDING_HOUR,
     MAX_TICK,
+    MIN_SQRT_RATIO,
+    MAX_SQRT_RATIO,
     MIN_TICK,
     ONE_RATIO,
     Q96,
@@ -109,25 +122,23 @@ export class UserSetting {
      * Gets encoded liquidity limit ticks from sqrt price.
      * Uses the slippage tolerance from this UserSetting.
      */
-    getEncodedLiquidityLimitTicks(sqrtPX96: bigint): bigint {
-        const sqrtStrikePX96Lower = sqrtPX96 - wmulDown(sqrtPX96, ratioToWad(this.slippage));
-        const sqrtStrikePX96Upper = sqrtPX96 + wmulDown(sqrtPX96, ratioToWad(this.slippage));
-
-        // Encode limit ticks from sqrt strike prices
-        const INT24_MIN = -(1 << 23);
-        const INT24_MAX = (1 << 23) - 1;
-        const ZERO_TICK = 0n;
-        const normalize = (tick: number): bigint => {
-            const value = BigInt(tick);
-            return value >= 0 ? value : (1n << 24n) + value;
-        };
-
-        // Add +1 to lowerTick to ensure the range includes the current price when converting from sqrt price to tick.
-        // This accounts for rounding behavior in sqrtX96ToTick conversion.
-        const lowerTick = sqrtStrikePX96Lower === ZERO_TICK ? INT24_MIN : sqrtX96ToTick(sqrtStrikePX96Lower) + 1;
-        const upperTick = sqrtStrikePX96Upper === ZERO_TICK ? INT24_MAX : sqrtX96ToTick(sqrtStrikePX96Upper);
-
-        return (normalize(lowerTick) << 24n) + normalize(upperTick);
+    getEncodedLiquidityLimitTicks(sqrtPX96: bigint, currentTick = sqrtX96ToTick(sqrtPX96)): bigint {
+        const delta = wmulDown(sqrtPX96, ratioToWad(this.slippage));
+        let lower = currentTick;
+        let upper = currentTick;
+        if (delta > 0n) {
+            const lowerPrice = sqrtPX96 - delta;
+            const upperPrice = sqrtPX96 + delta;
+            if (lowerPrice <= MIN_SQRT_RATIO) {
+                lower = MIN_TICK;
+            } else {
+                const floor = sqrtX96ToTick(lowerPrice);
+                // Round inward, including an exact boundary and the observed AMM tick.
+                lower = Math.min(currentTick, tickToSqrtX96(floor) === lowerPrice ? floor : floor + 1);
+            }
+            upper = upperPrice >= MAX_SQRT_RATIO ? MAX_TICK : Math.max(currentTick, sqrtX96ToTick(upperPrice));
+        }
+        return (BigInt.asUintN(24, BigInt(lower)) << 24n) | BigInt.asUintN(24, BigInt(upper));
     }
 
     /**

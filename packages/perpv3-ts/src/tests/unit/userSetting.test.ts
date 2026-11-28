@@ -1,3 +1,4 @@
+import { tickToSqrtX96 } from '../../math';
 import { Side, UserSetting, ValidationError } from '../../types';
 import { DEFAULT_DEADLINE_SECONDS, MIN_TICK, WAD } from '../../constants';
 
@@ -14,6 +15,21 @@ describe('UserSetting', () => {
         { markPriceBufferInBps: -1 },
     ])('rejects invalid settings at construction: %j', (invalid) => {
         expect(() => new UserSetting({ ...options, ...invalid })).toThrow(ValidationError);
+    });
+    it.each([
+        [0, 0n],
+        [-10, 0n],
+        [15, 1n],
+    ] as const)('encodes an inclusive zero-slippage interval at tick %i', (tick, offset) => {
+        const settings = new UserSetting({ ...options, slippageBps: 0 });
+        const limits = settings.getEncodedLiquidityLimitTicks(tickToSqrtX96(tick) + offset);
+        expect(BigInt.asIntN(24, limits >> 24n)).toBe(BigInt(tick));
+        expect(BigInt.asIntN(24, limits)).toBe(BigInt(tick));
+    });
+    it('uses the observed AMM tick at a crossed price boundary', () => {
+        const settings = new UserSetting({ ...options, slippageBps: 0 });
+        const limits = settings.getEncodedLiquidityLimitTicks(tickToSqrtX96(0), -1);
+        expect([BigInt.asIntN(24, limits >> 24n), BigInt.asIntN(24, limits)]).toEqual([-1n, -1n]);
     });
     it('checks the absolute deadline against the encoded uint32 boundary', () => {
         const settings = new UserSetting(options);
