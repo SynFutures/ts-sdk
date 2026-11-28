@@ -1,6 +1,6 @@
 {
     "name": "@synfutures/oyster-governance-data-source",
-    "version": "0.0.83",
+    "version": "0.0.84",
     "description": "SynFutures V3 governance subgraph plugin",
     "author": "SynFutures",
     "license": "MIT",
