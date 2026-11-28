@@ -3,15 +3,16 @@
 The workspace maintains [`@synfutures/perpv3-ts`](packages/perpv3-ts/README.md),
 a TypeScript SDK for SynFutures V3 queries, simulations, calldata and contract parsers.
 
-The ethers v5 governance packages also live here:
+The four governance and airdrop packages expose standalone viem clients. Choose the
+entry that matches your deployment in the [major-version migration guide](docs/governance-viem.md).
 
-- `@synfutures/airdrop` supports chain-selected and explicit Merkle distributors.
-- `@synfutures/oyster-governance` provides staking reads, transactions, and voting-power simulations.
-- `@synfutures/oyster-governance-data-source` queries governance history and pending withdrawals.
-- [`@synfutures/governance-sdk`](packages/governance-sdk/README.md) exposes the signer client and the standalone unsigned `/tge` client.
+- `@synfutures/airdrop` reads and builds Merkle distributor claims.
+- `@synfutures/oyster-governance` reads Oyster staking positions and builds vault calls.
+- `@synfutures/oyster-governance-data-source` queries the governance subgraph.
+- [`@synfutures/governance-sdk`](packages/governance-sdk/README.md) exposes the independent governance deployment and a configurable `/tge` entry.
 
-The three plugins support existing caller-supplied hosts and retain their original import paths.
-Run `pnpm run verify:governance` to build the four packages and check runtime behavior and consumer types.
+Run `pnpm run verify:governance` for the package tests and `pnpm run test:governance-consumers`
+to install and audit each packed package in a separate empty project.
 
 ## Development
 
