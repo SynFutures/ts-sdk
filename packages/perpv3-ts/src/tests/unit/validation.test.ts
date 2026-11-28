@@ -583,3 +583,22 @@ describe('Leverage validation helpers', () => {
         ).toBe(false);
     });
 });
+
+describe('aligned order price bounds', () => {
+    it.each([100, 5000, 10000])('agrees with point validation at both ends for IMR %i', (imr) => {
+        const setting = new InstrumentSetting(buildSetting(imr), Condition.NORMAL, 1, 5, 10);
+        const { minTickLower, maxTickUpper } = setting.getLimitOrderBoundaries(WAD);
+        if (imr === 100) expect(minTickLower).toBe(-200);
+        for (const [side, endpoint, step] of [
+            [Side.LONG, minTickLower, -5],
+            [Side.SHORT, maxTickUpper, 5],
+        ] as const) {
+            expect(setting.isTickValidForLimitOrder(endpoint, side, 0, WAD).valid).toBe(true);
+            expect(setting.isTickValidForLimitOrder(endpoint + step, side, 0, WAD).valid).toBe(false);
+            const range = setting.getFeasibleLimitOrderTickRange(side, 0, WAD);
+            expect(side === Side.LONG ? range?.minTick : range?.maxTick).toBe(endpoint);
+        }
+        expect(setting.getFeasibleLimitOrderTickRange(Side.LONG, minTickLower, WAD)).toBeNull();
+        expect(setting.getFeasibleLimitOrderTickRange(Side.SHORT, maxTickUpper, WAD)).toBeNull();
+    });
+});

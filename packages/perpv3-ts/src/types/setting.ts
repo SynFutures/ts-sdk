@@ -1,16 +1,5 @@
 import type { Address } from 'viem';
-import {
-    abs,
-    ratioToWad,
-    sqrtX96ToTick,
-    tickToSqrtX96,
-    tickToWad,
-    wadToTick,
-    wdiv,
-    wdivUp,
-    wmul,
-    wmulDown,
-} from '../math';
+import { abs, ratioToWad, sqrtX96ToTick, tickToSqrtX96, tickToWad, wadToTick, wdiv, wdivUp, wmulDown } from '../math';
 import {
     DEFAULT_DEADLINE_SECONDS,
     DEFAULT_FUNDING_HOUR,
@@ -338,24 +327,21 @@ export class InstrumentSetting {
      * Get limit order boundaries based on mark price and IMR
      */
     getLimitOrderBoundaries(markPrice: bigint): { maxTickUpper: number; minTickLower: number } {
-        const maxDiff = wmul(markPrice, ratioToWad(this.imr)) * 2n;
-        const rawUpperTick = wadToTick(markPrice + maxDiff);
-        const rawLowerTick = wadToTick(markPrice - maxDiff);
-        let maxTickUpper = this.orderSpacing * Math.floor(rawUpperTick / this.orderSpacing);
-        let minTickLower = this.orderSpacing * Math.ceil(rawLowerTick / this.orderSpacing);
-
-        // Check if raw ticks are within order limit (2 * IMR)
-        if (wdiv(abs(tickToWad(rawUpperTick) - markPrice), markPrice) > ratioToWad(this.imr) * 2n) {
-            maxTickUpper -= this.orderSpacing;
-        }
-
-        if (wdiv(abs(tickToWad(rawLowerTick) - markPrice), markPrice) > ratioToWad(this.imr) * 2n) {
-            minTickLower += this.orderSpacing;
-        }
-
+        const limit = ratioToWad(this.imr) * 2n;
+        // Search the aligned ticks themselves, including plateaus introduced by WAD rounding.
+        const firstMatchingTick = (matches: (deviation: bigint) => boolean) => {
+            let lo = Math.ceil(MIN_TICK / this.orderSpacing);
+            let hi = Math.floor(MAX_TICK / this.orderSpacing) + 1;
+            while (lo < hi) {
+                const mid = Math.floor((lo + hi) / 2);
+                if (matches(this.orderPriceDeviation(mid * this.orderSpacing, markPrice))) hi = mid;
+                else lo = mid + 1;
+            }
+            return lo * this.orderSpacing;
+        };
         return {
-            maxTickUpper,
-            minTickLower,
+            minTickLower: firstMatchingTick((deviation) => deviation >= -limit),
+            maxTickUpper: firstMatchingTick((deviation) => deviation > limit) - this.orderSpacing,
         };
     }
 
@@ -405,54 +391,18 @@ export class InstrumentSetting {
         ammTick: number,
         markPrice: bigint
     ): { minTick: number; maxTick: number } | null {
-        const imr = ratioToWad(this.imr);
-        const maxDeviation = imr * 2n;
+        const { minTickLower, maxTickUpper } = this.getLimitOrderBoundaries(markPrice);
+        const minTick =
+            side === Side.SHORT ? Math.max(minTickLower, this.alignTickStrictlyAbove(ammTick)) : minTickLower;
+        const maxTick =
+            side === Side.LONG ? Math.min(maxTickUpper, this.alignTickStrictlyBelow(ammTick)) : maxTickUpper;
+        return minTick <= maxTick ? { minTick, maxTick } : null;
+    }
 
-        if (side === Side.LONG) {
-            // LONG orders: ticks < ammTick, price deviation within [markPrice - 2*IMR*markPrice, markPrice]
-            const maxTick = ammTick - 1;
-            const minDeviationPrice = markPrice - wmul(markPrice, maxDeviation);
-            const minDeviationTick = wadToTick(minDeviationPrice);
-
-            // minDeviationTick is the lower bound, maxTick is the upper bound
-            const effectiveMinTick = Math.max(MIN_TICK, minDeviationTick);
-            const effectiveMaxTick = maxTick;
-
-            const alignedMinTick = this.alignTickStrictlyAbove(effectiveMinTick - 1);
-            const alignedMaxTick = this.alignTickStrictlyBelow(effectiveMaxTick + 1);
-
-            if (alignedMinTick < MIN_TICK || alignedMaxTick > MAX_TICK) {
-                return null;
-            }
-
-            if (alignedMinTick > alignedMaxTick) {
-                return null;
-            }
-
-            return { minTick: alignedMinTick, maxTick: alignedMaxTick };
-        } else {
-            // SHORT orders: ticks > ammTick, price deviation within [markPrice, markPrice + 2*IMR*markPrice]
-            const minTick = ammTick + 1;
-            const maxDeviationPrice = markPrice + wmul(markPrice, maxDeviation);
-            const maxDeviationTick = wadToTick(maxDeviationPrice);
-
-            // minTick is the lower bound, maxDeviationTick is the upper bound
-            const effectiveMinTick = minTick;
-            const effectiveMaxTick = Math.min(MAX_TICK, maxDeviationTick);
-
-            const alignedMinTick = this.alignTickStrictlyAbove(effectiveMinTick - 1);
-            const alignedMaxTick = this.alignTickStrictlyBelow(effectiveMaxTick + 1);
-
-            if (alignedMinTick < MIN_TICK || alignedMaxTick > MAX_TICK) {
-                return null;
-            }
-
-            if (alignedMinTick > alignedMaxTick) {
-                return null;
-            }
-
-            return { minTick: alignedMinTick, maxTick: alignedMaxTick };
-        }
+    private orderPriceDeviation(tick: number, markPrice: bigint): bigint {
+        const delta = tickToWad(tick) - markPrice;
+        const magnitude = wdiv(abs(delta), markPrice);
+        return delta < 0n ? -magnitude : magnitude;
     }
 
     /**
@@ -524,8 +474,7 @@ export class InstrumentSetting {
 
         // Check price deviation (within 2 * IMR)
         const imr = ratioToWad(this.imr);
-        const targetPrice = tickToWad(tick);
-        const priceDeviation = wdiv(abs(targetPrice - markPrice), markPrice);
+        const priceDeviation = abs(this.orderPriceDeviation(tick, markPrice));
         if (priceDeviation > imr * 2n) {
             return {
                 valid: false,
