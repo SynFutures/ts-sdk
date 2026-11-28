@@ -444,6 +444,45 @@ describe('PerpClient fallback (API -> rpcFallback)', () => {
 });
 
 describe('direct API query helpers', () => {
+    test('notional quotes use the configured fetch and base URL', async () => {
+        const customFetch = jest.fn(async (_url: Parameters<typeof fetch>[0]) =>
+            Response.json({
+                code: 0,
+                data: {
+                    benchmark: '0',
+                    sqrtFairPX96: '0',
+                    tick: 0,
+                    mark: '0',
+                    entryNotional: '0',
+                    fee: '0',
+                    minAmount: '0',
+                    sqrtPostFairPX96: '0',
+                    postTick: 0,
+                    size: '1',
+                },
+            })
+        );
+        const signer: ApiSigner = { sign: () => ({ 'X-Api-Nonce': 'test', 'X-Api-Sign': 'test', 'X-Api-Ts': 0 }) };
+        const client = new PerpClient(
+            { chainId: CHAIN_ID, signer, baseUrl: 'https://custom.example', fetch: customFetch },
+            new UserSetting({ slippageBps: 0, deadlineSeconds: 60, leverageWad: WAD }),
+            ZERO_ADDRESS,
+            1
+        );
+        await expect(
+            client.market!.fetchFuturesInstrumentInquireByNotional({
+                chainId: CHAIN_ID,
+                instrument: ZERO_ADDRESS,
+                expiry: 1,
+                notional: '1',
+                long: true,
+            })
+        ).resolves.toMatchObject({ tick: 0, size: 1n });
+        expect(customFetch).toHaveBeenCalledTimes(1);
+        const url = new URL(String(customFetch.mock.calls[0][0]));
+        expect(url.origin + url.pathname).toBe('https://custom.example/v4/public/market/inquireByNotional');
+    });
+
     test('inquireByBaseSize honors an explicit API fetch implementation', async () => {
         const instrument = '0x0000000000000000000000000000000000000001' as Address;
         const expiry = 0xffffffff;
