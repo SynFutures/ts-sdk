@@ -1,100 +1,46 @@
 {
     "name": "@synfutures/governance-sdk",
     "version": "0.0.6",
-    "description": "SynFutures governance, airdrop and staking clients for ethers v5",
     "license": "MIT",
-    "main": "./build/index.js",
-    "types": "./build/index.d.ts",
+    "description": "Viem clients for SynFutures governance and TGE",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.cts",
     "files": [
-        "build",
-        "tge",
+        "dist",
         "README.md"
     ],
+    "exports": {
+        ".": {
+            "import": {
+                "types": "./dist/index.d.mts",
+                "default": "./dist/index.mjs"
+            },
+            "require": {
+                "types": "./dist/index.d.cts",
+                "default": "./dist/index.cjs"
+            }
+        },
+        "./tge": {
+            "import": {
+                "types": "./dist/tge.d.mts",
+                "default": "./dist/tge.mjs"
+            },
+            "require": {
+                "types": "./dist/tge.d.cts",
+                "default": "./dist/tge.cjs"
+            }
+        }
+    },
     "scripts": {
-        "build": "node scripts/stage-legacy.cjs && tsc -p tsconfig.json",
+        "build": "tsc --noEmit && tsdown --config ../../scripts/governance.build.mts",
         "test": "node --test test/*.test.cjs",
         "prepack": "npm run build"
     },
     "dependencies": {
-        "@ethersproject/abi": "5.8.0",
-        "@ethersproject/abstract-provider": "^5.8.0",
-        "@ethersproject/abstract-signer": "^5.8.0",
-        "@ethersproject/address": "^5.8.0",
-        "@ethersproject/base64": "^5.8.0",
-        "@ethersproject/basex": "^5.8.0",
-        "@ethersproject/bignumber": "^5.8.0",
-        "@ethersproject/bytes": "^5.8.0",
-        "@ethersproject/constants": "^5.8.0",
-        "@ethersproject/contracts": "5.8.0",
-        "@ethersproject/hash": "^5.8.0",
-        "@ethersproject/hdnode": "5.8.0",
-        "@ethersproject/json-wallets": "5.8.0",
-        "@ethersproject/keccak256": "5.8.0",
-        "@ethersproject/logger": "^5.8.0",
-        "@ethersproject/networks": "^5.8.0",
-        "@ethersproject/pbkdf2": "5.8.0",
-        "@ethersproject/properties": "^5.8.0",
-        "@ethersproject/random": "^5.8.0",
-        "@ethersproject/rlp": "^5.8.0",
-        "@ethersproject/sha2": "^5.8.0",
-        "@ethersproject/signing-key": "5.8.0",
-        "@ethersproject/solidity": "5.8.0",
-        "@ethersproject/strings": "^5.8.0",
-        "@ethersproject/transactions": "^5.8.0",
-        "@ethersproject/units": "5.8.0",
-        "@ethersproject/wallet": "5.8.0",
-        "@ethersproject/web": "^5.8.0",
-        "@ethersproject/wordlists": "5.8.0",
-        "@types/node": "^22.19.0",
-        "async-retry": "^1.3.3",
-        "axios": "^0.35.0",
-        "bech32": "1.1.4",
-        "bignumber.js": "^9.3.1",
-        "chalk": "^4.1.2",
-        "dotenv": "^14.3.2",
-        "lodash": "^4.17.21",
-        "moment": "^2.30.1",
-        "node-cache": "^5.1.2",
-        "node-fetch": "^2.7.0",
-        "tslib": "^2.6.0",
-        "ws": "^8.23.0"
+        "viem": "catalog:"
     },
     "devDependencies": {
-        "@derivation-tech/web3-core": "1.0.30",
-        "@ethersproject/providers": "5.8.0",
-        "esbuild": "0.28.2",
-        "ethers": "5.8.0",
-        "governance-sdk-legacy": "npm:@synfutures/governance-sdk@0.0.5",
-        "typescript": "^5.9.3"
-    },
-    "nx": {
-        "targets": {
-            "build": {
-                "outputs": [
-                    "{projectRoot}/build",
-                    "{projectRoot}/tge"
-                ],
-                "inputs": [
-                    "default",
-                    "^default",
-                    "{workspaceRoot}/scripts/stage-core-types.cjs",
-                    "{workspaceRoot}/scripts/legacy-core-peer.cjs",
-                    "{workspaceRoot}/scripts/legacy-event-types.d.ts"
-                ]
-            },
-            "test": {
-                "dependsOn": [
-                    "build"
-                ]
-            }
-        }
-    },
-    "peerDependencies": {
-        "@derivation-tech/web3-core": "^1.0.30"
-    },
-    "peerDependenciesMeta": {
-        "@derivation-tech/web3-core": {
-            "optional": true
-        }
+        "typescript": "catalog:"
     }
 }
