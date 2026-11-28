@@ -187,7 +187,11 @@ test('the released signer API and all legacy deep imports remain intact', async 
             fs.readFileSync(path.join(__dirname, '../build', file), 'utf8'),
             fs
                 .readFileSync(path.join(root, 'build', file), 'utf8')
-                .replaceAll('@derivation-tech/web3-core', file.includes(path.sep) ? '../legacy-core' : './legacy-core'),
+                .replaceAll('@derivation-tech/web3-core', file.includes(path.sep) ? '../legacy-core' : './legacy-core')
+                .replace(/(['"])(ethers|@ethersproject\/providers)\1/g, (_, quote, name) => {
+                    const link = path.relative(path.dirname(file), path.join('v5', name)).split(path.sep).join('/');
+                    return quote + (link.startsWith('.') ? link : './' + link) + quote;
+                }),
             file
         );
     }
@@ -243,4 +247,26 @@ test('standalone core keeps the OP provider and gas oracle call on the supplied 
     ctx.setProvider(endpoint);
     assert.equal((await ctx.provider.getL1GasPrice()).toString(), '42');
     assert.equal(calls, 1);
+});
+
+test('standalone v5 WebSocketProvider reads a block through the installed ws transport', async () => {
+    const { once } = require('node:events');
+    const { WebSocketServer } = require('ws');
+    const { WebSocketProvider } = require('../build/v5/@ethersproject/providers');
+    const server = new WebSocketServer({ host: '127.0.0.1', port: 0 });
+    await once(server, 'listening');
+    server.on('connection', (connection) => {
+        connection.on('message', (message) => {
+            const { id, method } = JSON.parse(message);
+            const result = { eth_chainId: '0x1', eth_blockNumber: '0x2a' }[method];
+            connection.send(JSON.stringify({ jsonrpc: '2.0', id, result }));
+        });
+    });
+    const provider = new WebSocketProvider('ws://127.0.0.1:' + server.address().port, 1);
+    try {
+        assert.equal(await provider.getBlockNumber(), 42);
+    } finally {
+        await provider.destroy();
+        await new Promise((resolve) => server.close(resolve));
+    }
 });

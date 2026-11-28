@@ -3,6 +3,7 @@ const { cpSync, readdirSync, readFileSync, rmSync, writeFileSync } = require('no
 const { createRequire } = require('node:module');
 const { dirname, join, relative, sep } = require('node:path');
 const { build } = require('esbuild');
+const { linkV5, linkFiles, stageProvider } = require('./stage-provider.cjs');
 
 const output = join(__dirname, '../build');
 const core = join(output, 'legacy-core');
@@ -29,6 +30,8 @@ async function stage() {
     }
     require('../../../scripts/stage-core-types.cjs')(dirname(coreSource), core);
 
+    linkFiles(output, output);
+    stageProvider(output);
     // The hosted ABI factories, signer, fee policy and OP receipt formatter stay on v5.
     // Only the OP L2 provider and gas oracle services are used. Keep ethers, crypto,
     // HTTP transports and other npm dependencies external so consumers can audit them.
@@ -46,6 +49,11 @@ async function stage() {
             {
                 name: 'legacy-governance-runtime',
                 setup(plugin) {
+                    plugin.onResolve({ filter: /^(ethers(\/lib\/utils)?|@ethersproject\/providers)$/ }, ({ path }) => ({
+                        path: linkV5(output, core, path),
+                        external: true,
+                    }));
+
                     plugin.onResolve({ filter: /^gas-price-oracle\/lib\/services$/ }, () => ({
                         path: coreRequire.resolve('gas-price-oracle/lib/services'),
                     }));
@@ -76,6 +84,8 @@ async function stage() {
     // Fail closed if a new external import lacks a runtime dependency.
     const deps = require('../package.json').dependencies;
     for (const { path } of Object.values(result.metafile.outputs)[0].imports) {
+        if (['ethers', 'ethers/lib/utils', '@ethersproject/providers'].some((id) => path === linkV5(output, core, id)))
+            continue;
         const name = path.startsWith('@') ? path.split('/').slice(0, 2).join('/') : path.split('/')[0];
         if (!(name in deps) && name !== '@derivation-tech/ethers-ledger' && !require('node:module').isBuiltin(name)) {
             throw new Error('Undeclared legacy runtime dependency: ' + name);

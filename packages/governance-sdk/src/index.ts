@@ -1,4 +1,12 @@
-import { BigNumber, BigNumberish, CallOverrides, Contract, PopulatedTransaction, constants, providers } from 'ethers';
+import {
+    BigNumber,
+    BigNumberish,
+    CallOverrides,
+    Contract,
+    PopulatedTransaction,
+    constants,
+    providers,
+} from '../build/v5/ethers';
 import { Multicall3__factory } from '../build/legacy-core';
 import { ActionType, GovClient, frac, isUTCSameDay, min, wdiv } from '../build/GovClient';
 import type { PendingUnstake } from '../build/GovClient';
