@@ -384,6 +384,31 @@ describe('simulatePlace', () => {
 // ============================================================================
 
 describe('ScaledLimitOrderInput.simulate', () => {
+    it('reports a usable, minimal quantity when every allocation rounds to zero', () => {
+        const { onchainContext } = buildContext();
+        const ticks = [FIXTURE_TICK - ORDER_TICK_OFFSET * 2, FIXTURE_TICK - ORDER_TICK_OFFSET];
+        const settings = new UserSetting({ deadlineSeconds: 300, slippageBps: 50, leverageWad: 3n * WAD });
+        const simulate = (amount: bigint) =>
+            new ScaledLimitOrderInput(
+                fixtureTraderAddress,
+                Side.LONG,
+                amount,
+                { ticks },
+                BatchOrderSizeDistribution.UPPER
+            ).simulate(onchainContext, settings);
+        const dust = simulate(1n);
+        expect(dust.orders).toEqual([null, null]);
+        expect(dust.failures.map((f) => f.index)).toEqual([0, 1]);
+        const ratios = [3333n, 6667n];
+        const minima = ticks.map((tick) =>
+            onchainContext.instrumentSetting.minOrderSizeAtTick(onchainContext.instrumentSetting.alignOrderTick(tick))
+        );
+        const fits = (amount: bigint) => minima.every((size, i) => (amount * ratios[i]) / 10000n >= size);
+        expect(fits(dust.minBase)).toBe(true);
+        expect(fits(dust.minBase - 1n)).toBe(false);
+        expect(simulate(dust.minBase).minBase).toBe(dust.minBase);
+    });
+
     it('creates scaled orders with ratios and aggregates', () => {
         const { onchainContext } = buildContext();
         const scaledTicks = [

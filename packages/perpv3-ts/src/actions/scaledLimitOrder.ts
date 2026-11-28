@@ -1,5 +1,5 @@
 import type { Address } from 'viem';
-import { max, tickToWad, wadToTick, wdivUp, wmulUp } from '../math';
+import { max, mulDivRoundingUp, wadToTick } from '../math';
 import { MAX_BATCH_ORDER_COUNT, MIN_BATCH_ORDER_COUNT, RATIO_BASE, ZERO } from '../constants';
 import { Errors, ErrorCode, PairSnapshot, Side, UserSetting, type PlaceParam } from '../types';
 import { PlaceInput, type PlaceSimulation } from './order';
@@ -56,14 +56,14 @@ export class ScaledLimitOrderInput {
 
         const alignedTicks = this.ticks.map((tick) => instrumentSetting.alignOrderTick(tick));
 
-        // Calculate minOrderSizes directly using tickToWad for efficiency
-        const minOrderSizes = alignedTicks.map((tick) => wdivUp(instrumentSetting.minOrderValue, tickToWad(tick)));
+        const minOrderSizes = alignedTicks.map((tick) => instrumentSetting.minOrderSizeAtTick(tick));
 
         // Determine ratios based on size distribution
         // For RANDOM distribution, fallback to FLAT if sizes violate minimum constraints
         const ratios = this.calcRatios(alignedTicks.length, minOrderSizes);
 
         const orders: (ScaledOrderDetail | null)[] = [];
+        const failures: ScaledLimitOrderSimulation['failures'] = [];
         const portionSizes = ratios.map((ratio) => (this.baseQuantity * BigInt(ratio)) / BigInt(RATIO_BASE));
 
         for (let i = 0; i < alignedTicks.length; i++) {
@@ -71,6 +71,7 @@ export class ScaledLimitOrderInput {
             const tick = alignedTicks[i];
 
             if (basePortion === ZERO) {
+                failures.push({ index: i, tick, reason: 'Allocated order size rounds to zero' });
                 orders.push(null);
                 continue;
             }
@@ -85,33 +86,19 @@ export class ScaledLimitOrderInput {
                     param: placeParam,
                     simulation,
                 });
-            } catch {
-                // Order simulation failed (e.g., validation error, insufficient margin)
-                // Skip this order slot but continue with others
+            } catch (error) {
+                failures.push({ index: i, tick, reason: error instanceof Error ? error.message : String(error) });
                 orders.push(null);
             }
         }
 
-        // Calculate minimum size ratios: ratio of minOrderSize to portionSize for each order
-        // This determines the scaling factor needed to satisfy minimum size constraints
-        const minSizeRatios = minOrderSizes.map((minSize, index) => {
-            const portion = portionSizes[index];
-            if (portion === ZERO) {
-                return ZERO;
-            }
-            return wdivUp(minSize, portion);
-        });
-
-        // Find the maximum ratio - this determines the minimum base quantity required
-        // to ensure all orders meet their minimum size constraints
-        const maxRatio = minSizeRatios.reduce((acc, value) => max(acc, value), ZERO);
-        const minBaseQuantity = maxRatio === ZERO ? ZERO : wmulUp(this.baseQuantity, maxRatio);
-        const result: ScaledLimitOrderSimulation = {
-            orders,
-            minBase: minBaseQuantity,
-        };
-
-        return result;
+        // floor(total * ratio / RATIO_BASE) must reach the minimum at each level.
+        const minBase = minOrderSizes.reduce(
+            (total, minSize, index) =>
+                max(total, mulDivRoundingUp(max(1n, minSize), BigInt(RATIO_BASE), BigInt(ratios[index]))),
+            ZERO
+        );
+        return { orders, failures, minBase };
     }
 
     /**
@@ -144,6 +131,8 @@ export interface ScaledOrderDetail {
 }
 
 export interface ScaledLimitOrderSimulation {
+    /** Reasons for the null slots in orders, keyed by the original level index. */
+    failures: { index: number; tick: number; reason: string }[];
     orders: (ScaledOrderDetail | null)[];
     /**
      * Minimum base quantity required to ensure all orders meet their minimum size constraints.
