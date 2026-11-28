@@ -11,14 +11,14 @@ module.exports = function stageV5Types(output, declarations) {
 
     function rewrite(file, source) {
         return source.replace(
-            /(['"])(ethers|@ethersproject\/[a-z0-9-]+)(\/[^'"]+)?\1/g,
-            (original, quote, name, subpath) => {
+            /((?:from\s+|import\())(['"])(ethers|@ethersproject\/[a-z0-9-]+)(\/[^'"]+)?\2/g,
+            (original, prefix, quote, name, subpath) => {
                 if (consumer.dependencies[name]) return original;
                 const target = stagePackage(name);
                 const path = relative(dirname(file), join(target, subpath || ''))
                     .split(sep)
                     .join('/');
-                return quote + (path.startsWith('.') ? path : './' + path) + quote;
+                return prefix + quote + (path.startsWith('.') ? path : './' + path) + quote;
             }
         );
     }

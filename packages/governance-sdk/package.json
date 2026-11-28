@@ -73,6 +73,13 @@
                 "outputs": [
                     "{projectRoot}/build",
                     "{projectRoot}/tge"
+                ],
+                "inputs": [
+                    "default",
+                    "^default",
+                    "{workspaceRoot}/scripts/stage-core-types.cjs",
+                    "{workspaceRoot}/scripts/legacy-core-peer.cjs",
+                    "{workspaceRoot}/scripts/legacy-event-types.d.ts"
                 ]
             },
             "test": {

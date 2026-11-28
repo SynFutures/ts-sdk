@@ -16,7 +16,7 @@
         "build": "node ../../scripts/stage-plugin-host.cjs && tsc -p tsconfig.json",
         "test": "node --test test/*.test.cjs",
         "prepack": "npm run build",
-        "gen": "typechain --always-generate-overloads --discriminate-types --target ethers-v5 --out-dir ./src/typechain ./src/abis/*.json"
+        "gen": "typechain --always-generate-overloads --discriminate-types --target ethers-v5 --out-dir ./src/typechain ./src/abis/*.json && node ../../scripts/link-plugin-bindings.cjs"
     },
     "dependencies": {
         "@ethersproject/abi": "^5.8.0",
@@ -48,7 +48,12 @@
                     "^default",
                     "{workspaceRoot}/scripts/legacy-plugin-host.d.ts",
                     "{workspaceRoot}/scripts/stage-plugin-host.cjs",
-                    "{workspaceRoot}/scripts/legacy-host-types/**/*"
+                    "{workspaceRoot}/scripts/legacy-host-types/**/*",
+                    "{workspaceRoot}/scripts/stage-core-types.cjs",
+                    "{workspaceRoot}/scripts/legacy-core-peer.cjs",
+                    "{workspaceRoot}/scripts/legacy-event-types.d.ts",
+                    "{workspaceRoot}/scripts/legacy-parser-utils.cjs",
+                    "{workspaceRoot}/scripts/stage-v5-types.cjs"
                 ],
                 "outputs": [
                     "{projectRoot}/build",

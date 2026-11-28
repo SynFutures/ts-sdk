@@ -21,7 +21,8 @@
         "test:release": "node --test scripts/tests/*.test.cjs",
         "build:governance": "pnpm --filter @synfutures/airdrop --filter \"@synfutures/*governance*\" run build",
         "test:plugin-types": "pnpm --filter @synfutures/oyster-governance exec tsc --noEmit --strict --skipLibCheck --target ES2020 --module commonjs ../../scripts/governance-plugin-types.ts test/host-types.ts",
-        "verify:governance": "pnpm run build:governance && pnpm --filter @synfutures/airdrop --filter \"@synfutures/*governance*\" run test && pnpm run test:plugin-types && node --test scripts/plugin-runtime.test.cjs"
+        "verify:governance": "pnpm run build:governance && pnpm --filter @synfutures/airdrop --filter \"@synfutures/*governance*\" run test && pnpm run test:plugin-types && node --test scripts/plugin-runtime.test.cjs",
+        "test:governance-consumers": "node scripts/verify-governance-consumers.cjs"
     },
     "devDependencies": {
         "@changesets/cli": "^3.0.3",

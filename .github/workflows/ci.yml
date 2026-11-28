@@ -48,6 +48,8 @@ jobs:
               run: pnpm run test:release
             - name: Verify Governance and Airdrop Packages
               run: pnpm run verify:governance
+            - name: Test and Audit Packed Governance Consumers
+              run: pnpm run test:governance-consumers
             - name: Verify PerpV3 Package
               run: pnpm -C packages/perpv3-ts run verify:build
             - name: Verify Packed Consumer

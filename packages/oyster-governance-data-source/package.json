@@ -41,7 +41,12 @@
                     "^default",
                     "{workspaceRoot}/scripts/legacy-plugin-host.d.ts",
                     "{workspaceRoot}/scripts/stage-plugin-host.cjs",
-                    "{workspaceRoot}/scripts/legacy-host-types/**/*"
+                    "{workspaceRoot}/scripts/legacy-host-types/**/*",
+                    "{workspaceRoot}/scripts/stage-core-types.cjs",
+                    "{workspaceRoot}/scripts/legacy-core-peer.cjs",
+                    "{workspaceRoot}/scripts/legacy-event-types.d.ts",
+                    "{workspaceRoot}/scripts/legacy-parser-utils.cjs",
+                    "{workspaceRoot}/scripts/stage-v5-types.cjs"
                 ],
                 "outputs": [
                     "{projectRoot}/build",
