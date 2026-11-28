@@ -277,8 +277,10 @@ test('RPC order books and frontend charts share levels while RPC retains exact i
         chainId: 1,
         observer: { address: zeroAddress, version: 'current' as const },
         publicClient: mockPublicClient({
-            multicall: async () => [fixture.context],
-            readContract: async () => [amm, [-10], pearls, { height: 1, timestamp: 1 }],
+            readContract: async ({ functionName }: { functionName: string }) =>
+                functionName === 'fetchOnChainContext'
+                    ? fixture.context
+                    : [amm, [-10], pearls, { height: 1, timestamp: 1 }],
         }),
     };
     const book = await fetchOrderBookFromObserver(zeroAddress, 0xffffffff, config, { length: 2 });

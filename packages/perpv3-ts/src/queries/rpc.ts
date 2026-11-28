@@ -48,16 +48,11 @@ export async function fetchOnchainContext(
 ): Promise<PairSnapshot> {
     const { blockNumber, blockTag } = options ?? {};
 
-    const [rawContext] = await rpcClient(config).multicall({
-        contracts: [
-            {
-                address: config.observer.address,
-                abi: currentObserverAbi(config),
-                functionName: 'fetchOnChainContext',
-                args: [instrumentAddress, expiry, traderAddress ?? zeroAddress, signedSize ?? 0n],
-            },
-        ],
-        allowFailure: false,
+    const rawContext = await rpcClient(config).readContract({
+        address: config.observer.address,
+        abi: currentObserverAbi(config),
+        functionName: 'fetchOnChainContext',
+        args: [instrumentAddress, expiry, traderAddress ?? zeroAddress, signedSize ?? 0n],
         blockNumber,
         blockTag,
     });

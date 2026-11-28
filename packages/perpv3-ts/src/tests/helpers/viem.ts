@@ -1,7 +1,7 @@
 import type { PublicClient } from 'viem';
 
 type MockPublicClientOverrides = {
-    multicall: unknown;
+    multicall?: unknown;
     readContract: unknown;
 };
 

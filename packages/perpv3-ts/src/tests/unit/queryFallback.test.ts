@@ -1,6 +1,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { mainnet } from 'viem/chains';
-import type { Address } from 'viem';
+import { createPublicClient, custom, encodeFunctionResult, type Address } from 'viem';
+import { getABI } from '../../abis';
 import type { ApiSigner } from '../../apis/interfaces';
 import { WAD } from '../../constants';
 import { PerpClient } from '../../client';
@@ -13,8 +14,8 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 const OBSERVER_ADDRESS = '0x0000000000000000000000000000000000000002' as Address;
 const SQRT_PX96_ONE = 79228162514264337593543950336n; // 2^96
 
-function buildMockRpcConfig(instrument: Address, expiry: number): RpcConfig {
-    const rawContext = {
+function buildRawContext(instrument: Address, expiry: number) {
+    return {
         setting: {
             symbol: 'TEST',
             config: ZERO_ADDRESS,
@@ -122,11 +123,16 @@ function buildMockRpcConfig(instrument: Address, expiry: number): RpcConfig {
             height: 0,
         },
     };
+}
 
-    const multicall = jest.fn(async () => [rawContext]);
+function buildMockRpcConfig(instrument: Address, expiry: number): RpcConfig {
+    const rawContext = buildRawContext(instrument, expiry);
+    const multicall = jest.fn();
     const readContract = jest.fn(async (request: unknown) => {
         const functionName = (request as { functionName?: string }).functionName;
         switch (functionName) {
+            case 'fetchOnChainContext':
+                return rawContext;
             case 'inquireByTick':
                 return [0n, rawContext.quotation] as const;
             case 'inquireByBase':
@@ -181,6 +187,32 @@ describe('PerpClient fallback (API -> rpcFallback)', () => {
         await expect(inquireByBaseSize(ZERO_ADDRESS, 1, 1n, rpc)).resolves.toBeDefined();
     });
 
+    test('reads a pinned snapshot directly from the Observer with a chainless viem client', async () => {
+        const abi = getABI('current', 'Observer');
+        const response = encodeFunctionResult({
+            abi,
+            functionName: 'fetchOnChainContext',
+            result: buildRawContext(ZERO_ADDRESS, 1),
+        });
+        const request = jest.fn(async (_rpc: { method: string; params?: unknown }) => response);
+        const publicClient = createPublicClient({ transport: custom({ request }) });
+        const client = new PerpClient(
+            { chainId: CHAIN_ID, publicClient, observer: { address: OBSERVER_ADDRESS, version: 'current' } },
+            userSetting,
+            ZERO_ADDRESS,
+            1
+        );
+        const snapshot = await client.getSnapshot(undefined, undefined, { blockNumber: 21n });
+        expect(snapshot.instrumentAddress).toBe(ZERO_ADDRESS);
+        expect(request).toHaveBeenCalledTimes(1);
+        expect(request.mock.calls[0][0]).toEqual(
+            expect.objectContaining({
+                method: 'eth_call',
+                params: [expect.objectContaining({ to: OBSERVER_ADDRESS }), '0x15'],
+            })
+        );
+    });
+
     test('compares the instrument address and expiry when matching pairs', () => {
         const instrument = '0x000000000000000000000000000000000000dead';
         const checksum = '0x000000000000000000000000000000000000dEaD';
@@ -216,10 +248,11 @@ describe('PerpClient fallback (API -> rpcFallback)', () => {
         const config = buildMockRpcConfig(ZERO_ADDRESS, 1);
         const client = new PerpClient(config, userSetting, ZERO_ADDRESS, 1);
         await client.getOrderBook();
-        expect(config.publicClient.multicall).toHaveBeenCalledTimes(1);
+        expect(config.publicClient.multicall).not.toHaveBeenCalled();
         const reads = jest.mocked(config.publicClient.readContract).mock.calls;
         expect(reads.length).toBeGreaterThan(1);
-        for (const [request] of reads) expect(request).toMatchObject({ blockNumber: 0n });
+        expect(reads[0][0].functionName).toBe('fetchOnChainContext');
+        for (const [request] of reads.slice(1)) expect(request).toMatchObject({ blockNumber: 0n });
         await expect(client.getOrderBook(1, { blockTag: 'pending' })).rejects.toThrow('cannot be pinned');
     });
 
