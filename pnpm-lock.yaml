@@ -172,12 +172,6 @@ catalogs:
       version: 2.58.7
 
 overrides:
-  elliptic@6: 6.6.1
-  bn.js@4: ^4.12.3
-  ws@7: ^7.5.11
-  ws@8.18.0: ^8.23.0
-  axios@0.21.4: ^0.35.0
-  moment@2.29.1: ^2.30.1
   glob@>=9 <=14.0.1: ^14.0.2
   minimatch@>=7 <11.0.1: ^11.0.1
   '@derivation-tech/viem-kit': file:./vendor/derivation-tech-viem-kit-1.0.0-rc.6.tgz
@@ -2124,7 +2118,7 @@ packages:
   isows@1.0.7:
     resolution: {integrity: sha512-I1fSfDCZL5P0v33sVqeTDSpcstAg/N+wF5HS033mogOVIp4B+oHC7oOCsA3axAbBSGTJ8QubbNmnIRN/h8U7hg==}
     peerDependencies:
-      ws: ^7.5.11
+      ws: '*'
 
   istanbul-lib-coverage@3.2.2:
     resolution: {integrity: sha512-O8dpsF+r0WV/8MNRKfnmrtCWhuKjxrq2w+jpzBL5UZKTi2LeVWnWOmWRxFlesJONmc+wLAGvKQZEOanko0LFTg==}

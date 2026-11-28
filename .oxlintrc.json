@@ -11,17 +11,7 @@
         "builtin": true,
         "node": true
     },
-    "ignorePatterns": [
-        "**/dist/**",
-        "packages/*/build/**",
-        "packages/governance-sdk/tge/**",
-        "packages/*/legacy-plugin-host.d.ts",
-        "packages/*/legacy-host-types/**",
-        "**/coverage/**",
-        "**/devnet/.runtime/**",
-        ".worktrees/**",
-        "**/*.d.{ts,cts,mts}"
-    ],
+    "ignorePatterns": ["**/dist/**", "**/coverage/**", "**/devnet/.runtime/**", ".worktrees/**", "**/*.d.{ts,cts,mts}"],
     "rules": {
         "for-direction": "error",
         "no-async-promise-executor": "error",
@@ -149,25 +139,11 @@
             }
         },
         {
-            "files": [
-                "packages/perpv3-ts/src/tests/**/*.ts",
-                "packages/perpv3-ts/typecheck/**/*.ts",
-                "scripts/governance-plugin-types.ts"
-            ],
+            "files": ["packages/perpv3-ts/src/tests/**/*.ts", "packages/perpv3-ts/typecheck/**/*.ts"],
             "rules": {
                 "no-unused-vars": "off"
             },
             "plugins": ["typescript"]
-        },
-        {
-            "files": [
-                "packages/airdrop/src/parser.ts",
-                "packages/oyster-governance/src/parser.ts",
-                "packages/oyster-governance-data-source/src/types.ts"
-            ],
-            "rules": {
-                "typescript/no-explicit-any": "off"
-            }
         }
     ]
 }

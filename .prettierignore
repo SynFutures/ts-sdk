@@ -14,8 +14,3 @@ vendor/*.tgz
 .worktrees/**
 docs/superpowers/**
 AGENTS.md
-# Generated compatibility package outputs
-packages/*/build/**
-packages/governance-sdk/tge/**
-packages/*/legacy-plugin-host.d.ts
-packages/*/legacy-host-types/**
