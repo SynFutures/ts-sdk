@@ -1,4 +1,4 @@
-import type { ChainContext, TokenInfo } from '@derivation-tech/web3-core';
+import type { ChainContext, TokenInfo } from './legacy-host-types/core';
 import type { providers } from 'ethers';
 import type { GasOptions, SynFuturesV3Contracts } from './legacy-host-types/types';
 import type { TxInterface } from './legacy-host-types/modules/tx.interface';

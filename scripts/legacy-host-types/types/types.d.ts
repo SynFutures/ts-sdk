@@ -1,4 +1,4 @@
-import type { BlockInfo, CHAIN_ID } from '@derivation-tech/web3-core';
+import type { BlockInfo, CHAIN_ID } from '../core';
 import type { BigNumber, CallOverrides, Signer } from 'ethers';
 import type {
     CexMarket,

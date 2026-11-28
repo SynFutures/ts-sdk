@@ -1,4 +1,4 @@
-import { CHAIN_ID } from '@derivation-tech/web3-core/build/constant';
+import { CHAIN_ID } from '../legacy-host-types/core/constant';
 
 export const AirdropContracts: Record<number, string> = {
     [CHAIN_ID.ETHEREUM]: '0xAeACfdb15284bDf93155C3616CC4a65C2C93EdFC',

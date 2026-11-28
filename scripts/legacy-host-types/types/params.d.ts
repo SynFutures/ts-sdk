@@ -1,5 +1,5 @@
 import type { BigNumber } from 'ethers';
-import type { TokenInfo } from '@derivation-tech/web3-core';
+import type { TokenInfo } from '../core';
 import type { BatchOrderSizeDistribution, MarketType, QuoteType, Side } from '../enum';
 import type { Portfolio, Instrument, Position } from './types';
 export interface InstrumentSetting {

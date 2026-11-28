@@ -1,5 +1,5 @@
 import type { BigNumber, CallOverrides } from 'ethers';
-import type { BlockInfo, TokenInfo } from '@derivation-tech/web3-core';
+import type { BlockInfo, TokenInfo } from '../core';
 import type { Side } from '../enum';
 import type {
     BaseInterface,

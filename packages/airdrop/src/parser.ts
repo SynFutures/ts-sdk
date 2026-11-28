@@ -1,4 +1,5 @@
-import { ContractParser, formatWad } from '@derivation-tech/web3-core';
+import { ContractParser } from '../legacy-host-types/core/tx/parser';
+import { formatWad } from '../legacy-host-types/core/util/common';
 import { Airdrop__factory } from './typechain';
 import { LogDescription, TransactionDescription } from '@ethersproject/abi';
 import { ErrorDescription } from '@ethersproject/abi/lib/interface';

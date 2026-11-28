@@ -1,4 +1,4 @@
-import type { ContractParser, TokenInfo } from '@derivation-tech/web3-core';
+import type { ContractParser, TokenInfo } from '../legacy-host-types/core';
 import type { CallOverrides, PopulatedTransaction, Signer, providers } from 'ethers';
 
 export interface TxOptions extends CallOverrides {
