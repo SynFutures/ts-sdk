@@ -1,7 +1,7 @@
 import type { LegacyPluginHost, LegacyTransactionPlugin } from '../legacy-plugin-host';
 import type { AirdropHost, TxOptions, TxOptionsWithSigner } from './host';
 import { AirdropInterface } from './airdrop.interface';
-import { CallOverrides, PopulatedTransaction } from 'ethers';
+import type { CallOverrides, PopulatedTransaction } from '../legacy-host-types/v5/ethers';
 import { TransactionReceipt } from '@ethersproject/abstract-provider';
 import { type Airdrop, Airdrop__factory } from './typechain';
 import { AirdropContracts } from './const';

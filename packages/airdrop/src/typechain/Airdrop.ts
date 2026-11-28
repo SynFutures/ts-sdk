@@ -12,9 +12,9 @@ import type {
     PopulatedTransaction,
     Signer,
     utils,
-} from 'ethers';
+} from '../../legacy-host-types/v5/ethers';
 import type { FunctionFragment, Result, EventFragment } from '@ethersproject/abi';
-import type { Listener, Provider } from '@ethersproject/providers';
+import type { Listener, Provider } from '@ethersproject/abstract-provider';
 import type { TypedEventFilter, TypedEvent, TypedListener, OnEvent } from './common';
 
 export interface AirdropInterface extends utils.Interface {

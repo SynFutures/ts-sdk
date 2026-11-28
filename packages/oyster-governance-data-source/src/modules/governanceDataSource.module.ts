@@ -1,7 +1,7 @@
 import type { LegacyPluginHost } from '../../legacy-plugin-host';
-import { BigNumber } from 'ethers';
+import { BigNumber } from '@ethersproject/bignumber';
 import { orderBy as _orderBy } from 'lodash';
-import { Graph, GRAPH_PAGE_SIZE, now } from '../../legacy-host-types/core';
+import { Graph, GRAPH_PAGE_SIZE } from '../../legacy-host-types/core';
 import { GovernanceDataSourceInterface } from './governanceDataSource.inteface';
 import { QueryEventParam, PendingUnstakeWithTx, TransactionEvent, QueryHistoryParam } from '../types';
 
@@ -31,7 +31,7 @@ export class GovernanceDataSourceModule<Host extends object = LegacyPluginHost>
         }
 
         const startTsCondition = `timestamp_gte: ${param.startTs || 0},`;
-        const endTsCondition = `timestamp_lt: ${param.endTs || now()},`;
+        const endTsCondition = `timestamp_lt: ${param.endTs || Math.floor(Date.now() / 1000)},`;
 
         const condition = `${eventCondition}${accountCondition}${startTsCondition}${endTsCondition}`;
         return `where: {${condition} id_gt: $lastID}, `;

@@ -1,5 +1,6 @@
 import type { LegacyPluginHost, LegacyTransactionPlugin } from '../../legacy-plugin-host';
-import { BigNumber, CallOverrides, ethers } from 'ethers';
+import { BigNumber } from '@ethersproject/bignumber';
+import type { CallOverrides, ethers } from '../../legacy-host-types/v5/ethers';
 import { Erc20Parser, WAD, ZERO, ZERO_ADDRESS } from '../../legacy-host-types/core';
 import type { GovernanceHost, TxOptions, TxOptionsWithSigner } from '../host';
 import { max, min, toPopulatedTxOverrides, wdiv, wmul } from '../utils';

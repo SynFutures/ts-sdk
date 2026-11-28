@@ -1,5 +1,5 @@
 import type { ContractParser, TokenInfo } from '../legacy-host-types/core';
-import type { CallOverrides, PopulatedTransaction, Signer, providers } from 'ethers';
+import type { CallOverrides, PopulatedTransaction, Signer, providers } from '../legacy-host-types/v5/ethers';
 
 export interface TxOptions extends CallOverrides {
     signer?: Signer;

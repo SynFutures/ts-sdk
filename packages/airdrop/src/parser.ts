@@ -2,7 +2,7 @@ import { ContractParser, formatWad } from '../legacy-host-types/core';
 import { Airdrop__factory } from './typechain';
 import { LogDescription, TransactionDescription } from '@ethersproject/abi';
 import { ErrorDescription } from '@ethersproject/abi/lib/interface';
-import { ParamType } from 'ethers/lib/utils';
+import { ParamType } from '@ethersproject/abi';
 
 export class AirdropParser extends ContractParser {
     constructor() {

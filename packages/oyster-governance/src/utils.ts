@@ -1,5 +1,6 @@
-import { BigNumber, constants } from 'ethers';
-import type { CallOverrides } from 'ethers';
+import { BigNumber } from '@ethersproject/bignumber';
+import * as constants from '@ethersproject/constants';
+import type { CallOverrides } from '../legacy-host-types/v5/ethers';
 import type { TxOptions } from './host';
 
 export function toPopulatedTxOverrides(options?: TxOptions): CallOverrides {

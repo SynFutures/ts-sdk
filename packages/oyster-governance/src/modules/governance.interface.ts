@@ -1,6 +1,7 @@
 import type { LegacyPluginHost } from '../../legacy-plugin-host';
 import type { GovernanceHost, TxOptions, TxOptionsWithSigner } from '../host';
-import { BigNumber, ethers, CallOverrides } from 'ethers';
+import { BigNumber } from '@ethersproject/bignumber';
+import type { ethers, CallOverrides } from '../../legacy-host-types/v5/ethers';
 import { SynFuturesStakingVault, SynFuturesToken } from '../typechain';
 import { PendingUnstake, BoostSettings, VotingPowerSettings } from '../types';
 import { ActionType } from '../enum';
