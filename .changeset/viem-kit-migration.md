@@ -33,8 +33,8 @@ Migrate the SDK to the refactored `@derivation-tech/viem-kit` 1.0 API and remove
 - Retired ABC deployment defaults are removed; demos require explicit execution settings.
 - The default HTTP and public WebSocket endpoints move from `mainnet-api.monday.trade`, which
   lists no perpetual markets, to the Base deployment at `base-api.synfutures.com`. To keep
-  another deployment, set `baseUrl` and the WebSocket URL (`wsUrl` on `PerpClient`, `url` on
-  `PublicWebsocketClient`).
+  another deployment, set `baseUrl` and the WebSocket URL (`wsOptions.url` in the `PerpClient` constructor options, or
+  `url` on `PublicWebsocketClient`).
 - API request and response types follow the server contract. The server has no order-book
   `depth` parameter: `FetchMmOrderBookInput.depth` is removed, and `MmOrderBookSubscribeParams`
   is replaced by `OrderBookSubscribeParams`. `FetchFuturesPairKlineChartInput.endTime` and
