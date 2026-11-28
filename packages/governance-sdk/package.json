@@ -1,6 +1,6 @@
 {
     "name": "@synfutures/governance-sdk",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "description": "SynFutures governance, airdrop and staking clients for ethers v5",
     "license": "MIT",
     "main": "./build/index.js",
