@@ -327,10 +327,8 @@ describe('direct API query helpers', () => {
         const expiry = 0xffffffff;
         const signer: ApiSigner = { sign: () => ({}) };
 
-        const globalGetSpy = jest.spyOn(httpClient, 'get').mockImplementation(async () => {
-            throw new Error('global-client-used');
-        });
-        const customGetSpy = jest.spyOn(HttpClient.prototype, 'get').mockResolvedValue({
+        const customClient = new HttpClient({ baseUrl: 'https://custom.example' });
+        const customGetSpy = jest.spyOn(customClient, 'get').mockResolvedValue({
             data: {
                 data: {
                     benchmark: '0',
@@ -347,6 +345,8 @@ describe('direct API query helpers', () => {
             },
         } as any);
 
+        const otherGetSpy = jest.spyOn(HttpClient.prototype, 'get').mockRejectedValue(new Error('unexpected HTTP client'));
+
         try {
             const quotation = await fetchFuturesInstrumentInquireByNotional(
                 {
@@ -357,16 +357,16 @@ describe('direct API query helpers', () => {
                     long: true,
                 },
                 signer,
-                new HttpClient({ baseUrl: 'https://custom.example' }),
+                customClient,
             );
 
             expect(quotation).not.toBeNull();
             expect(quotation).toMatchObject({ tick: 0 });
-            expect(globalGetSpy).not.toHaveBeenCalled();
-            expect(customGetSpy).toHaveBeenCalled();
+            expect(customGetSpy).toHaveBeenCalledTimes(1);
+            expect(otherGetSpy).not.toHaveBeenCalled();
         } finally {
+            otherGetSpy.mockRestore();
             customGetSpy.mockRestore();
-            globalGetSpy.mockRestore();
         }
     });
 });
