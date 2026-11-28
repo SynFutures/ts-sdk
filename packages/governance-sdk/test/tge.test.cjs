@@ -233,8 +233,19 @@ test('an installed v5 host and the governance root share their chain context', (
     assert.equal(legacy.GovClient.getInstance('ethereum').ctx, ChainContext.getInstance('ethereum'));
 });
 
-test('standalone core keeps the OP provider and gas oracle call on the supplied transport', async () => {
+test('standalone core keeps the OP provider and gas oracle call on the supplied transport', async (t) => {
     const { ChainContext } = require('../build/legacy-core/standalone');
+    // The legacy OP context constructs its first provider before setProvider can replace it.
+    // Keep both its initial RPC and any optional WebSocket independent of the developer environment.
+    const { BASE_RPC, BASE_WSS } = process.env;
+    t.after(() => {
+        if (BASE_RPC === undefined) delete process.env.BASE_RPC;
+        else process.env.BASE_RPC = BASE_RPC;
+        if (BASE_WSS === undefined) delete process.env.BASE_WSS;
+        else process.env.BASE_WSS = BASE_WSS;
+    });
+    process.env.BASE_RPC = 'http://127.0.0.1:1';
+    delete process.env.BASE_WSS;
     const ctx = ChainContext.getInstance('base');
     const endpoint = new providers.JsonRpcProvider(undefined, 8453);
     let calls = 0;
