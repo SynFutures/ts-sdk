@@ -50,5 +50,13 @@
                 ]
             }
         }
+    },
+    "peerDependencies": {
+        "@derivation-tech/web3-core": "^1.0.30"
+    },
+    "peerDependenciesMeta": {
+        "@derivation-tech/web3-core": {
+            "optional": true
+        }
     }
 }

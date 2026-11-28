@@ -184,8 +184,10 @@ test('the released signer API and all legacy deep imports remain intact', async 
     for (const file of fs.readdirSync(path.join(root, 'build'), { recursive: true })) {
         if (!file.endsWith('.js') && !file.endsWith('.d.ts')) continue;
         assert.deepEqual(
-            fs.readFileSync(path.join(__dirname, '../build', file)),
-            fs.readFileSync(path.join(root, 'build', file)),
+            fs.readFileSync(path.join(__dirname, '../build', file), 'utf8'),
+            fs
+                .readFileSync(path.join(root, 'build', file), 'utf8')
+                .replaceAll('@derivation-tech/web3-core', file.includes(path.sep) ? '../legacy-core' : './legacy-core'),
             file
         );
     }
@@ -220,4 +222,25 @@ test('voting power handles zero, rounded increments, caps and UTC midnight', (t)
     assert.ok(power(W('2'), now / 1000 - 1, W('2'), ActionType.HODL, zero).eq(W('4')));
     assert.ok(power(W('100'), 0, W('2'), ActionType.HODL, zero).eq(W('6')));
     assert.ok(power(W('2'), 0, W('2'), ActionType.UNSTAKE, W('1.5')).isZero());
+});
+
+test('an installed v5 host and the governance root share their chain context', () => {
+    const { ChainContext } = require('@derivation-tech/web3-core');
+    assert.equal(legacy.GovClient.getInstance('ethereum').ctx, ChainContext.getInstance('ethereum'));
+});
+
+test('standalone core keeps the OP provider and gas oracle call on the supplied transport', async () => {
+    const { ChainContext } = require('../build/legacy-core/standalone');
+    const ctx = ChainContext.getInstance('base');
+    const endpoint = new providers.JsonRpcProvider(undefined, 8453);
+    let calls = 0;
+    endpoint.call = async (tx) => {
+        assert.equal((await tx.to).toLowerCase(), '0x420000000000000000000000000000000000000f');
+        assert.equal(await tx.data, utils.id('l1BaseFee()').slice(0, 10));
+        calls++;
+        return utils.defaultAbiCoder.encode(['uint256'], [42]);
+    };
+    ctx.setProvider(endpoint);
+    assert.equal((await ctx.provider.getL1GasPrice()).toString(), '42');
+    assert.equal(calls, 1);
 });

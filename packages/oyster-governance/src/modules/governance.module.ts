@@ -1,7 +1,6 @@
 import type { LegacyPluginHost, LegacyTransactionPlugin } from '../../legacy-plugin-host';
 import { BigNumber, CallOverrides, ethers } from 'ethers';
-import { Erc20Parser } from '../../legacy-host-types/core/tx/parser';
-import { WAD, ZERO, ZERO_ADDRESS } from '../../legacy-host-types/core/constant';
+import { Erc20Parser, WAD, ZERO, ZERO_ADDRESS } from '../../legacy-host-types/core';
 import type { GovernanceHost, TxOptions, TxOptionsWithSigner } from '../host';
 import { max, min, toPopulatedTxOverrides, wdiv, wmul } from '../utils';
 import {

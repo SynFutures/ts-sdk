@@ -1,8 +1,7 @@
 import type { LegacyPluginHost } from '../../legacy-plugin-host';
 import { BigNumber } from 'ethers';
 import { orderBy as _orderBy } from 'lodash';
-import { Graph, GRAPH_PAGE_SIZE } from '../../legacy-host-types/core/util/graph';
-import { now } from '../../legacy-host-types/core/util/common';
+import { Graph, GRAPH_PAGE_SIZE, now } from '../../legacy-host-types/core';
 import { GovernanceDataSourceInterface } from './governanceDataSource.inteface';
 import { QueryEventParam, PendingUnstakeWithTx, TransactionEvent, QueryHistoryParam } from '../types';
 

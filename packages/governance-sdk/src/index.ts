@@ -1,5 +1,5 @@
 import { BigNumber, BigNumberish, CallOverrides, Contract, PopulatedTransaction, constants, providers } from 'ethers';
-import { Multicall3__factory } from '@derivation-tech/web3-core';
+import { Multicall3__factory } from '../build/legacy-core';
 import { ActionType, GovClient, frac, isUTCSameDay, min, wdiv } from '../build/GovClient';
 import type { PendingUnstake } from '../build/GovClient';
 import { GovGraph } from '../build/graph/GovGraph';

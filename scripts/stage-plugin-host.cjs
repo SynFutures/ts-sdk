@@ -1,22 +1,25 @@
-// Each compatibility package ships its own copy of this type-only contract.
-const { copyFileSync, cpSync, rmSync, statSync, writeFileSync } = require('node:fs');
-const { dirname, join, relative } = require('node:path');
+// Each plugin ships the host declarations and just the original v5 helpers it uses.
+const { copyFileSync, cpSync, rmSync, writeFileSync } = require('node:fs');
+const { dirname, join } = require('node:path');
+const stageCoreTypes = require('./stage-core-types.cjs');
 copyFileSync(join(__dirname, 'legacy-plugin-host.d.ts'), 'legacy-plugin-host.d.ts');
 rmSync('legacy-host-types', { recursive: true, force: true });
 cpSync(join(__dirname, 'legacy-host-types'), 'legacy-host-types', { recursive: true });
 
-// The host declarations refer to the complete v5 ChainContext. At runtime the plugins
-// only use the original ABI parser, formatting helpers, or subgraph reader.
-const coreRoot = dirname(require.resolve('@derivation-tech/web3-core/package.json', { paths: [process.cwd()] }));
-const source = join(coreRoot, 'build');
+const root = dirname(require.resolve('@derivation-tech/web3-core/package.json', { paths: [process.cwd()] }));
 const output = 'legacy-host-types/core';
 const graph = require(join(process.cwd(), 'package.json')).name === '@synfutures/oyster-governance-data-source';
-const modules = new Set(['constant.js', 'util/common.js', 'util/logger.js', graph ? 'util/graph.js' : 'tx/parser.js']);
-cpSync(source, output, {
-    recursive: true,
-    filter: (file) => statSync(file).isDirectory() || file.endsWith('.d.ts') || modules.has(relative(source, file)),
-});
+const feature = graph ? 'util/graph' : 'tx/parser';
+stageCoreTypes(root, output, ['constant.js', 'util/common.js', 'util/logger.js', feature + '.js']);
 if (!graph) {
-    // The parser imports formatUnits through the old utility barrel.
-    writeFileSync(join(output, 'util/index.js'), "exports.formatUnits = require('./common').formatUnits;\n");
+    // The parser only imports formatUnits from the old utility barrel.
+    writeFileSync(join(output, 'build/util/index.js'), "exports.formatUnits = require('./common').formatUnits;\n");
 }
+writeFileSync(
+    join(output, 'index.js'),
+    [
+        "Object.assign(exports, require('./build/constant'), require('./build/util/common'));",
+        `Object.assign(exports, require('./peer.cjs') ? require('@derivation-tech/web3-core/build/${feature}') : require('./build/${feature}'));`,
+        '',
+    ].join('\n')
+);

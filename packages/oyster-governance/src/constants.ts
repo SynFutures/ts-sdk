@@ -1,5 +1,4 @@
-import { CHAIN_ID } from '../legacy-host-types/core/constant';
-import { type TokenInfo } from '../legacy-host-types/core/type';
+import { CHAIN_ID, type TokenInfo } from '../legacy-host-types/core';
 
 export const STAKE_ADDRESSES: { [chainId: number]: string } = {
     [CHAIN_ID.ETHEREUM]: '0x93432aFf5A44865Bd2cfC028C147AE1D0094cf05',

@@ -75,3 +75,8 @@ test('chain-selected and explicit distributors preserve reads, calldata and sign
     }
     assert.deepEqual(registered, Array(3).fill([AirdropContracts[1], 'Airdrop']));
 });
+
+test('parsers registered with an existing v5 host retain its class identity', () => {
+    const { ContractParser } = require('@derivation-tech/web3-core');
+    assert.ok(new AirdropParser() instanceof ContractParser);
+});
