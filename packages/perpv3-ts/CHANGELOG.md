@@ -1,5 +1,11 @@
 # @synfutures/perpv3-ts
 
+## 0.2.9
+
+### Patch Changes
+
+- f1f9dff: Honor a caller-supplied HTTP client in `fetchFuturesInstrumentInquireByNotional`. Calls that omit the client continue using the default API endpoint.
+
 ## 0.2.7
 
 ### Patch Changes
