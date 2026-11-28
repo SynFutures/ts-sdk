@@ -7,6 +7,13 @@ catalog:
     typescript: '7.0.2'
 
 overrides:
+    # The ethers v5 host and Optimism SDK pin older crypto and transport releases.
+    'elliptic@6': '6.6.1'
+    'bn.js@4': '^4.12.3'
+    'ws@7': '^7.5.11'
+    'ws@8.18.0': '^8.23.0'
+    'axios@0.21.4': '^0.35.0'
+    'moment@2.29.1': '^2.30.1'
     # Jest and its Istanbul coverage tools still request affected glob and minimatch majors.
     'glob@>=9 <=14.0.1': '^14.0.2'
     'minimatch@>=7 <11.0.1': '^11.0.1'

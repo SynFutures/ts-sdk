@@ -20,7 +20,7 @@
     "dependencies": {
         "@derivation-tech/web3-core": "^1.0.43",
         "@types/lodash": "^4.17.0",
-        "ethers": "^5.7.2",
+        "ethers": "^5.8.0",
         "lodash": "^4.17.21"
     },
     "devDependencies": {
