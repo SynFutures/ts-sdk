@@ -207,6 +207,9 @@ importers:
       prettier:
         specifier: 3.10.1
         version: 3.10.1
+      tsdown:
+        specifier: 0.23.7
+        version: 0.23.7(@arethetypeswrong/core@0.18.5)(publint@0.3.25)(tsx@4.23.15)(typescript@7.0.2)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -474,43 +477,13 @@ importers:
 
   packages/oyster-governance-data-source:
     dependencies:
-      '@ethersproject/bignumber':
-        specifier: ^5.8.0
-        version: 5.8.0
-      '@types/lodash':
-        specifier: ^4.17.0
-        version: 4.17.27
-      '@types/node':
-        specifier: ^22.19.0
-        version: 22.20.7
-      async-retry:
-        specifier: ^1.3.3
-        version: 1.3.3
-      bignumber.js:
-        specifier: ^9.3.1
-        version: 9.3.1
-      chalk:
-        specifier: ^4.1.2
-        version: 4.1.2
-      lodash:
-        specifier: ^4.17.21
-        version: 4.18.1
-      moment:
-        specifier: ^2.30.1
-        version: 2.31.0
-      node-fetch:
-        specifier: ^2.7.0
-        version: 2.7.0
+      viem:
+        specifier: 'catalog:'
+        version: 2.58.7(typescript@7.0.2)
     devDependencies:
-      '@derivation-tech/web3-core':
-        specifier: 1.0.44
-        version: 1.0.44(debug@4.4.3)
-      ethers:
-        specifier: ^5.8.0
-        version: 5.8.0
       typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
+        specifier: 'catalog:'
+        version: 7.0.2
 
   packages/perpv3-ts:
     dependencies:
@@ -1892,7 +1865,7 @@ packages:
     resolution: {integrity: sha512-V6Mnml8v09QALx6K0elJ7o9K/MkVDtW3t6L+7Ou/JcWtb3xwId2AH4FeOceySd2JaO87IMw4+6vSZxLm34LPbw==}
 
   '@synfutures/governance-sdk@0.0.5':
-    resolution: {integrity: sha512-kiBy5V7uw8oiAX+IXKL0fVK7FpMg30Q49m+PuoRlslTWLzyOHfVL3xky4bwzKLP1dyf2Qc6aNOEudh0BD8z40g==}
+    resolution: {integrity: sha512-kiBy5V7uw8oiAX+IXKL0fVK7FpMg30Q49m+PuoRlslTWLzyOHfVL3xky4bwzKLP1dyf2Qc6aNOEudh0BD8z40g==, tarball: http://18.167.68.54:4873/@synfutures/governance-sdk/-/governance-sdk-0.0.5.tgz}
 
   '@synfutures/v3-contracts@0.0.2':
     resolution: {integrity: sha512-bTaYIvi1ffcdziEV93tUGfjDfnF82PEiYmLgcQOX9v3Ih7BZ+J6JgjA6SMhnNnmYbwVEFfUuBeRhhgkhsTfPDw==, tarball: http://18.167.68.54:4873/@synfutures/v3-contracts/-/v3-contracts-0.0.2.tgz}
@@ -1932,9 +1905,6 @@ packages:
 
   '@types/jest@30.0.0':
     resolution: {integrity: sha512-XTYugzhuwqWjws0CVz8QpM36+T+Dz5mTEBKhNs/esGLnCIlGdRy+Dq78NRjd7ls7r8BC8ZRMOrKlkO1hU0JOwA==}
-
-  '@types/lodash@4.17.27':
-    resolution: {integrity: sha512-VenMRv/eKNrspX9v3H4dbmjsrnCOYdYBG3kxXKk3dG6X+urBGcj2Prww3xw1U5K4FV/mE4h5GbWd0szEKf+9ew==}
 
   '@types/node@22.20.7':
     resolution: {integrity: sha512-F/Mcc4pD3YwXQCG50hb8BjB5RmrOere6hge7n2XHf0V8tpkZOVEjwYv9Ql7n0MpMn8Bv7+q12P9w6UHsBm0Sfw==}
@@ -5496,8 +5466,6 @@ snapshots:
     dependencies:
       expect: 30.5.2
       pretty-format: 30.5.1
-
-  '@types/lodash@4.17.27': {}
 
   '@types/node@22.20.7':
     dependencies:

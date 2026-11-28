@@ -32,7 +32,8 @@
         "oxlint": "1.95.0",
         "oxlint-tsgolint": "7.0.2008",
         "prettier": "3.10.1",
-        "typescript": "catalog:"
+        "typescript": "catalog:",
+        "tsdown": "0.23.7"
     },
     "engines": {
         "node": ">=24 <25",

@@ -1,32 +1,27 @@
-import { BigNumber } from '@ethersproject/bignumber';
+import type { Address, Hash } from 'viem';
 
-export type QueryHistoryParam = QueryEventParam;
-
-export interface Pagination {
+export interface HistoryQuery {
+    accounts?: readonly Address[];
+    eventNames?: readonly string[];
+    startTs?: number;
+    endTs?: number;
     page?: number;
     size?: number;
 }
 
-export interface QueryEventParam extends Pagination {
-    eventNames?: string[];
-    accounts?: string[];
-    startTs?: number;
-    endTs?: number;
-}
-
 export interface TransactionEvent {
     id: string;
-    txHash: string;
-    account: string;
-    blockNumber: number;
+    txHash: Hash;
+    account: Address;
+    blockNumber: bigint;
     timestamp: number;
     logIndex: number;
     name: string;
-    args: { [key: string]: any };
+    args: Record<string, unknown>;
 }
 
 export interface PendingUnstakeWithTx {
-    pendingIndex: number;
-    txHash: string;
-    amount: BigNumber;
+    pendingIndex: bigint;
+    txHash: Hash;
+    amount: bigint;
 }
