@@ -31,3 +31,8 @@ yarn.lock
 .worktrees/
 docs/superpowers/
 packages/perpv3-ts/devnet/.runtime/
+
+# Generated compatibility package outputs
+/packages/*/build/
+/packages/*/legacy-plugin-host.d.ts
+/packages/*/legacy-host-types/

@@ -39,6 +39,8 @@ jobs:
               run: pnpm run lint
             - name: Test Release Tooling
               run: pnpm run test:release
+            - name: Verify Governance and Airdrop Packages
+              run: pnpm run verify:governance
             - name: Verify PerpV3 Package
               run: pnpm -C packages/perpv3-ts run verify:build
             - name: Verify Packed Consumer

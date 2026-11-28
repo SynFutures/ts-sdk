@@ -23,8 +23,14 @@ test('population preserves explicit senders and leaves the original transaction 
     const address = '0x0000000000000000000000000000000000000001';
     const signer = { getAddress: async () => address };
     const options = Object.freeze({
-        signer, gasLimit: 120, nonce: 0, blockTag: 'latest', enableGasPrice: true,
-        disableGasLimit: true, gasLimitMultiple: 1.7, gasPriceMultiple: 1.2,
+        signer,
+        gasLimit: 120,
+        nonce: 0,
+        blockTag: 'latest',
+        enableGasPrice: true,
+        disableGasLimit: true,
+        gasLimitMultiple: 1.7,
+        gasPriceMultiple: 1.2,
     });
     const overrides = toPopulatedTxOverrides(options);
     assert.deepEqual({ ...overrides, from: await overrides.from }, { from: address, gasLimit: 120, nonce: 0 });
@@ -36,8 +42,13 @@ test('population preserves explicit senders and leaves the original transaction 
 test('staking can populate a transaction with disabled gas options and zero-valued overrides', async () => {
     const address = '0x0000000000000000000000000000000000000001';
     const options = Object.freeze({
-        blockTag: 0, enableGasPrice: false, disableGasLimit: false, gasLimitMultiple: 0, gasPriceMultiple: 0,
-        nonce: 0, gasPrice: 0,
+        blockTag: 0,
+        enableGasPrice: false,
+        disableGasLimit: false,
+        gasLimitMultiple: 0,
+        gasPriceMultiple: 0,
+        nonce: 0,
+        gasPrice: 0,
     });
     const overrides = toPopulatedTxOverrides(options);
     assert.deepEqual(overrides, { nonce: 0, gasPrice: 0 });

@@ -8,7 +8,7 @@
     "scripts": {
         "preinstall": "node scripts/ensure-pnpm.cjs",
         "build": "pnpm -r run build",
-        "test": "pnpm -r run test",
+        "test": "pnpm run verify:governance && pnpm --filter @synfutures/perpv3-ts run test",
         "deps": "pnpm -r i",
         "prepare": "husky",
         "lint": "oxlint --type-aware --deny-warnings .",
@@ -18,7 +18,10 @@
         "release:dry": "changeset status",
         "format:check": "prettier --check .",
         "release:version": "changeset version && pnpm install --lockfile-only --ignore-scripts --no-frozen-lockfile",
-        "test:release": "node --test scripts/tests/*.test.cjs"
+        "test:release": "node --test scripts/tests/*.test.cjs",
+        "build:governance": "pnpm --filter @synfutures/airdrop --filter \"@synfutures/*governance*\" run build",
+        "test:plugin-types": "pnpm --filter @synfutures/oyster-governance exec tsc --noEmit --strict --skipLibCheck --target ES2020 --module commonjs ../../scripts/governance-plugin-types.ts",
+        "verify:governance": "pnpm run build:governance && pnpm --filter @synfutures/airdrop --filter \"@synfutures/*governance*\" run test && pnpm run test:plugin-types"
     },
     "devDependencies": {
         "@changesets/cli": "^3.0.3",

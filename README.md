@@ -3,10 +3,20 @@
 The workspace maintains [`@synfutures/perpv3-ts`](packages/perpv3-ts/README.md),
 a TypeScript SDK for SynFutures V3 queries, simulations, calldata and contract parsers.
 
+The ethers v5 governance packages also live here:
+
+- `@synfutures/airdrop` supports chain-selected and explicit Merkle distributors.
+- `@synfutures/oyster-governance` provides staking reads, transactions, and voting-power simulations.
+- `@synfutures/oyster-governance-data-source` queries governance history and pending withdrawals.
+- [`@synfutures/governance-sdk`](packages/governance-sdk/README.md) exposes the signer client and the standalone unsigned `/tge` client.
+
+The three plugins support existing caller-supplied hosts and retain their original import paths.
+Run `pnpm run verify:governance` to build the four packages and check runtime behavior and consumer types.
+
 ## Development
 
 Use Node.js 24 LTS (pinned in `.nvmrc`) and the pnpm version pinned in `package.json`.
-Published SDK runtime support starts at Node.js 22. Access to the configured `@synfutures`
+Published PerpV3 runtime support starts at Node.js 22. Access to the configured `@synfutures`
 registry is required for the contract artifact development dependency.
 
 ```sh

@@ -8,7 +8,9 @@ Import `createTgeClient` from `@synfutures/governance-sdk/tge` (or `/tge/index.j
 
 ```ts
 const { airdrop, governance, governanceDataSource } = createTgeClient(provider, 1.7, {
-    vault, multicall, graphUrl,
+    vault,
+    multicall,
+    graphUrl,
 });
 const claimed = await airdrop.isClaimed(distributor, index);
 const { stakes, pendingUnstakes } = await governance.getStakingInfo(account);

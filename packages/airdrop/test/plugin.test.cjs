@@ -21,15 +21,21 @@ test('chain-selected and explicit distributors preserve reads, calldata and sign
     const registered = [];
     const receipt = { status: 1 };
     const options = { signer: ethers.Wallet.createRandom() };
-    const provider = new ethers.providers.Web3Provider({ request: async ({ method, params }) => {
-        if (method === 'eth_chainId') return '0x1';
-        assert.equal(method, 'eth_call');
-        calls.push(params);
-        return abi.encodeFunctionResult('isClaimed', [true]);
-    } }, 1);
+    const provider = new ethers.providers.Web3Provider(
+        {
+            request: async ({ method, params }) => {
+                if (method === 'eth_chainId') return '0x1';
+                assert.equal(method, 'eth_call');
+                calls.push(params);
+                return abi.encodeFunctionResult('isClaimed', [true]);
+            },
+        },
+        1
+    );
     const host = {
         ctx: {
-            chainId: 1, provider,
+            chainId: 1,
+            provider,
             registerAddress: (address, name) => registered.push([address, name]),
             registerContractParser: (address, parser) => {
                 assert.equal(address, AirdropContracts[1]);
@@ -43,17 +49,25 @@ test('chain-selected and explicit distributors preserve reads, calldata and sign
         name: 'Error',
         message: /install the transaction plugin.*host\.tx/i,
     });
-    host.tx = { sendTx: async (tx, opts) => {
-        if (opts === undefined) return tx;
-        assert.equal(opts, options);
-        return receipt;
-    } };
-    for (const [address, prefix] of [[AirdropContracts[1], []], [custom, [custom]]]) {
+    host.tx = {
+        sendTx: async (tx, opts) => {
+            if (opts === undefined) return tx;
+            assert.equal(opts, options);
+            return receipt;
+        },
+    };
+    for (const [address, prefix] of [
+        [AirdropContracts[1], []],
+        [custom, [custom]],
+    ]) {
         assert.equal(await airdrop.isClaimed(...prefix, 0, { blockTag: 21 }), true);
-        assert.deepEqual(calls.at(-1), [{
-            to: address.toLowerCase(),
-            data: abi.encodeFunctionData('isClaimed', [0]),
-        }, '0x15']);
+        assert.deepEqual(calls.at(-1), [
+            {
+                to: address.toLowerCase(),
+                data: abi.encodeFunctionData('isClaimed', [0]),
+            },
+            '0x15',
+        ]);
         const tx = await airdrop.claim(...prefix, 0, '123', account, []);
         assert.equal(tx.to, address);
         assert.equal(tx.data, abi.encodeFunctionData('claim', [0, account, 123, []]));

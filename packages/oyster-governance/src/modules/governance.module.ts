@@ -30,9 +30,9 @@ function isUTCSameDay(ts1: number, ts2: number): boolean {
     );
 }
 
-export class GovernanceModule<Host extends GovernanceHost = LegacyPluginHost & LegacyTransactionPlugin>
-    implements GovernanceInterface<Host>
-{
+export class GovernanceModule<
+    Host extends GovernanceHost = LegacyPluginHost & LegacyTransactionPlugin,
+> implements GovernanceInterface<Host> {
     synfV3: Host;
 
     stakingVault!: SynFuturesStakingVault;
