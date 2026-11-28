@@ -627,10 +627,10 @@ packages:
         optional: true
 
   '@derivation-tech/web3-core@1.0.30':
-    resolution: {integrity: sha512-P2GclHJefYM5uRb/sjKOg9aX8vFrLfuv1t+q5Vo7Alw+sL4zELJlTfPIy4pRL0k0f+hAYsG6Xv/HJENHWovyrg==, tarball: http://18.167.68.54:4873/@derivation-tech/web3-core/-/web3-core-1.0.30.tgz}
+    resolution: {integrity: sha512-P2GclHJefYM5uRb/sjKOg9aX8vFrLfuv1t+q5Vo7Alw+sL4zELJlTfPIy4pRL0k0f+hAYsG6Xv/HJENHWovyrg==}
 
   '@derivation-tech/web3-core@1.0.44':
-    resolution: {integrity: sha512-/GuOciGvp2PWdb2NeLpcIHizpxEtMzpGppEAM6ZN9jG7M1iCdxQIT4PUocnIX859o6zHH+BWfBIfJiA8L3FWag==, tarball: http://18.167.68.54:4873/@derivation-tech/web3-core/-/web3-core-1.0.44.tgz}
+    resolution: {integrity: sha512-EfkE2bqHGjfeMMFw8OqRluhwQtHL9r/RWI087E+pcJjExQV+tE6Cd1qQHT4EwwDxX5RdoMupT3kW2XYJ90g8oQ==, tarball: https://registry.npmjs.org/@derivation-tech/web3-core/-/web3-core-1.0.44.tgz}
 
   '@emnapi/core@2.0.0-beta.2':
     resolution: {integrity: sha512-MzCVoWtcg4Pm2B3je5mMvYMvj3MmBKw+fU7vbsJc9/iT8ip6/eYIHo/Dsm/mr+wsHB6SEyJDuxB09Yy6r/8+4A==}
@@ -1682,7 +1682,7 @@ packages:
     resolution: {integrity: sha512-V6Mnml8v09QALx6K0elJ7o9K/MkVDtW3t6L+7Ou/JcWtb3xwId2AH4FeOceySd2JaO87IMw4+6vSZxLm34LPbw==}
 
   '@synfutures/governance-sdk@0.0.5':
-    resolution: {integrity: sha512-kiBy5V7uw8oiAX+IXKL0fVK7FpMg30Q49m+PuoRlslTWLzyOHfVL3xky4bwzKLP1dyf2Qc6aNOEudh0BD8z40g==, tarball: http://18.167.68.54:4873/@synfutures/governance-sdk/-/governance-sdk-0.0.5.tgz}
+    resolution: {integrity: sha512-kiBy5V7uw8oiAX+IXKL0fVK7FpMg30Q49m+PuoRlslTWLzyOHfVL3xky4bwzKLP1dyf2Qc6aNOEudh0BD8z40g==}
 
   '@synfutures/v3-contracts@0.0.2':
     resolution: {integrity: sha512-bTaYIvi1ffcdziEV93tUGfjDfnF82PEiYmLgcQOX9v3Ih7BZ+J6JgjA6SMhnNnmYbwVEFfUuBeRhhgkhsTfPDw==, tarball: http://18.167.68.54:4873/@synfutures/v3-contracts/-/v3-contracts-0.0.2.tgz}
