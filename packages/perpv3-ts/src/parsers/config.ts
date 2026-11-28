@@ -16,7 +16,11 @@ function stringify(values: readonly unknown[]): string {
     return values.map((value) => String(value)).join(', ');
 }
 
-export function createConfigParser(deps?: ParserDeps): ContractParser {
+type EventArgsBag = {
+    [name: string]: unknown;
+};
+
+export function createConfigParser(deps?: ParserDeps): ContractParser<typeof CURRENT_CONFIG_ABI> {
     return {
         abi: CURRENT_CONFIG_ABI,
 
@@ -87,7 +91,8 @@ export function createConfigParser(deps?: ParserDeps): ContractParser {
         },
 
         async parseEvent(event) {
-            const { eventName, args } = event as { eventName: string; args: Record<string, any> };
+            const eventName: string = event.eventName;
+            const args = event.args as EventArgsBag;
             switch (eventName) {
                 case 'SetQuoteParam': {
                     const { quote, param } = args as {
@@ -114,7 +119,11 @@ export function createConfigParser(deps?: ParserDeps): ContractParser {
                     return `SetLiquidatorWhitelist(user: ${await formatAddress(user, deps)}, authorized: ${authorized})`;
                 }
                 case 'SetLpWhitelistForQuote': {
-                    const { quote, user, authorized } = args as { quote: Address; user: Address; authorized: boolean };
+                    const { quote, user, authorized } = args as {
+                        quote: Address;
+                        user: Address;
+                        authorized: boolean;
+                    };
                     return `SetLpWhitelistForQuote(quote: ${await formatAddress(
                         quote,
                         deps
@@ -152,15 +161,6 @@ export function createConfigParser(deps?: ParserDeps): ContractParser {
                 default:
                     return `${eventName}(...)`;
             }
-        },
-
-        async parseError(error) {
-            if (typeof error === 'string') {
-                return error;
-            }
-            if (error.name) return error.name;
-            if (error.signature) return error.signature;
-            return 'Config error';
         },
     };
 }

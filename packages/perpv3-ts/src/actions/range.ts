@@ -93,7 +93,7 @@ export class AddInput {
             tickDeltaLower,
             tickDeltaUpper,
             amount: this.marginAmount,
-            limitTicks: Number(userSetting.getEncodedLiquidityLimitTicks(ammForAdd.sqrtPX96)),
+            limitTicks: Number(userSetting.getEncodedLiquidityLimitTicks(ammForAdd.sqrtPX96, ammForAdd.tick)),
             deadline: userSetting.getDeadline(snapshot.blockInfo.timestamp),
         };
 
@@ -194,7 +194,7 @@ export class RemoveInput {
             target: this.traderAddress,
             tickLower: this.tickLower,
             tickUpper: this.tickUpper,
-            limitTicks: Number(userSetting.getEncodedLiquidityLimitTicks(amm.sqrtPX96)),
+            limitTicks: Number(userSetting.getEncodedLiquidityLimitTicks(amm.sqrtPX96, amm.tick)),
             deadline: userSetting.getDeadline(snapshot.blockInfo.timestamp),
         };
 

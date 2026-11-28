@@ -1,43 +1,79 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { governanceDataSourcePlugin } = require('../build');
-
-test('governance history supports filtered pages, cursor queries and pending withdrawals', async () => {
-    const { governanceDataSource: graph } = governanceDataSourcePlugin('https://example.invalid').install({});
-    const event = { id: 'event', name: 'Unstake', account: '0xabc', args: '{"amount":"15"}',
-        timestamp: '22', blockNumber: '5', logIndex: '1', transaction: { id: 'tx' } };
-    graph.query = async (query, skip, first) => {
-        assert.match(query, /name_in: \["Unstake"\]/);
-        assert.match(query, /account_in: \["0xabc"\]/);
-        assert.match(query, /orderBy: timestamp, orderDirection: desc/);
+const { GovernanceDataSource } = require('../dist/index.cjs');
+const hash = '0x' + 'ab'.repeat(32),
+    account = '0x' + 'AB'.repeat(20);
+const event = {
+    id: 'a',
+    account,
+    name: 'Unstake',
+    args: '{"amount":"15"}',
+    timestamp: '22',
+    blockNumber: '9007199254740993',
+    logIndex: 1,
+    transaction: { id: hash },
+};
+function client(handler) {
+    return new GovernanceDataSource('https://example.invalid', async (_url, request) =>
+        Response.json(handler(JSON.parse(request.body)))
+    );
+}
+test('history pages preserve filters, timestamp zero, log order and uint precision', async () => {
+    const graph = client(({ variables: { where, first, skip, order } }) => {
+        assert.deepEqual(where.account_in, [account.toLowerCase()]);
+        assert.deepEqual(where.name_in, ['Unstake']);
         if (first === 2) {
             assert.equal(skip, 6);
-            assert.match(query, /timestamp_gte: 10,timestamp_lt: 30/);
-        } else {
-            assert.equal(first, 1);
-            assert.equal(skip, 0);
+            assert.equal(where.timestamp_lt, '0');
         }
-        return { transactionEvents: [event] };
-    };
-    const [row] = await graph.getHistoryEvents({ accounts: ['0xABC'], eventNames: ['Unstake'],
-        startTs: 10, endTs: 30, page: 3, size: 2 });
-    assert.equal(row.txHash, 'tx');
-    assert.deepEqual(row.args, { amount: '15' });
-    assert.equal(await graph.getLastUnstakeTime('0xABC'), 22);
-    graph.queryAll = async (query, pageSize, byId) => {
-        assert.ok(pageSize > 0);
-        assert.equal(byId, true);
-        assert.match(query, /id_gt: \$lastID/);
-        if (query.includes('pendingUnstakes(')) {
-            assert.match(query, /status:PENDING,staker_:\{id:"0xabc"\}/);
-            return [{ pendingIndex: '0', amount: '15', transaction: { id: 'tx' } }];
+        assert.equal(order, 'timestamp');
+        return { data: { transactionEvents: [event, { ...event, id: 'b', logIndex: 2 }] } };
+    });
+    const rows = await graph.getHistoryEvents({
+        accounts: [account],
+        eventNames: ['Unstake'],
+        size: 2,
+        page: 3,
+        endTs: 0,
+    });
+    assert.deepEqual(
+        rows.map((r) => r.id),
+        ['b', 'a']
+    );
+    assert.equal(rows[0].blockNumber, 9007199254740993n);
+    assert.equal(await graph.getLastUnstakeTime(account), 22);
+});
+test('all pages use a stable ID cursor; withdrawal amounts remain lossless', async () => {
+    let calls = 0;
+    const graph = client(({ variables: { where, first } }) => {
+        assert.equal(where.staker_.id, account.toLowerCase());
+        assert.equal(where.status, 'PENDING');
+        const row = { amount: '9007199254740993000', pendingIndex: '0', transaction: { id: hash } };
+        if (calls++ === 0) {
+            assert.equal(where.id_gt, '');
+            return {
+                data: {
+                    pendingUnstakes: Array.from({ length: first }, (_, i) => ({
+                        ...row,
+                        id: String(i).padStart(4, '0'),
+                    })),
+                },
+            };
         }
-        assert.match(query, /name_in: \["Stake","Unstake","Release"\]/);
-        return [event, { ...event, id: 'later', logIndex: '2' }];
-    };
-    assert.deepEqual((await graph.getHistoryEvents({})).map(e => e.id), ['later', 'event']);
-    const [pending] = await graph.getCurrentPendingUnstakes('0xABC');
-    assert.equal(pending.pendingIndex, 0);
-    assert.equal(pending.amount.toString(), '15');
-    assert.equal(pending.txHash, 'tx');
+        assert.equal(where.id_gt, '0999');
+        return { data: { pendingUnstakes: [{ ...row, id: '1000' }] } };
+    });
+    const rows = await graph.getCurrentPendingUnstakes(account);
+    assert.equal(rows.length, 1001);
+    assert.deepEqual(rows[1000], { amount: 9007199254740993000n, pendingIndex: 0n, txHash: hash });
+});
+test('rejects GraphQL errors and malformed event data', async () => {
+    await assert.rejects(
+        client(() => ({ errors: [{ message: 'indexing error' }] })).getHistoryEvents(),
+        /indexing error/
+    );
+    await assert.rejects(
+        client(() => ({ data: { transactionEvents: [{ ...event, blockNumber: '1.5' }] } })).getHistoryEvents(),
+        /integer/
+    );
 });

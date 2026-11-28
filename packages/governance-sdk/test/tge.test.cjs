@@ -1,223 +1,99 @@
-const assert = require('node:assert/strict');
-const test = require('node:test');
-const { BigNumber, constants, providers, utils } = require('ethers');
-const { Multicall3__factory } = require('@derivation-tech/web3-core');
-const legacy = require('../build');
-const { createTgeClient, ActionType, simulateNextDayVotingPower } = require('../tge');
-
-const account = '0x0000000000000000000000000000000000000001';
-const vault = '0x0000000000000000000000000000000000000002';
-const multicall = '0x0000000000000000000000000000000000000003';
-const proof = [utils.id('leaf')];
-const config = { vault, multicall, graphUrl: 'https://graph.invalid' };
-const stakeAbi = legacy.SynFuturesStakingVault__factory.createInterface();
-const dropAbi = new utils.Interface([
-    'function claim(uint256,address,uint256,bytes32[])',
-    'function isClaimed(uint256) view returns(bool)',
-]);
-const multiAbi = Multicall3__factory.createInterface();
-
-function providerWith(handler) {
-    return new providers.Web3Provider(
-        {
-            request: async ({ method, params }) => {
-                if (method === 'eth_chainId') return '0x1';
-                return handler(method, params);
-            },
-        },
-        1
+const assert = require('node:assert/strict'),
+    test = require('node:test');
+const { createHash } = require('node:crypto');
+const { createPublicClient, custom, encodeAbiParameters, encodeFunctionData, parseAbiParameters } = require('viem');
+const { mainnet, sepolia, base } = require('viem/chains');
+const { createGovernanceClient, governanceVaultAbi } = require('../dist/index.cjs');
+const { createTgeClient } = require('../dist/tge.cjs');
+const vault = '0xB02585D7d561Cf3469CCDC4447a63C3F4dB8d7D8',
+    token = '0x91DcdBa5032657D5573036fEf15724deF8CD2316',
+    account = '0x' + '11'.repeat(20),
+    customVault = '0x' + '22'.repeat(20),
+    multi = '0x' + '33'.repeat(20);
+test('independent root retains Ethereum and Sepolia addresses and the uint256 vault ABI', async () => {
+    assert.equal(
+        createHash('sha256').update(JSON.stringify(governanceVaultAbi)).digest('hex'),
+        '84eb84cb70112f3c77ae4106c363f9e325df89d1e6bc52e060ffe752a6e521fc'
     );
-}
-
-test('claim status and four unsigned methods preserve calldata, sender and gas estimation', async () => {
-    const estimates = [];
-    const provider = providerWith((method, params) => {
-        if (method === 'eth_call') {
+    const transport = custom({
+        request({ method, params }) {
+            assert.equal(method, 'eth_call');
+            assert.equal(params[0].to.toLowerCase(), '0xca11bde05977b3631167028862be2a173976ca11');
             assert.equal(params[1], '0x9');
-            assert.equal(params[0].data, dropAbi.encodeFunctionData('isClaimed', [0]));
-            return dropAbi.encodeFunctionResult('isClaimed', [true]);
-        }
-        assert.equal(method, 'eth_estimateGas');
-        estimates.push(params[0]);
-        return '0x65';
-    });
-    const { airdrop, governance } = createTgeClient(provider, 1.7, config);
-    assert.ok(await airdrop.isClaimed(vault, 0, { blockTag: 9 }));
-    const claim = await airdrop.claim(vault, 0, 123, account, proof);
-    assert.equal(claim.data, dropAbi.encodeFunctionData('claim', [0, account, 123, proof]));
-    assert.equal(claim.from, undefined);
-    assert.equal(estimates[0].from, undefined);
-    assert.equal(claim.gasLimit.toString(), '171');
-    for (const method of ['stake', 'unstake', 'release']) {
-        const tx = await governance[method](3, { from: account });
-        assert.equal(tx.to, vault);
-        assert.equal(tx.data, stakeAbi.encodeFunctionData(method, [3]));
-        assert.equal(estimates.at(-1).from, account);
-        assert.equal(tx.from, undefined);
-        assert.equal(tx.gasLimit.toString(), '171');
-    }
-    const explicit = await governance.stake(1, { from: account, gasLimit: 222 });
-    assert.equal(explicit.from, undefined);
-    assert.equal(explicit.gasLimit.toString(), '222');
-    const skipped = await governance.unstake(1, { from: account, disableGasLimit: true });
-    assert.equal(skipped.from, undefined);
-    assert.equal(skipped.gasLimit, undefined);
-    assert.equal(estimates.length, 4);
-    assert.deepEqual(Object.keys(createTgeClient(provider)), ['airdrop']);
-});
-
-test('gas multipliers round positive fractional hundredths upward', async () => {
-    const provider = providerWith((method) => {
-        assert.equal(method, 'eth_estimateGas');
-        return '0x186a0'; // 100,000 gas
-    });
-    const { airdrop, governance } = createTgeClient(provider, 1.001, config);
-    const claim = await airdrop.claim(vault, 0, 1, account, proof);
-    assert.equal(claim.gasLimit.toString(), '101000');
-    const stake = await governance.stake(1, { gasLimitMultiple: 0.001 });
-    assert.equal(stake.gasLimit.toString(), '1000');
-});
-
-test('a 1.1 multiplier stays at 110 hundredths and from stays off the transaction', async () => {
-    const estimates = [];
-    const provider = providerWith((method, params) => {
-        assert.equal(method, 'eth_estimateGas');
-        estimates.push(params[0]);
-        return '0x65';
-    });
-    const { airdrop, governance } = createTgeClient(provider, 1.1, config);
-    const claim = await airdrop.claim(vault, 0, 123, account, proof, { from: account });
-    const stake = await governance.stake(3, { from: account });
-    assert.equal(claim.from, undefined);
-    assert.equal(stake.from, undefined);
-    assert.equal(estimates[0].from, account);
-    assert.equal(estimates[1].from, account);
-    assert.equal(claim.gasLimit.toString(), '111');
-    assert.equal(stake.gasLimit.toString(), '111');
-});
-
-test('one block-tagged aggregate preserves original release indices when sorting', async () => {
-    let reads = 0;
-    const provider = providerWith((method, [tx, tag]) => {
-        assert.equal(method, 'eth_call');
-        if (tx.to === vault) {
-            assert.equal(tx.data, stakeAbi.encodeFunctionData('totalStaking'));
-            return stakeAbi.encodeFunctionResult('totalStaking', [77]);
-        }
-        reads++;
-        assert.equal(tx.to, multicall);
-        assert.equal(tag, '0x11');
-        const [calls] = multiAbi.decodeFunctionData('aggregate', tx.data);
-        assert.deepEqual(
-            calls.map((call) => call.callData),
-            [stakeAbi.encodeFunctionData('pendingDuration'), stakeAbi.encodeFunctionData('accountStakeInfo', [account])]
-        );
-        return multiAbi.encodeFunctionResult('aggregate', [
-            17,
-            [
-                stakeAbi.encodeFunctionResult('pendingDuration', [50]),
-                stakeAbi.encodeFunctionResult('accountStakeInfo', [
-                    91,
-                    [
-                        [3, 20],
-                        [4, 10],
-                    ],
-                ]),
-            ],
-        ]);
-    });
-    const { governance } = createTgeClient(provider, 1.7, config);
-    const info = await governance.getStakingInfo(account, { blockTag: 17 });
-    assert.equal(reads, 1);
-    assert.equal(info.stakes.toString(), '91');
-    assert.deepEqual(
-        info.pendingUnstakes.map((p) => [p.index, p.amount.toString(), p.createTime, p.releaseTime]),
-        [
-            [1, '4', 10, 60],
-            [0, '3', 20, 70],
-        ]
-    );
-    assert.equal((await governance.stakingVault.totalStaking()).toString(), '77');
-});
-
-test('history follows the cursor, returns newest log first and retains pending contract indices', async () => {
-    const graph = new legacy.GovGraph(config.graphUrl);
-    const calls = [];
-    const entry = (i) => ({
-        id: String(i).padStart(6, '0'),
-        name: 'Stake',
-        account,
-        args: '{"amount":"3"}',
-        logIndex: String(i),
-        blockNumber: '7',
-        timestamp: '25',
-        transaction: { id: 'hash' + i },
-    });
-    graph.query = async (query, skip, first, lastID) => {
-        calls.push({ query, skip, first, lastID });
-        if (query.includes('pendingUnstakes('))
-            return { pendingUnstakes: [{ id: 'a', pendingIndex: '8', amount: '13', transaction: { id: 'h' } }] };
-        if (first === 1) return { transactionEvents: [] };
-        return { transactionEvents: lastID ? [entry(1000)] : Array.from({ length: 1000 }, (_, i) => entry(i)) };
-    };
-    const events = await graph.getHistoryEvents({ accounts: [account] });
-    assert.equal(events.length, 1001);
-    assert.equal(events[0].logIndex, 1000);
-    assert.equal(events[0].args.amount, '3');
-    assert.equal(calls[1].lastID, '000999');
-    assert.match(calls[0].query, /id_gt: \$lastID/);
-    assert.equal(await graph.getLastUnstakeTime(account), 0);
-    assert.equal(calls.at(-1).first, 1);
-    assert.match(calls.at(-1).query, /orderBy: timestamp/);
-    await graph.getHistoryEvents({ page: 2, size: 1, accounts: [account] });
-    assert.equal(calls.at(-1).skip, 2);
-    const [pending] = await graph.getCurrentPendingUnstakes(account);
-    assert.deepEqual([pending.pendingIndex, pending.txHash, pending.amount.toString()], [8, 'h', '13']);
-});
-
-test('the released signer API and all legacy deep imports remain intact', async () => {
-    const previous = require('governance-sdk-legacy');
-    assert.deepEqual(Object.keys(legacy).sort(), Object.keys(previous).sort());
-    const fs = require('node:fs'),
-        path = require('node:path');
-    const root = path.dirname(require.resolve('governance-sdk-legacy/package.json'));
-    for (const file of fs.readdirSync(path.join(root, 'build'), { recursive: true })) {
-        if (!file.endsWith('.js') && !file.endsWith('.d.ts')) continue;
-        assert.deepEqual(
-            fs.readFileSync(path.join(__dirname, '../build', file)),
-            fs.readFileSync(path.join(root, 'build', file)),
-            file
-        );
-    }
-    const signer = {};
-    const tx = { data: '0x1234' };
-    const receipt = { status: 1 };
-    const client = Object.create(legacy.GovClient.prototype);
-    client.stakingVault = {
-        populateTransaction: { stake: async () => tx, unstake: async () => tx, release: async () => tx },
-    };
-    client.ctx = {
-        sendTx: async (s, t) => {
-            assert.equal(s, signer);
-            assert.equal(t, tx);
-            return receipt;
+            return encodeAbiParameters(parseAbiParameters('uint256,bytes[]'), [
+                9n,
+                [
+                    encodeAbiParameters(parseAbiParameters('uint256'), [60n]),
+                    encodeAbiParameters(parseAbiParameters('uint256,(uint128,uint32)[]'), [2n ** 200n, [[7n, 10]]]),
+                ],
+            ]);
         },
-    };
-    for (const op of ['stake', 'unstake', 'release'])
-        assert.equal(await client[op](signer, BigNumber.from(2)), receipt);
+    });
+    for (const chain of [mainnet, sepolia]) {
+        const client = createGovernanceClient(createPublicClient({ chain, transport }));
+        assert.equal(client.token, token);
+        assert.equal(client.buildStake(1n).to, vault);
+        const info = await client.getStakingInfo(account, { blockNumber: 9n });
+        assert.equal(info.stakes, 2n ** 200n);
+        assert.equal(info.pendingUnstakes[0].releaseTime, 70n);
+    }
+    assert.throws(() => createGovernanceClient(createPublicClient({ chain: base, transport })), /deployment/);
+});
+test('TGE always honors caller deployment, builds offline and estimates without attaching a sender', async () => {
+    const calls = [];
+    const pub = createPublicClient({
+        chain: mainnet,
+        transport: custom({
+            request({ method, params }) {
+                assert.equal(method, 'eth_estimateGas');
+                calls.push(params[0]);
+                return '0x186a0';
+            },
+        }),
+    });
+    const tge = createTgeClient(pub, { vault: customVault, multicall: multi, graphUrl: 'https://example.invalid' });
+    const claim = tge.airdrop.buildClaim({ distributor: account, index: 1n, account, amount: 2n, proof: [] });
+    assert.equal(claim.to, account);
+    assert.equal(claim.data.slice(0, 10), '0x2e7ba6ef');
+    assert.throws(() => tge.airdrop.buildClaim({ index: 1n, account, amount: 2n, proof: [] }), /explicit distributor/);
+    const tx = tge.governance.buildRelease(0n);
+    assert.equal(tx.to, customVault);
+    assert.equal(calls.length, 0);
+    for (const [gasMultiplier, expected] of [
+        [1.001, 101000n],
+        [1.1, 110000n],
+        [1, 100000n],
+    ]) {
+        assert.deepEqual(await tge.estimateRequest(tx, { account, gasMultiplier }), { ...tx, gas: expected });
+        assert.equal(calls.at(-1).from, account);
+    }
+    assert.deepEqual(await tge.estimateRequest(tx, { gas: 0n }), { ...tx, gas: 0n });
+    assert.equal(calls.length, 3);
+    assert.equal(createTgeClient(pub).governance, undefined);
 });
 
-test('voting power handles zero, rounded increments, caps and UTC midnight', (t) => {
-    const now = Date.UTC(2025, 0, 3);
-    t.mock.method(Date, 'now', () => now);
-    const W = utils.parseEther,
-        zero = constants.Zero;
-    const settings = { minThreshold: W('1'), baselineAmount: W('2'), maxPowerBoost: 3 };
-    const power = (previous, ts, stake, action, amount) =>
-        simulateNextDayVotingPower(previous, ts, stake, action, amount, settings);
-    assert.ok(power(W('10'), 0, zero, ActionType.HODL, zero).isZero());
-    assert.ok(power(W('2'), now / 1000, W('2'), ActionType.HODL, zero).eq(W('2')));
-    assert.ok(power(W('2'), now / 1000 - 1, W('2'), ActionType.HODL, zero).eq(W('4')));
-    assert.ok(power(W('100'), 0, W('2'), ActionType.HODL, zero).eq(W('6')));
-    assert.ok(power(W('2'), 0, W('2'), ActionType.UNSTAKE, W('1.5')).isZero());
+test('TGE reads the total staked from its configured vault at the requested block', async () => {
+    const totalStaked = 2n ** 100n;
+    const publicClient = createPublicClient({
+        chain: mainnet,
+        transport: custom({
+            request({ method, params }) {
+                assert.equal(method, 'eth_call');
+                assert.equal(params[0].to, customVault);
+                assert.equal(
+                    params[0].data,
+                    encodeFunctionData({ abi: governanceVaultAbi, functionName: 'totalStaking' })
+                );
+                assert.equal(params[1], '0x9');
+                return encodeAbiParameters(parseAbiParameters('uint128'), [totalStaked]);
+            },
+        }),
+    });
+    const tge = createTgeClient(publicClient, {
+        vault: customVault,
+        multicall: multi,
+        graphUrl: 'https://example.invalid',
+    });
+
+    assert.equal(await tge.governance.getTotalStaking({ blockNumber: 9n }), totalStaked);
 });

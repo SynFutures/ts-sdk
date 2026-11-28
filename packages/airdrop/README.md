@@ -1,17 +1,12 @@
-# SynFutures airdrop plugin
+# SynFutures airdrop
 
-Install `@synfutures/airdrop` from the SynFutures scoped registry. Supply a host with an ethers v5 provider, parser and address registration, and a transaction sender for claims. An application that already owns a `SynFuturesV3` instance can install the plugin on it.
+Pass a viem public client to `createAirdropClient(publicClient)`. Ethereum and Base retain their existing default distributors. Pass an explicit distributor for another deployment. `isClaimed(index, { blockNumber })` reads at the requested block.
 
 ```ts
-import { airdropPlugin } from '@synfutures/airdrop';
-
-const sdk = airdropPlugin().install(host);
-
-const claimed = await sdk.airdrop.isClaimed(index, { blockTag });
-const unsigned = await sdk.airdrop.claim(index, amount, account, proof);
-const receipt = await sdk.airdrop.claim(distributor, index, amount, account, proof, { signer });
+const airdrop = createAirdropClient(publicClient);
+const request = airdrop.buildClaim({ index, amount, account: beneficiary, proof });
+const hash = await walletClient.sendTransaction({ ...request, account: sender, chain });
+const receipt = await publicClient.waitForTransactionReceipt({ hash });
 ```
 
-The calls without a distributor use `AirdropContracts` for the host chain and register its address and event parser. Pass a distributor as the first argument to `claim` or `isClaimed` to select the contract explicitly. Amounts are integer token units, encoded as strings.
-
-The root exports `Airdrop__factory`, its typed contract, and `MerkleDistributorWithDeadlineAbi`. The raw JSON is available at `@synfutures/airdrop/build/abis/airdrop.json` and the parser at `@synfutures/airdrop/build/parser`.
+Indices and raw token amounts are bigint. Building a claim is offline. The exported `airdropAbi` supports viem event, error and calldata decoding. Older Oyster hosts should pin the pre-major release.

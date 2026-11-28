@@ -1,4 +1,11 @@
-import type { ContractParser, Address, Hex } from '@derivation-tech/viem-kit';
+import {
+    createContractParser,
+    type Address,
+    type ContractParser,
+    type ErrorParserMap,
+    type EventParserMap,
+    type TransactionParserMap,
+} from '@derivation-tech/viem-kit';
 import {
     formatAddress,
     formatExpiry,
@@ -19,11 +26,11 @@ import {
     decodePlaceParam,
     decodeRemoveParam,
     decodeTradeParam,
-    decodeTradeWithStabilityFeeParam,
 } from '../utils/decode';
 import type { ParserDeps } from './types';
 import { RATIO_BASE } from '../constants';
 import { CURRENT_INSTRUMENT_ABI } from '../abis';
+import { tickToWad, wdiv } from '../math';
 
 function stringifyArgs(values: readonly unknown[]): string {
     return values.map((value) => String(value)).join(', ');
@@ -48,18 +55,6 @@ function formatTradeArgs(decoded: ReturnType<typeof decodeTradeParam>): string {
     return `{ ${sections.join(', ')} }`;
 }
 
-function formatTradeWithFeeArgs(decoded: ReturnType<typeof decodeTradeWithStabilityFeeParam>): string {
-    const sections = [
-        `expiry: ${formatExpiry(decoded.expiry)}`,
-        `limitTick: ${formatTick(decoded.limitTick)}`,
-        `size: ${formatOrderSize(decoded.size)}`,
-        `amount: ${formatWad(decoded.amount)}`,
-        `limitStabilityFeeRatio: ${formatRatio(decoded.limitStabilityFeeRatio)}`,
-        `deadline: ${formatDeadline(decoded.deadline)}`,
-    ];
-    return `{ ${sections.join(', ')} }`;
-}
-
 function formatAddArgs(decoded: ReturnType<typeof decodeAddParam>): string {
     const sections = [
         `expiry: ${formatExpiry(decoded.expiry)}`,
@@ -78,13 +73,13 @@ async function formatRemoveArgs(decoded: ReturnType<typeof decodeRemoveParam>, d
         `limitTicks: ${formatLimitTicks(decoded.limitTicks)}`,
         `tickLower: ${formatTick(decoded.tickLower)}`,
         `tickUpper: ${formatTick(decoded.tickUpper)}`,
-        `target: ${await formatAddress(decoded.target as Address, deps)}`,
+        `target: ${await formatAddress(decoded.target, deps)}`,
         `deadline: ${formatDeadline(decoded.deadline)}`,
     ];
     return `{ ${sections.join(', ')} }`;
 }
 
-async function formatBatchPlaceArgs(decoded: ReturnType<typeof decodeBatchPlaceParam>): Promise<string> {
+function formatBatchPlaceArgs(decoded: ReturnType<typeof decodeBatchPlaceParam>): string {
     const ticks = decoded.ticks.map((tick) => formatTick(tick));
     const ratios = decoded.ratios.map((ratio) => `${((Number(ratio) * 100) / RATIO_BASE).toFixed(2)}%`);
     const sections = [
@@ -98,7 +93,74 @@ async function formatBatchPlaceArgs(decoded: ReturnType<typeof decodeBatchPlaceP
     return `{ ${sections.join(', ')} }`;
 }
 
-const instrumentErrorFormatters: Record<string, (args?: readonly unknown[]) => string> = {
+function formatPlaceArgs(decoded: ReturnType<typeof decodePlaceParam>): string {
+    const sections = [
+        `expiry: ${formatExpiry(decoded.expiry)}`,
+        `tick: ${formatTick(decoded.tick)}`,
+        `size: ${formatOrderSize(decoded.size)}`,
+        `amount: ${formatWad(decoded.amount)}`,
+        `deadline: ${formatDeadline(decoded.deadline)}`,
+    ];
+    return `{ ${sections.join(', ')} }`;
+}
+
+async function formatFillArgs(decoded: ReturnType<typeof decodeFillParam>, deps?: ParserDeps): Promise<string> {
+    const target = await formatAddress(decoded.target, deps);
+    const sections = [
+        `expiry: ${formatExpiry(decoded.expiry)}`,
+        `tick: ${formatTick(decoded.tick)}`,
+        `nonce: ${decoded.nonce}`,
+        `target: ${target}`,
+    ];
+    return `{ ${sections.join(', ')} }`;
+}
+
+function formatCancelArgs(decoded: ReturnType<typeof decodeCancelParam>): string {
+    const sections = [
+        `expiry: ${formatExpiry(decoded.expiry)}`,
+        `ticks: [${decoded.ticks.map((tick) => formatTick(tick)).join(', ')}]`,
+        `deadline: ${formatDeadline(decoded.deadline)}`,
+    ];
+    return `{ ${sections.join(', ')} }`;
+}
+
+type PositionPic = {
+    balance: bigint;
+    size: bigint;
+    entryNotional: bigint;
+    entrySocialLossIndex: bigint;
+    entryFundingIndex: bigint;
+};
+
+type InstrumentQuoteParam = {
+    minMarginAmount: bigint;
+    tradingFeeRatio: number;
+    protocolFeeRatio: number;
+    qtype: number;
+    tip: bigint;
+};
+
+function formatPositionPic(pic: PositionPic): string {
+    return [
+        `balance: ${formatWad(pic.balance)}`,
+        `size: ${formatOrderSize(pic.size)}`,
+        `entryNotional: ${formatWad(pic.entryNotional)}`,
+        `entrySocialLossIndex: ${formatWad(pic.entrySocialLossIndex)}`,
+        `entryFundingIndex: ${formatWad(pic.entryFundingIndex)}`,
+    ].join(', ');
+}
+
+function formatInstrumentQuoteParam(param: InstrumentQuoteParam): string {
+    return [
+        `minMarginAmount: ${formatWad(param.minMarginAmount)}`,
+        `tradingFeeRatio: ${formatRatio(param.tradingFeeRatio)}`,
+        `protocolFeeRatio: ${formatRatio(param.protocolFeeRatio)}`,
+        `qtype: ${param.qtype}`,
+        `tip: ${formatWad(param.tip)}`,
+    ].join(', ');
+}
+
+const instrumentErrorParsers: ErrorParserMap = {
     // General errors
     NotSynFuturesV3Admin() {
         return 'NotSynFuturesV3Admin';
@@ -352,638 +414,414 @@ const instrumentErrorFormatters: Record<string, (args?: readonly unknown[]) => s
     },
 };
 
-export function createInstrumentParser(deps?: ParserDeps): ContractParser {
+export function createInstrumentTransactionParsers(
+    deps?: ParserDeps
+): TransactionParserMap<typeof CURRENT_INSTRUMENT_ABI> {
+    const formatTarget = (target: Address) => formatAddress(target, deps);
+    return {
+        add({ args: [packed] }) {
+            return `add(args: ${formatAddArgs(decodeAddParam(packed))})`;
+        },
+        async addFor({ args: [target, packed] }) {
+            return `addFor(to: ${await formatTarget(target)}, args: ${formatAddArgs(decodeAddParam(packed))})`;
+        },
+        async remove({ args: [packed] }) {
+            return `remove(args: ${await formatRemoveArgs(decodeRemoveParam(packed), deps)})`;
+        },
+        async removeFor({ args: [packed] }) {
+            return `removeFor(args: ${await formatRemoveArgs(decodeRemoveParam(packed), deps)})`;
+        },
+        trade({ args: [packed] }) {
+            return `trade(args: ${formatTradeArgs(decodeTradeParam(packed))})`;
+        },
+        async tradeFor({ args: [target, packed] }) {
+            return `tradeFor(to: ${await formatTarget(target)}, args: ${formatTradeArgs(decodeTradeParam(packed))})`;
+        },
+        place({ args: [packed] }) {
+            return `place(args: ${formatPlaceArgs(decodePlaceParam(packed))})`;
+        },
+        async placeFor({ args: [target, packed] }) {
+            return `placeFor(to: ${await formatTarget(target)}, args: ${formatPlaceArgs(decodePlaceParam(packed))})`;
+        },
+        batchPlace({ args: [packed] }) {
+            return `batchPlace(args: ${formatBatchPlaceArgs(decodeBatchPlaceParam(packed))})`;
+        },
+        async batchPlaceFor({ args: [target, packed] }) {
+            return `batchPlaceFor(to: ${await formatTarget(target)}, args: ${formatBatchPlaceArgs(
+                decodeBatchPlaceParam(packed)
+            )})`;
+        },
+        async fill({ args: [packed] }) {
+            return `fill(arg: ${await formatFillArgs(decodeFillParam(packed), deps)})`;
+        },
+        cancel({ args: [packed] }) {
+            return `cancel(arg: ${formatCancelArgs(decodeCancelParam(packed))})`;
+        },
+        async cancelFor({ args: [target, packed] }) {
+            return `cancelFor(to: ${await formatTarget(target)}, arg: ${formatCancelArgs(decodeCancelParam(packed))})`;
+        },
+        async settle({ args: [expiry, target] }) {
+            return `settle(expiry: ${formatExpiry(expiry)}, target: ${await formatTarget(target)})`;
+        },
+        async sweep({ args }) {
+            const [expiry, target, size] = args;
+            return `sweep(expiry: ${formatExpiry(Number(expiry))}, target: ${await formatAddress(
+                target,
+                deps
+            )}, size: ${formatOrderSize(size)})`;
+        },
+        async liquidate({ args }) {
+            const [expiry, target, size, amount] = args;
+            return `liquidate(expiry: ${formatExpiry(Number(expiry))}, target: ${await formatAddress(
+                target,
+                deps
+            )}, size: ${formatOrderSize(size)}, amount: ${formatWad(amount)})`;
+        },
+        async update({ args }) {
+            const [expiry] = args;
+            return `update(expiry: ${formatExpiry(Number(expiry))})`;
+        },
+        async setQuoteParam({ args }) {
+            const [param] = args;
+            const paramStr = [
+                `minMarginAmount: ${formatWad(param.minMarginAmount)}`,
+                `tradingFeeRatio: ${formatRatio(param.tradingFeeRatio)}`,
+                `protocolFeeRatio: ${formatRatio(param.protocolFeeRatio)}`,
+                `qtype: ${param.qtype}`,
+                `tip: ${formatWad(param.tip)}`,
+            ].join(', ');
+            return `setQuoteParam(param: { ${paramStr} })`;
+        },
+        async setLeverage({ args }) {
+            const [initialMarginRatio, maintenanceMarginRatio] = args;
+            return `setLeverage(initialMarginRatio: ${formatRatio(
+                initialMarginRatio
+            )}, maintenanceMarginRatio: ${formatRatio(maintenanceMarginRatio)})`;
+        },
+        async setPlacePaused({ args }) {
+            const [paused] = args;
+            return `setPlacePaused(paused: ${formatBoolean(paused)})`;
+        },
+        async setFundingHour({ args }) {
+            const [fundingHour] = args;
+            return `setFundingHour(fundingHour: ${fundingHour})`;
+        },
+        async setDisableOrderRebate({ args }) {
+            const [disable] = args;
+            return `setDisableOrderRebate(disable: ${formatBoolean(disable)})`;
+        },
+        async freeze() {
+            return 'freeze()';
+        },
+        async resolve({ args }) {
+            const [settlementPrice] = args;
+            return `resolve(settlementPrice: ${formatWad(settlementPrice)})`;
+        },
+        async normalize() {
+            return 'normalize()';
+        },
+        async donateInsuranceFund({ args }) {
+            const [expiry, amount] = args;
+            return `donateInsuranceFund(expiry: ${formatExpiry(Number(expiry))}, amount: ${formatWad(amount)})`;
+        },
+        async recycleInsuranceFund({ args }) {
+            const [expiry] = args;
+            return `recycleInsuranceFund(expiry: ${formatExpiry(Number(expiry))})`;
+        },
+        async claimProtocolFee({ args }) {
+            const [expiry] = args;
+            return `claimProtocolFee(expiry: ${formatExpiry(Number(expiry))})`;
+        },
+    };
+}
+
+export function createInstrumentEventParsers(deps?: ParserDeps): EventParserMap<typeof CURRENT_INSTRUMENT_ABI> {
+    return {
+        async Add({ args }) {
+            const { expiry, trader, tickLower, tickUpper, range } = args;
+            const formattedRange = [
+                `liquidity: ${formatWad(range.liquidity)}`,
+                `entryFeeIndex: ${formatWad(range.entryFeeIndex)}`,
+                `balance: ${formatWad(range.balance)}`,
+                `sqrtEntryPX96: ${formatSqrtPX96(range.sqrtEntryPX96)}`,
+            ].join(', ');
+            return `Add(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
+                trader,
+                deps
+            )}, tickLower: ${formatTick(tickLower)}, tickUpper: ${formatTick(tickUpper)}, range: { ${formattedRange} })`;
+        },
+        async Remove({ args }) {
+            const { expiry, trader, tickLower, tickUpper, fee, pic } = args;
+            return `Remove(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
+                trader,
+                deps
+            )}, tickLower: ${formatTick(tickLower)}, tickUpper: ${formatTick(
+                tickUpper
+            )}, fee: ${formatWad(fee)}, pic: { ${formatPositionPic(pic)} })`;
+        },
+        async Trade({ args }) {
+            const { expiry, trader, size, amount, takenSize, takenValue, entryNotional, feeRatio, sqrtPX96, mark } =
+                args;
+            const payload = [
+                `size: ${formatOrderSize(size)}`,
+                `amount: ${formatWad(amount)}`,
+                `takenSize: ${formatOrderSize(takenSize)}`,
+                `takenValue: ${formatWad(takenValue)}`,
+                `entryNotional: ${formatWad(entryNotional)}`,
+                `feeRatio: ${formatRatio(feeRatio)}`,
+                `sqrtPX96: ${formatSqrtPX96(sqrtPX96)}`,
+                `mark: ${formatWad(mark)}`,
+            ].join(', ');
+            return `Trade(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(trader, deps)}, ${payload})`;
+        },
+        async Place({ args }) {
+            const { expiry, trader, tick, nonce, order } = args;
+            return `Place(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
+                trader,
+                deps
+            )}, tick: ${formatTick(tick)}, nonce: ${nonce}, order: { balance: ${formatWad(
+                order.balance
+            )}, size: ${formatOrderSize(order.size)} })`;
+        },
+        async Fill({ args }) {
+            const { expiry, trader, tick, nonce, fee, pic, operator, tip } = args;
+            return `Fill(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
+                trader,
+                deps
+            )}, tick: ${formatTick(tick)}, nonce: ${nonce}, fee: ${formatWad(
+                fee
+            )}, pic: { ${formatPositionPic(pic)} }, operator: ${await formatAddress(operator, deps)}, tip: ${formatWad(tip)})`;
+        },
+        async Cancel({ args }) {
+            const { expiry, trader, tick, nonce, fee, pic } = args;
+            return `Cancel(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
+                trader,
+                deps
+            )}, tick: ${formatTick(tick)}, nonce: ${nonce}, fee: ${formatWad(fee)}, pic: { ${formatPositionPic(pic)} })`;
+        },
+        async Settle({ args }) {
+            const { expiry, trader, settlement, balance, operator } = args;
+            return `Settle(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
+                trader,
+                deps
+            )}, settlement: ${formatWad(settlement)}, balance: ${formatWad(balance)}, operator: ${await formatAddress(
+                operator,
+                deps
+            )})`;
+        },
+        async DonateInsuranceFund({ args }) {
+            const { expiry, donator, amount } = args;
+            return `DonateInsuranceFund(expiry: ${formatExpiry(expiry)}, donator: ${await formatAddress(
+                donator,
+                deps
+            )}, amount: ${formatWad(amount)})`;
+        },
+        RecycleInsuranceFund({ args }) {
+            const { expiry, amount } = args;
+            return `RecycleInsuranceFund(expiry: ${formatExpiry(expiry)}, amount: ${formatWad(amount)})`;
+        },
+        ClaimProtocolFee({ args }) {
+            const { expiry, amount } = args;
+            return `ClaimProtocolFee(expiry: ${formatExpiry(expiry)}, amount: ${formatWad(amount)})`;
+        },
+        UpdateParam({ args }) {
+            const { param } = args;
+            return `UpdateParam(param: { ${formatInstrumentQuoteParam(param)} })`;
+        },
+        UpdateMarginRatio({ args }) {
+            const { initialMarginRatio, maintenanceMarginRatio } = args;
+            return `UpdateMarginRatio(initialMarginRatio: ${formatRatio(
+                initialMarginRatio
+            )}, maintenanceMarginRatio: ${formatRatio(maintenanceMarginRatio)})`;
+        },
+        UpdateCondition({ args }) {
+            const { timestamp, condition } = args;
+            return `UpdateCondition(timestamp: ${formatTimestamp(timestamp)}, condition: ${formatCondition(condition)})`;
+        },
+        UpdateFundingHour({ args }) {
+            const { fundingHour } = args;
+            return `UpdateFundingHour(fundingHour: ${fundingHour})`;
+        },
+        DeleteContext({ args }) {
+            const { expiry } = args;
+            return `DeleteContext(expiry: ${formatExpiry(expiry)})`;
+        },
+        async Adjust({ args }) {
+            const { expiry, trader, net } = args;
+            return `Adjust(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
+                trader,
+                deps
+            )}, net: ${formatWad(net)})`;
+        },
+        async Sweep({ args }) {
+            const { expiry, trader, size, takenSize, takenValue, entryNotional, feeRatio, sqrtPX96, mark, operator } =
+                args;
+            const payload = [
+                `size: ${formatOrderSize(size)}`,
+                `takenSize: ${formatOrderSize(takenSize)}`,
+                `takenValue: ${formatWad(takenValue)}`,
+                `entryNotional: ${formatWad(entryNotional)}`,
+                `feeRatio: ${formatRatio(feeRatio)}`,
+                `sqrtPX96: ${formatSqrtPX96(sqrtPX96)}`,
+                `mark: ${formatWad(mark)}`,
+                `operator: ${await formatAddress(operator, deps)}`,
+            ].join(', ');
+            return `Sweep(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(trader, deps)}, ${payload})`;
+        },
+        async Liquidate({ args }) {
+            const { expiry, trader, amount, mark, target, size } = args;
+            return `Liquidate(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
+                trader,
+                deps
+            )}, amount: ${formatWad(amount)}, mark: ${formatWad(mark)}, target: ${await formatAddress(
+                target,
+                deps
+            )}, size: ${formatOrderSize(size)})`;
+        },
+        async FundingFee({ args }) {
+            const { trader, funding } = args;
+            return `FundingFee(trader: ${await formatAddress(trader, deps)}, funding: ${formatWad(funding)})`;
+        },
+        async UpdatePosition({ args }) {
+            const { expiry, trader, pic } = args;
+            return `UpdatePosition(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
+                trader,
+                deps
+            )}, pic: { ${formatPositionPic(pic)} })`;
+        },
+        UpdateAmmStatus({ args }) {
+            const { expiry, status, sqrtPX96, mark } = args;
+            return `UpdateAmmStatus(expiry: ${formatExpiry(expiry)}, status: ${formatStatus(status)}, sqrtPX96: ${formatSqrtPX96(
+                sqrtPX96
+            )}, mark: ${formatWad(mark)})`;
+        },
+        UpdateFeeState({ args }) {
+            const { expiry, feeIndex, protocolFee } = args;
+            return `UpdateFeeState(expiry: ${formatExpiry(expiry)}, feeIndex: ${formatWad(
+                feeIndex
+            )}, protocolFee: ${formatWad(protocolFee)})`;
+        },
+        UpdateFundingIndex({ args }) {
+            const { fundingIndex } = args;
+            const longFundingIndex = fundingIndex & ((1n << 128n) - 1n);
+            const shortFundingIndex = fundingIndex >> 128n;
+            return `UpdateFundingIndex(longFundingIndex: ${formatWad(longFundingIndex)}, shortFundingIndex: ${formatWad(shortFundingIndex)})`;
+        },
+        UpdateSocialLossInsuranceFund({ args }) {
+            const { expiry, longSocialLossIndex, shortSocialLossIndex, insuranceFund } = args;
+            return `UpdateSocialLossInsuranceFund(expiry: ${formatExpiry(
+                expiry
+            )}, longSocialLossIndex: ${formatWad(longSocialLossIndex)}, shortSocialLossIndex: ${formatWad(
+                shortSocialLossIndex
+            )}, insuranceFund: ${formatWad(insuranceFund)})`;
+        },
+        async AdminChanged({ args }) {
+            const { previousAdmin, newAdmin } = args;
+            return `AdminChanged(previousAdmin: ${await formatAddress(
+                previousAdmin,
+                deps
+            )}, newAdmin: ${await formatAddress(newAdmin, deps)})`;
+        },
+        async BeaconUpgraded({ args }) {
+            const { beacon } = args;
+            return `BeaconUpgraded(beacon: ${await formatAddress(beacon, deps)})`;
+        },
+        async Upgraded({ args }) {
+            const { implementation } = args;
+            return `Upgraded(implementation: ${await formatAddress(implementation, deps)})`;
+        },
+    };
+}
+
+export function createInstrumentParser(deps?: ParserDeps): ContractParser<typeof CURRENT_INSTRUMENT_ABI> {
+    return createContractParser({
+        abi: CURRENT_INSTRUMENT_ABI,
+        transactions: createInstrumentTransactionParsers(deps),
+        events: createInstrumentEventParsers(deps),
+        errors: instrumentErrorParsers,
+        parseTransactionFallback({ functionName, args }) {
+            return `${functionName}(${stringifyArgs(args)})`;
+        },
+        parseEventFallback({ eventName }) {
+            return `${eventName}(...)`;
+        },
+    });
+}
+
+export function createFrontendInstrumentEventParsers(): EventParserMap<typeof CURRENT_INSTRUMENT_ABI> {
+    return {
+        Add({ args }) {
+            const { tickLower, tickUpper, range } = args;
+            return JSON.stringify({
+                balance: formatWad(range.balance),
+                upperPrice: formatWad(tickToWad(tickUpper)),
+                lowerPrice: formatWad(tickToWad(tickLower)),
+            });
+        },
+        Remove({ args }) {
+            const { tickLower, tickUpper, pic } = args;
+            return JSON.stringify({
+                balance: formatWad(pic.balance),
+                upperPrice: formatWad(tickToWad(tickUpper)),
+                lowerPrice: formatWad(tickToWad(tickLower)),
+            });
+        },
+        Trade({ args }) {
+            const { size, entryNotional, sqrtPX96 } = args;
+            return JSON.stringify({
+                size: formatWad(size),
+                price: formatSqrtPX96(sqrtPX96),
+                tradeType: size > 0n ? 'buy' : 'sell',
+                tradePriceB: (size === 0n ? 0n : wdiv(entryNotional, size < 0n ? -size : size)).toString(),
+            });
+        },
+        Place({ args }) {
+            const { order, tick } = args;
+            return JSON.stringify({
+                size: formatWad(order.size),
+                tradeType: order.size > 0n ? 'buy' : 'sell',
+                tickPrice: formatWad(tickToWad(tick)),
+            });
+        },
+        Fill({ args }) {
+            const { tick, pic } = args;
+            return JSON.stringify({
+                tickPrice: formatWad(tickToWad(tick)),
+                size: formatWad(pic.size),
+                tradeType: pic.size > 0n ? 'buy' : 'sell',
+            });
+        },
+        Cancel({ args }) {
+            const { tick } = args;
+            return JSON.stringify({ tickPrice: formatWad(tickToWad(tick)) });
+        },
+        Settle({ args }) {
+            const { balance } = args;
+            return JSON.stringify({ balance: formatWad(balance) });
+        },
+        Adjust({ args }) {
+            const { net } = args;
+            const amount = BigInt(net);
+            const type = amount > 0n ? 'toppedUp' : 'reduced';
+            return JSON.stringify({ amount: formatWad(amount), type });
+        },
+    };
+}
+
+export function createFrontendInstrumentParser(deps?: ParserDeps): ContractParser<typeof CURRENT_INSTRUMENT_ABI> {
+    const baseParser = createInstrumentParser(deps);
+    const eventParser = createContractParser({
+        abi: CURRENT_INSTRUMENT_ABI,
+        events: createFrontendInstrumentEventParsers(),
+        parseEventFallback(event) {
+            return JSON.stringify({ eventName: event.eventName });
+        },
+    });
+
     return {
         abi: CURRENT_INSTRUMENT_ABI,
-        async parseTransaction({ functionName, args }) {
-            switch (functionName) {
-                case 'add': {
-                    const [tuple] = args as readonly [readonly [Hex, Hex]];
-                    const [arg0, arg1] = tuple;
-                    return `add(args: ${formatAddArgs(decodeAddParam([arg0, arg1]))})`;
-                }
-                case 'addFor': {
-                    const [to, tuple] = args as readonly [Address, readonly [Hex, Hex]];
-                    const [arg0, arg1] = tuple;
-                    const callee = await formatAddress(to, deps);
-                    return `addFor(to: ${callee}, args: ${formatAddArgs(decodeAddParam([arg0, arg1]))})`;
-                }
-                case 'remove': {
-                    const [tuple] = args as readonly [readonly [Hex, Hex]];
-                    const [arg0, arg1] = tuple;
-                    return `remove(args: ${await formatRemoveArgs(decodeRemoveParam([arg0, arg1]), deps)})`;
-                }
-                case 'removeFor': {
-                    const [tuple] = args as readonly [readonly [Hex, Hex]];
-                    const [arg0, arg1] = tuple;
-                    return `removeFor(args: ${await formatRemoveArgs(decodeRemoveParam([arg0, arg1]), deps)})`;
-                }
-                case 'trade': {
-                    const [tuple] = args as readonly [readonly [Hex, Hex]];
-                    const [arg0, arg1] = tuple;
-                    return `trade(args: ${formatTradeArgs(decodeTradeParam([arg0, arg1]))})`;
-                }
-                case 'tradeFor': {
-                    const [to, tuple] = args as readonly [Address, readonly [Hex, Hex]];
-                    const [arg0, arg1] = tuple;
-                    const target = await formatAddress(to, deps);
-                    return `tradeFor(to: ${target}, args: ${formatTradeArgs(decodeTradeParam([arg0, arg1]))})`;
-                }
-                case 'tradeWithStabilityFee': {
-                    const [tuple] = args as readonly [readonly [Hex, Hex]];
-                    const [arg0, arg1] = tuple;
-                    return `tradeWithStabilityFee(args: ${formatTradeWithFeeArgs(
-                        decodeTradeWithStabilityFeeParam([arg0, arg1])
-                    )})`;
-                }
-                case 'place': {
-                    const [tuple] = args as readonly [readonly [Hex, Hex]];
-                    const [arg0, arg1] = tuple;
-                    const decoded = decodePlaceParam([arg0, arg1]);
-                    const sections = [
-                        `expiry: ${formatExpiry(decoded.expiry)}`,
-                        `tick: ${formatTick(decoded.tick)}`,
-                        `size: ${formatOrderSize(decoded.size)}`,
-                        `amount: ${formatWad(decoded.amount)}`,
-                        `deadline: ${formatDeadline(decoded.deadline)}`,
-                    ];
-                    return `place(args: { ${sections.join(', ')} })`;
-                }
-                case 'placeFor': {
-                    const [to, tuple] = args as readonly [Address, readonly [Hex, Hex]];
-                    const [arg0, arg1] = tuple;
-                    const decoded = decodePlaceParam([arg0, arg1]);
-                    const target = await formatAddress(to, deps);
-                    const sections = [
-                        `expiry: ${formatExpiry(decoded.expiry)}`,
-                        `tick: ${formatTick(decoded.tick)}`,
-                        `size: ${formatOrderSize(decoded.size)}`,
-                        `amount: ${formatWad(decoded.amount)}`,
-                        `deadline: ${formatDeadline(decoded.deadline)}`,
-                    ];
-                    return `placeFor(to: ${target}, args: { ${sections.join(', ')} })`;
-                }
-                case 'batchPlace': {
-                    const [tuple] = args as readonly [readonly [Hex, Hex, Hex]];
-                    const [a0, a1, a2] = tuple;
-                    return `batchPlace(args: ${await formatBatchPlaceArgs(decodeBatchPlaceParam([a0, a1, a2]))})`;
-                }
-                case 'batchPlaceFor': {
-                    const [to, tuple] = args as readonly [Address, readonly [Hex, Hex, Hex]];
-                    const [a0, a1, a2] = tuple;
-                    const target = await formatAddress(to, deps);
-                    return `batchPlaceFor(to: ${target}, args: ${await formatBatchPlaceArgs(
-                        decodeBatchPlaceParam([a0, a1, a2])
-                    )})`;
-                }
-                case 'fill': {
-                    const [arg] = args as readonly [Hex];
-                    const decoded = decodeFillParam(arg);
-                    const target = await formatAddress(decoded.target as Address, deps);
-                    const sections = [
-                        `expiry: ${formatExpiry(decoded.expiry)}`,
-                        `tick: ${formatTick(decoded.tick)}`,
-                        `nonce: ${decoded.nonce}`,
-                        `target: ${target}`,
-                    ];
-                    return `fill(arg: { ${sections.join(', ')} })`;
-                }
-                case 'cancel':
-                case 'cancelFor': {
-                    const [arg] = args as readonly [Hex];
-                    const decoded = decodeCancelParam(arg);
-                    const sections = [
-                        `expiry: ${formatExpiry(decoded.expiry)}`,
-                        `ticks: [${decoded.ticks.map((tick) => formatTick(tick)).join(', ')}]`,
-                        `deadline: ${formatDeadline(decoded.deadline)}`,
-                    ];
-                    return `${functionName}(arg: { ${sections.join(', ')} })`;
-                }
-                case 'settle': {
-                    const [expiry, target] = args as readonly [number | bigint, Address];
-                    return `settle(expiry: ${formatExpiry(Number(expiry))}, target: ${await formatAddress(target, deps)})`;
-                }
-                case 'sweep': {
-                    const [expiry, target, size] = args as readonly [number | bigint, Address, bigint];
-                    return `sweep(expiry: ${formatExpiry(Number(expiry))}, target: ${await formatAddress(
-                        target,
-                        deps
-                    )}, size: ${formatOrderSize(size)})`;
-                }
-                case 'liquidate': {
-                    const [expiry, target, size] = args as readonly [number | bigint, Address, bigint];
-                    return `liquidate(expiry: ${formatExpiry(Number(expiry))}, target: ${await formatAddress(
-                        target,
-                        deps
-                    )}, size: ${formatOrderSize(size)})`;
-                }
-                case 'adjust': {
-                    const [expiry, net] = args as readonly [number | bigint, bigint];
-                    return `adjust(expiry: ${formatExpiry(Number(expiry))}, net: ${formatWad(net)})`;
-                }
-                case 'update': {
-                    const [expiry] = args as readonly [number | bigint];
-                    return `update(expiry: ${formatExpiry(Number(expiry))})`;
-                }
-                case 'setQuoteParam': {
-                    const [param] = args as readonly [
-                        {
-                            minMarginAmount: bigint;
-                            tradingFeeRatio: number;
-                            protocolFeeRatio: number;
-                            qtype: number;
-                            tip: bigint;
-                        },
-                    ];
-                    const paramStr = [
-                        `minMarginAmount: ${formatWad(param.minMarginAmount)}`,
-                        `tradingFeeRatio: ${formatRatio(param.tradingFeeRatio)}`,
-                        `protocolFeeRatio: ${formatRatio(param.protocolFeeRatio)}`,
-                        `qtype: ${param.qtype}`,
-                        `tip: ${formatWad(param.tip)}`,
-                    ].join(', ');
-                    return `setQuoteParam(param: { ${paramStr} })`;
-                }
-                case 'setLeverage': {
-                    const [initialMarginRatio, maintenanceMarginRatio] = args as readonly [number, number];
-                    return `setLeverage(initialMarginRatio: ${formatRatio(initialMarginRatio)}, maintenanceMarginRatio: ${formatRatio(maintenanceMarginRatio)})`;
-                }
-                case 'setPlacePaused': {
-                    const [paused] = args as readonly [boolean];
-                    return `setPlacePaused(paused: ${formatBoolean(paused)})`;
-                }
-                case 'setFundingHour': {
-                    const [fundingHour] = args as readonly [number];
-                    return `setFundingHour(fundingHour: ${fundingHour})`;
-                }
-                case 'setDisableOrderRebate': {
-                    const [disable] = args as readonly [boolean];
-                    return `setDisableOrderRebate(disable: ${formatBoolean(disable)})`;
-                }
-                case 'freeze': {
-                    return 'freeze()';
-                }
-                case 'resolve': {
-                    const [settlementPrice] = args as readonly [bigint];
-                    return `resolve(settlementPrice: ${formatWad(settlementPrice)})`;
-                }
-                case 'normalize': {
-                    return 'normalize()';
-                }
-                case 'donateInsuranceFund': {
-                    const [expiry, amount] = args as readonly [number | bigint, bigint];
-                    return `donateInsuranceFund(expiry: ${formatExpiry(Number(expiry))}, amount: ${formatWad(amount)})`;
-                }
-                case 'recycleInsuranceFund': {
-                    const [expiry] = args as readonly [number | bigint];
-                    return `recycleInsuranceFund(expiry: ${formatExpiry(Number(expiry))})`;
-                }
-                case 'claimProtocolFee': {
-                    const [expiry] = args as readonly [number | bigint];
-                    return `claimProtocolFee(expiry: ${formatExpiry(Number(expiry))})`;
-                }
-                default:
-                    return `${functionName}(${stringifyArgs(args)})`;
-            }
-        },
-
-        async parseEvent(event) {
-            const { eventName, args } = event as { eventName: string; args: Record<string, any> };
-            switch (eventName) {
-                case 'Add': {
-                    const { expiry, trader, tickLower, tickUpper, range } = args as {
-                        expiry: number;
-                        trader: Address;
-                        tickLower: number;
-                        tickUpper: number;
-                        range: {
-                            liquidity: bigint;
-                            entryFeeIndex: bigint;
-                            balance: bigint;
-                            sqrtEntryPX96: bigint;
-                        };
-                    };
-                    const formattedRange = [
-                        `liquidity: ${formatWad(range.liquidity)}`,
-                        `entryFeeIndex: ${formatWad(range.entryFeeIndex)}`,
-                        `balance: ${formatWad(range.balance)}`,
-                        `sqrtEntryPX96: ${formatSqrtPX96(range.sqrtEntryPX96)}`,
-                    ].join(', ');
-                    return `Add(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
-                        trader,
-                        deps
-                    )}, tickLower: ${formatTick(tickLower)}, tickUpper: ${formatTick(
-                        tickUpper
-                    )}, range: { ${formattedRange} })`;
-                }
-                case 'Remove': {
-                    const { expiry, trader, tickLower, tickUpper, fee, pic } = args as {
-                        expiry: number;
-                        trader: Address;
-                        tickLower: number;
-                        tickUpper: number;
-                        fee: bigint;
-                        pic: {
-                            balance: bigint;
-                            size: bigint;
-                            entryNotional: bigint;
-                            entrySocialLossIndex: bigint;
-                            entryFundingIndex: bigint;
-                        };
-                    };
-                    const picStr = [
-                        `balance: ${formatWad(pic.balance)}`,
-                        `size: ${formatOrderSize(pic.size)}`,
-                        `entryNotional: ${formatWad(pic.entryNotional)}`,
-                        `entrySocialLossIndex: ${formatWad(pic.entrySocialLossIndex)}`,
-                        `entryFundingIndex: ${formatWad(pic.entryFundingIndex)}`,
-                    ].join(', ');
-                    return `Remove(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
-                        trader,
-                        deps
-                    )}, tickLower: ${formatTick(tickLower)}, tickUpper: ${formatTick(
-                        tickUpper
-                    )}, fee: ${formatWad(fee)}, pic: { ${picStr} })`;
-                }
-                case 'Trade': {
-                    const {
-                        expiry,
-                        trader,
-                        size,
-                        amount,
-                        takenSize,
-                        takenValue,
-                        entryNotional,
-                        feeRatio,
-                        sqrtPX96,
-                        mark,
-                    } = args as {
-                        expiry: number;
-                        trader: Address;
-                        size: bigint;
-                        amount: bigint;
-                        takenSize: bigint;
-                        takenValue: bigint;
-                        entryNotional: bigint;
-                        feeRatio: number;
-                        sqrtPX96: bigint;
-                        mark: bigint;
-                    };
-                    const payload = [
-                        `size: ${formatOrderSize(size)}`,
-                        `amount: ${formatWad(amount)}`,
-                        `takenSize: ${formatOrderSize(takenSize)}`,
-                        `takenValue: ${formatWad(takenValue)}`,
-                        `entryNotional: ${formatWad(entryNotional)}`,
-                        `feeRatio: ${formatRatio(feeRatio)}`,
-                        `sqrtPX96: ${formatSqrtPX96(sqrtPX96)}`,
-                        `mark: ${formatWad(mark)}`,
-                    ].join(', ');
-                    return `Trade(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
-                        trader,
-                        deps
-                    )}, ${payload})`;
-                }
-                case 'Place': {
-                    const { expiry, trader, tick, nonce, order } = args as {
-                        expiry: number;
-                        trader: Address;
-                        tick: number;
-                        nonce: number;
-                        order: { balance: bigint; size: bigint };
-                    };
-                    return `Place(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
-                        trader,
-                        deps
-                    )}, tick: ${formatTick(tick)}, nonce: ${nonce}, order: { balance: ${formatWad(
-                        order.balance
-                    )}, size: ${formatOrderSize(order.size)} })`;
-                }
-                case 'Fill': {
-                    const { expiry, trader, tick, nonce, fee, pic, operator, tip } = args as {
-                        expiry: number;
-                        trader: Address;
-                        tick: number;
-                        nonce: number;
-                        fee: bigint;
-                        pic: {
-                            balance: bigint;
-                            size: bigint;
-                            entryNotional: bigint;
-                            entrySocialLossIndex: bigint;
-                            entryFundingIndex: bigint;
-                        };
-                        operator: Address;
-                        tip: bigint;
-                    };
-                    const picStr = [
-                        `balance: ${formatWad(pic.balance)}`,
-                        `size: ${formatOrderSize(pic.size)}`,
-                        `entryNotional: ${formatWad(pic.entryNotional)}`,
-                        `entrySocialLossIndex: ${formatWad(pic.entrySocialLossIndex)}`,
-                        `entryFundingIndex: ${formatWad(pic.entryFundingIndex)}`,
-                    ].join(', ');
-                    return `Fill(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
-                        trader,
-                        deps
-                    )}, tick: ${formatTick(tick)}, nonce: ${nonce}, fee: ${formatWad(
-                        fee
-                    )}, pic: { ${picStr} }, operator: ${await formatAddress(operator, deps)}, tip: ${formatWad(tip)})`;
-                }
-                case 'Cancel': {
-                    const { expiry, trader, tick, nonce, fee, pic } = args as {
-                        expiry: number;
-                        trader: Address;
-                        tick: number;
-                        nonce: number;
-                        fee: bigint;
-                        pic: {
-                            balance: bigint;
-                            size: bigint;
-                            entryNotional: bigint;
-                            entrySocialLossIndex: bigint;
-                            entryFundingIndex: bigint;
-                        };
-                    };
-                    const picStr = [
-                        `balance: ${formatWad(pic.balance)}`,
-                        `size: ${formatOrderSize(pic.size)}`,
-                        `entryNotional: ${formatWad(pic.entryNotional)}`,
-                        `entrySocialLossIndex: ${formatWad(pic.entrySocialLossIndex)}`,
-                        `entryFundingIndex: ${formatWad(pic.entryFundingIndex)}`,
-                    ].join(', ');
-                    return `Cancel(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
-                        trader,
-                        deps
-                    )}, tick: ${formatTick(tick)}, nonce: ${nonce}, fee: ${formatWad(fee)}, pic: { ${picStr} })`;
-                }
-                case 'Settle': {
-                    const { expiry, trader, settlement, balance, operator } = args as {
-                        expiry: number;
-                        trader: Address;
-                        settlement: bigint;
-                        balance: bigint;
-                        operator: Address;
-                    };
-                    return `Settle(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
-                        trader,
-                        deps
-                    )}, settlement: ${formatWad(settlement)}, balance: ${formatWad(balance)}, operator: ${await formatAddress(
-                        operator,
-                        deps
-                    )})`;
-                }
-                case 'DonateInsuranceFund': {
-                    const { expiry, donator, amount } = args as {
-                        expiry: number;
-                        donator: Address;
-                        amount: bigint;
-                    };
-                    return `DonateInsuranceFund(expiry: ${formatExpiry(expiry)}, donator: ${await formatAddress(
-                        donator,
-                        deps
-                    )}, amount: ${formatWad(amount)})`;
-                }
-                case 'RecycleInsuranceFund': {
-                    const { expiry, amount } = args as {
-                        expiry: number;
-                        amount: bigint;
-                    };
-                    return `RecycleInsuranceFund(expiry: ${formatExpiry(expiry)}, amount: ${formatWad(amount)})`;
-                }
-                case 'ClaimProtocolFee': {
-                    const { expiry, amount } = args as {
-                        expiry: number;
-                        amount: bigint;
-                    };
-                    return `ClaimProtocolFee(expiry: ${formatExpiry(expiry)}, amount: ${formatWad(amount)})`;
-                }
-                case 'UpdateParam': {
-                    const { param } = args as {
-                        param: {
-                            minMarginAmount: bigint;
-                            tradingFeeRatio: number;
-                            protocolFeeRatio: number;
-                            qtype: number;
-                            tip: bigint;
-                        };
-                    };
-                    const paramStr = [
-                        `minMarginAmount: ${formatWad(param.minMarginAmount)}`,
-                        `tradingFeeRatio: ${formatRatio(param.tradingFeeRatio)}`,
-                        `protocolFeeRatio: ${formatRatio(param.protocolFeeRatio)}`,
-                        `qtype: ${param.qtype}`,
-                        `tip: ${formatWad(param.tip)}`,
-                    ].join(', ');
-                    return `UpdateParam(param: { ${paramStr} })`;
-                }
-                case 'UpdateMarginRatio': {
-                    const { initialMarginRatio, maintenanceMarginRatio } = args as {
-                        initialMarginRatio: number;
-                        maintenanceMarginRatio: number;
-                    };
-                    return `UpdateMarginRatio(initialMarginRatio: ${formatRatio(initialMarginRatio)}, maintenanceMarginRatio: ${formatRatio(maintenanceMarginRatio)})`;
-                }
-                case 'UpdateCondition': {
-                    const { timestamp, condition } = args as {
-                        timestamp: number;
-                        condition: number;
-                    };
-                    return `UpdateCondition(timestamp: ${formatTimestamp(timestamp)}, condition: ${formatCondition(condition)})`;
-                }
-                case 'PlacePaused': {
-                    const { paused } = args as {
-                        paused: boolean;
-                    };
-                    return `PlacePaused(paused: ${formatBoolean(paused)})`;
-                }
-                case 'UpdateFundingHour': {
-                    const { fundingHour } = args as {
-                        fundingHour: number;
-                    };
-                    return `UpdateFundingHour(fundingHour: ${fundingHour})`;
-                }
-                case 'DeleteContext': {
-                    const { expiry } = args as {
-                        expiry: number;
-                    };
-                    return `DeleteContext(expiry: ${formatExpiry(expiry)})`;
-                }
-                case 'Adjust': {
-                    const { expiry, trader, net } = args as {
-                        expiry: number;
-                        trader: Address;
-                        net: bigint;
-                    };
-                    return `Adjust(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
-                        trader,
-                        deps
-                    )}, net: ${formatWad(net)})`;
-                }
-                case 'Sweep': {
-                    const {
-                        expiry,
-                        trader,
-                        size,
-                        takenSize,
-                        takenValue,
-                        entryNotional,
-                        feeRatio,
-                        sqrtPX96,
-                        mark,
-                        operator,
-                    } = args as {
-                        expiry: number;
-                        trader: Address;
-                        size: bigint;
-                        takenSize: bigint;
-                        takenValue: bigint;
-                        entryNotional: bigint;
-                        feeRatio: number;
-                        sqrtPX96: bigint;
-                        mark: bigint;
-                        operator: Address;
-                    };
-                    const payload = [
-                        `size: ${formatOrderSize(size)}`,
-                        `takenSize: ${formatOrderSize(takenSize)}`,
-                        `takenValue: ${formatWad(takenValue)}`,
-                        `entryNotional: ${formatWad(entryNotional)}`,
-                        `feeRatio: ${formatRatio(feeRatio)}`,
-                        `sqrtPX96: ${formatSqrtPX96(sqrtPX96)}`,
-                        `mark: ${formatWad(mark)}`,
-                        `operator: ${await formatAddress(operator, deps)}`,
-                    ].join(', ');
-                    return `Sweep(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(trader, deps)}, ${payload})`;
-                }
-                case 'Liquidate': {
-                    const { expiry, trader, amount, mark, target, size } = args as {
-                        expiry: number;
-                        trader: Address;
-                        amount: bigint;
-                        mark: bigint;
-                        target: Address;
-                        size: bigint;
-                    };
-                    return `Liquidate(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
-                        trader,
-                        deps
-                    )}, amount: ${formatWad(amount)}, mark: ${formatWad(mark)}, target: ${await formatAddress(
-                        target,
-                        deps
-                    )}, size: ${formatOrderSize(size)})`;
-                }
-                case 'FundingFee': {
-                    const { trader, funding } = args as {
-                        trader: Address;
-                        funding: bigint;
-                    };
-                    return `FundingFee(trader: ${await formatAddress(trader, deps)}, funding: ${formatWad(funding)})`;
-                }
-                case 'UpdatePosition': {
-                    const { expiry, trader, pic } = args as {
-                        expiry: number;
-                        trader: Address;
-                        pic: {
-                            balance: bigint;
-                            size: bigint;
-                            entryNotional: bigint;
-                            entrySocialLossIndex: bigint;
-                            entryFundingIndex: bigint;
-                        };
-                    };
-                    const picStr = [
-                        `balance: ${formatWad(pic.balance)}`,
-                        `size: ${formatOrderSize(pic.size)}`,
-                        `entryNotional: ${formatWad(pic.entryNotional)}`,
-                        `entrySocialLossIndex: ${formatWad(pic.entrySocialLossIndex)}`,
-                        `entryFundingIndex: ${formatWad(pic.entryFundingIndex)}`,
-                    ].join(', ');
-                    return `UpdatePosition(expiry: ${formatExpiry(expiry)}, trader: ${await formatAddress(
-                        trader,
-                        deps
-                    )}, pic: { ${picStr} })`;
-                }
-                case 'UpdateAmmStatus': {
-                    const { expiry, status, sqrtPX96, mark } = args as {
-                        expiry: number;
-                        status: number;
-                        sqrtPX96: bigint;
-                        mark: bigint;
-                    };
-                    return `UpdateAmmStatus(expiry: ${formatExpiry(expiry)}, status: ${formatStatus(status)}, sqrtPX96: ${formatSqrtPX96(
-                        sqrtPX96
-                    )}, mark: ${formatWad(mark)})`;
-                }
-                case 'UpdateFeeState': {
-                    const { expiry, feeIndex, protocolFee } = args as {
-                        expiry: number;
-                        feeIndex: bigint;
-                        protocolFee: bigint;
-                    };
-                    return `UpdateFeeState(expiry: ${formatExpiry(expiry)}, feeIndex: ${formatWad(
-                        feeIndex
-                    )}, protocolFee: ${formatWad(protocolFee)})`;
-                }
-                case 'UpdateFundingIndex': {
-                    const { fundingIndex } = args as {
-                        fundingIndex: bigint;
-                    };
-                    // fundingIndex = (shortFundingIndex << 128) | longFundingIndex
-                    const longFundingIndex = fundingIndex & ((1n << 128n) - 1n);
-                    const shortFundingIndex = fundingIndex >> 128n;
-                    return `UpdateFundingIndex(longFundingIndex: ${formatWad(longFundingIndex)}, shortFundingIndex: ${formatWad(shortFundingIndex)})`;
-                }
-                case 'UpdateSocialLossInsuranceFund': {
-                    const { expiry, longSocialLossIndex, shortSocialLossIndex, insuranceFund } = args as {
-                        expiry: number;
-                        longSocialLossIndex: bigint;
-                        shortSocialLossIndex: bigint;
-                        insuranceFund: bigint;
-                    };
-                    return `UpdateSocialLossInsuranceFund(expiry: ${formatExpiry(
-                        expiry
-                    )}, longSocialLossIndex: ${formatWad(longSocialLossIndex)}, shortSocialLossIndex: ${formatWad(
-                        shortSocialLossIndex
-                    )}, insuranceFund: ${formatWad(insuranceFund)})`;
-                }
-                case 'AdminChanged': {
-                    const { previousAdmin, newAdmin } = args as { previousAdmin: Address; newAdmin: Address };
-                    return `AdminChanged(previousAdmin: ${await formatAddress(
-                        previousAdmin,
-                        deps
-                    )}, newAdmin: ${await formatAddress(newAdmin, deps)})`;
-                }
-                case 'BeaconUpgraded': {
-                    const { beacon } = args as { beacon: Address };
-                    return `BeaconUpgraded(beacon: ${await formatAddress(beacon, deps)})`;
-                }
-                case 'Upgraded': {
-                    const { implementation } = args as { implementation: Address };
-                    return `Upgraded(implementation: ${await formatAddress(implementation, deps)})`;
-                }
-                default:
-                    return `${eventName}(...)`;
-            }
-        },
-
-        async parseError(error) {
-            if (typeof error === 'string') {
-                return error;
-            }
-            if (error.name) {
-                const formatter = instrumentErrorFormatters[error.name];
-                if (formatter) {
-                    try {
-                        return formatter(error.args as readonly unknown[] | undefined);
-                    } catch {
-                        return formatter();
-                    }
-                }
-            }
-            if (error.name) return error.name;
-            if (error.signature) return error.signature;
-            return 'Instrument error';
-        },
+        parseTransaction: baseParser.parseTransaction,
+        parseEvent: eventParser.parseEvent,
+        parseError: baseParser.parseError,
     };
 }

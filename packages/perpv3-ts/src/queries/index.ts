@@ -1,8 +1,8 @@
 import type { Address } from 'viem';
 import type { IFuturesOrderBookAllSteps } from '../apis/interfaces';
 import { Errors, type PairSnapshot, type Quotation } from '../types';
-import { fetchFuturesInstrumentInquire, fetchFuturesPairOrderBook } from '../apis/api';
 import {
+    createQueryMarketModule,
     fetchOnchainContext as fetchOnchainContextFromApi,
     inquireByTick as inquireByTickFromApi,
 } from './api';
@@ -13,12 +13,18 @@ import {
     inquireByTick as inquireByTickFromRpc,
     type FetchOrderBookOptions,
 } from './rpc';
-import { isApiConfig, resolveApiConfig } from './config';
+import { isApiConfig } from './config';
 import type { ApiConfig, ReadOptions, RpcConfig } from './config';
 
 // ============================================================================
 // Unified Data Fetching Functions
 // ============================================================================
+
+function assertApiReadOptions(options?: ReadOptions): void {
+    if (options?.blockNumber !== undefined || options?.blockTag !== undefined) {
+        throw Errors.apiRequestFailed('Block-specific queries require an RPC configuration');
+    }
+}
 
 /**
  * Unified context fetcher that routes to API or RPC based on config type.
@@ -29,7 +35,7 @@ import type { ApiConfig, ReadOptions, RpcConfig } from './config';
  * @param config - API or RPC configuration
  * @param traderAddress - Optional trader address to fetch portfolio
  * @param signedSize - Optional signed size to fetch quotation
- * @param options - Optional read options (blockNumber, blockTag) - only used for RPC config
+ * @param options - Optional read options (blockNumber, blockTag) - requires an RPC configuration
  * @returns PairSnapshot with required fields and optional quotation
  */
 export async function fetchOnchainContext(
@@ -41,8 +47,8 @@ export async function fetchOnchainContext(
     options?: ReadOptions
 ): Promise<PairSnapshot> {
     if (isApiConfig(config)) {
-        // API doesn't support options parameter
-        return fetchOnchainContextFromApi(instrumentAddress, expiry, resolveApiConfig(config), traderAddress, signedSize);
+        assertApiReadOptions(options);
+        return fetchOnchainContextFromApi(instrumentAddress, expiry, config, traderAddress, signedSize);
     }
     return fetchOnchainContextFromRpc(instrumentAddress, expiry, config, traderAddress, signedSize, options);
 }
@@ -54,7 +60,7 @@ export async function fetchOnchainContext(
  * @param expiry - Expiry timestamp
  * @param tick - Target tick
  * @param config - API or RPC configuration
- * @param options - Optional read options (blockNumber, blockTag) - only used for RPC config
+ * @param options - Optional read options (blockNumber, blockTag) - requires an RPC configuration
  * @returns Object with size and quotation
  */
 export async function inquireByTick(
@@ -65,8 +71,8 @@ export async function inquireByTick(
     options?: ReadOptions
 ): Promise<{ size: bigint; quotation: Quotation }> {
     if (isApiConfig(config)) {
-        // API doesn't support options parameter
-        return inquireByTickFromApi(instrumentAddress, expiry, tick, resolveApiConfig(config));
+        assertApiReadOptions(options);
+        return inquireByTickFromApi(instrumentAddress, expiry, tick, config);
     }
     return inquireByTickFromRpc(instrumentAddress, expiry, tick, config, options);
 }
@@ -83,22 +89,18 @@ export async function inquireByBaseSize(
     options?: ReadOptions
 ): Promise<Quotation> {
     if (isApiConfig(config)) {
+        assertApiReadOptions(options);
         const { signer } = config;
         if (!signer) {
             throw Errors.apiRequestFailed('Signer is required for inquireByBaseSize');
         }
-        const resolved = resolveApiConfig(config);
-        // API doesn't support options parameter
-        const quotation = await fetchFuturesInstrumentInquire(
-            {
-                chainId: resolved.chainId,
-                instrument: instrumentAddress,
-                expiry,
-                size: signedSize.toString(),
-            },
-            signer,
-            resolved.httpClient
-        );
+        const market = createQueryMarketModule(config);
+        const quotation = await market.fetchFuturesInstrumentInquire({
+            chainId: config.chainId,
+            instrument: instrumentAddress,
+            expiry,
+            size: signedSize.toString(),
+        });
         if (!quotation) {
             throw Errors.missingQuotation();
         }
@@ -126,20 +128,17 @@ export async function fetchOrderBook(
     options?: ReadOptions
 ): Promise<IFuturesOrderBookAllSteps | null> {
     if (isApiConfig(config)) {
+        assertApiReadOptions(options);
         const { signer } = config;
         if (!signer) {
             throw Errors.apiRequestFailed('Signer is required for fetchOrderBook');
         }
-        const resolved = resolveApiConfig(config);
-        return fetchFuturesPairOrderBook(
-            {
-                chainId: resolved.chainId,
-                address: instrument,
-                expiry,
-            },
-            signer,
-            resolved.httpClient
-        );
+        const market = createQueryMarketModule(config);
+        return market.fetchFuturesPairOrderBook({
+            chainId: config.chainId,
+            address: instrument,
+            expiry,
+        });
     }
 
     const fetchOptions: FetchOrderBookOptions | undefined =
@@ -150,4 +149,4 @@ export async function fetchOrderBook(
 // Re-export types
 export type { FetchOrderBookOptions } from './rpc';
 export type { ApiConfig, RpcConfig, ReadOptions, BlockTag } from './config';
-export { isApiConfig, isRpcConfig, resolveApiConfig } from './config';
+export { isApiConfig, isRpcConfig } from './config';

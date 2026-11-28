@@ -10,4 +10,3 @@ export * from './apis';
 export * from './constants';
 export * from './frontend';
 export { PerpClient } from './client';
-export { WebSocketManager } from './wss';

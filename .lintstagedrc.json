@@ -1,5 +1,3 @@
 {
-    "*.js": ["prettier --write"],
-    "*.ts": ["prettier --write"],
-    "*.{json,md}": ["prettier --write"]
+    "*.{js,cjs,mjs,ts,cts,mts,json,md,yml,yaml}": ["prettier --write"]
 }

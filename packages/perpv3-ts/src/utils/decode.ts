@@ -16,16 +16,9 @@ import {
 // Exported Functions
 // ============================================================================
 
-export function decodeTradeParam(args: string[]): TradeParam {
-    return decodeParamForTradeAndPlace(args);
-}
-
-export function decodeTradeWithStabilityFeeParam(args: string[]): TradeParam & { limitStabilityFeeRatio: number } {
-    const tradeParam = decodeTradeParam(args);
-    const value1 = bytes32ToBigInt(args[0]);
-    const offset = EXPIRY_LENGTH + TICK_LENGTH + DEADLINE_LENGTH;
-    const limitStabilityFeeRatio = pickNumber(value1, offset, offset + LIMIT_STABILITY_FEE_RATIO_LENGTH);
-    return { ...tradeParam, limitStabilityFeeRatio };
+export function decodeTradeParam(args: readonly string[]): TradeParam {
+    const fields = decodeParamForTradeAndPlace(args);
+    return { ...fields, amount: asInt128(fields.amount) };
 }
 
 export function decodeDepositParam(arg: string): { token: string; quantity: bigint } {
@@ -40,11 +33,11 @@ export function decodeParamForDepositAndWithdraw(arg: string): { token: string; 
     let offset = 0;
     const value = bytes32ToBigInt(arg);
     const token = pickAddress(value, offset, (offset += ADDRESS_LENGTH));
-    const quantity = pickBigInt(value, offset, (offset += QUANTITY_LENGTH));
+    const quantity = pickBigInt(value, offset, offset + QUANTITY_LENGTH);
     return { quantity, token };
 }
 
-export function decodeAddParam(args: string[]): AddParam {
+export function decodeAddParam(args: readonly string[]): AddParam {
     if (args.length !== 2) {
         throw Errors.encoding('invalid args length for add', { args });
     }
@@ -54,13 +47,13 @@ export function decodeAddParam(args: string[]): AddParam {
     const value1 = bytes32ToBigInt(arg1);
     const expiry = pickNumber(value1, offset, (offset += EXPIRY_LENGTH));
     const limitTicks = Number(pickBigInt(value1, offset, (offset += LIMIT_TICKS_LENGTH)));
-    const deadline = pickNumber(value1, offset, (offset += DEADLINE_LENGTH));
+    const deadline = pickNumber(value1, offset, offset + DEADLINE_LENGTH);
 
     offset = 0;
     const value2 = bytes32ToBigInt(arg2);
     const amount = pickBigInt(value2, offset, (offset += AMOUNT_LENGTH));
     const tickDeltaUpper = pickNumber(value2, offset, (offset += TICK_LENGTH));
-    const tickDeltaLower = pickNumber(value2, offset, (offset += TICK_LENGTH));
+    const tickDeltaLower = pickNumber(value2, offset, offset + TICK_LENGTH);
 
     return {
         limitTicks,
@@ -72,7 +65,7 @@ export function decodeAddParam(args: string[]): AddParam {
     };
 }
 
-export function decodeRemoveParam(args: string[]): RemoveParam {
+export function decodeRemoveParam(args: readonly string[]): RemoveParam {
     if (args.length !== 2) {
         throw Errors.encoding('invalid args length for remove', { args });
     }
@@ -82,18 +75,18 @@ export function decodeRemoveParam(args: string[]): RemoveParam {
     const value1 = bytes32ToBigInt(arg1);
     const expiry = pickNumber(value1, offset, (offset += EXPIRY_LENGTH));
     const limitTicks = Number(pickBigInt(value1, offset, (offset += LIMIT_TICKS_LENGTH)));
-    const deadline = pickNumber(value1, offset, (offset += DEADLINE_LENGTH));
+    const deadline = pickNumber(value1, offset, offset + DEADLINE_LENGTH);
 
     offset = 0;
     const value2 = bytes32ToBigInt(arg2);
     const target = pickAddress(value2, offset, (offset += ADDRESS_LENGTH));
     const tickLower = asInt24(pickNumber(value2, offset, (offset += TICK_LENGTH)));
-    const tickUpper = asInt24(pickNumber(value2, offset, (offset += TICK_LENGTH)));
+    const tickUpper = asInt24(pickNumber(value2, offset, offset + TICK_LENGTH));
 
     return { tickUpper, tickLower, target: target as Address, expiry, limitTicks, deadline };
 }
 
-export function decodePlaceParam(args: string[]): PlaceParam {
+export function decodePlaceParam(args: readonly string[]): PlaceParam {
     const result = decodeParamForTradeAndPlace(args);
     return {
         expiry: result.expiry,
@@ -104,7 +97,7 @@ export function decodePlaceParam(args: string[]): PlaceParam {
     };
 }
 
-export function decodeBatchPlaceParam(args: string[]): BatchPlaceParam {
+export function decodeBatchPlaceParam(args: readonly string[]): BatchPlaceParam {
     if (args.length !== 3) {
         throw Errors.encoding('invalid args length for place', { args });
     }
@@ -137,8 +130,8 @@ export function decodeBatchPlaceParam(args: string[]): BatchPlaceParam {
 
     offset = 0;
     const value3 = bytes32ToBigInt(arg3);
-    const leverage = asInt128(pickBigInt(value3, offset, (offset += LEVERAGE_LENGTH)));
-    const size = asInt128(pickBigInt(value3, offset, (offset += SIZE_LENGTH)));
+    const leverage = pickBigInt(value3, offset, (offset += LEVERAGE_LENGTH));
+    const size = asInt128(pickBigInt(value3, offset, offset + SIZE_LENGTH));
 
     return { expiry, ticks, ratios, size, leverage, deadline };
 }
@@ -149,7 +142,7 @@ export function decodeFillParam(arg: string): FillParam {
     const expiry = pickNumber(value, offset, (offset += EXPIRY_LENGTH));
     const target = pickAddress(value, offset, (offset += ADDRESS_LENGTH));
     const tick = asInt24(pickNumber(value, offset, (offset += TICK_LENGTH)));
-    const nonce = pickNumber(value, offset, (offset += NONCE_LENGTH));
+    const nonce = pickNumber(value, offset, offset + NONCE_LENGTH);
     return { nonce, tick, target: target as Address, expiry };
 }
 
@@ -168,7 +161,7 @@ export function decodeCancelParam(arg: string): {
         if (tick === maxInt24) continue;
         ticks.push(tick);
     }
-    const deadline = pickNumber(value, offset, (offset += DEADLINE_LENGTH));
+    const deadline = pickNumber(value, offset, offset + DEADLINE_LENGTH);
     return { ticks, expiry, deadline };
 }
 
@@ -185,7 +178,6 @@ const AMOUNT_LENGTH = 128;
 const QUANTITY_LENGTH = 96;
 const ADDRESS_LENGTH = 160;
 const DEADLINE_LENGTH = 32;
-const LIMIT_STABILITY_FEE_RATIO_LENGTH = 16;
 const RATIO_LENGTH = 16;
 const LEVERAGE_LENGTH = 128;
 
@@ -211,7 +203,7 @@ function pickAddress(value: bigint, from: number, to: number): string {
     return padHex(toHex(pickBigInt(value, from, to)), { size: 20 });
 }
 
-function decodeParamForTradeAndPlace(args: string[]): TradeParam {
+function decodeParamForTradeAndPlace(args: readonly string[]): TradeParam {
     if (args.length !== 2) {
         throw Errors.encoding('invalid args length for trade and place', { args });
     }
@@ -221,12 +213,12 @@ function decodeParamForTradeAndPlace(args: string[]): TradeParam {
     const value1 = bytes32ToBigInt(arg1);
     const expiry = pickNumber(value1, offset, (offset += EXPIRY_LENGTH));
     const limitTick = asInt24(pickNumber(value1, offset, (offset += TICK_LENGTH)));
-    const deadline = pickNumber(value1, offset, (offset += DEADLINE_LENGTH));
+    const deadline = pickNumber(value1, offset, offset + DEADLINE_LENGTH);
 
     offset = 0;
     const value2 = bytes32ToBigInt(arg2);
-    const amount = asInt128(pickBigInt(value2, offset, (offset += AMOUNT_LENGTH)));
-    const size = asInt128(pickBigInt(value2, offset, (offset += SIZE_LENGTH)));
+    const amount = pickBigInt(value2, offset, (offset += AMOUNT_LENGTH));
+    const size = asInt128(pickBigInt(value2, offset, offset + SIZE_LENGTH));
 
     return { expiry, size, amount, limitTick, deadline };
 }

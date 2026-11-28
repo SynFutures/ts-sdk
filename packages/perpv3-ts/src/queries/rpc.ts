@@ -1,8 +1,9 @@
+import { buildDepthLevels } from '../utils/depth';
 import type { Address } from 'viem';
 import { zeroAddress } from 'viem';
-import { CURRENT_OBSERVER_ABI } from '../abis';
+import { getABI } from '../abis';
 import type { IFuturesOrderBook, IFuturesOrderBookAllSteps, OrderDataFromApi } from '../apis/interfaces';
-import { alphaWadToTickDelta, mulDivRoundingUp, ratioToWad, tickToSqrtX96, tickToWad } from '../math';
+import { alphaWadToTickDelta, ratioToWad } from '../math';
 import { RATIO_BASE, WAD } from '../constants';
 import {
     Order,
@@ -18,6 +19,18 @@ import {
     type QuoteState,
 } from '../types';
 import type { ReadOptions, RpcConfig } from './config';
+
+function rpcClient({ publicClient, chainId }: RpcConfig) {
+    if (publicClient.chain && publicClient.chain.id !== chainId) {
+        throw new Error(`RPC client chain ${publicClient.chain.id} does not match configured chain ${chainId}`);
+    }
+    return publicClient;
+}
+
+function currentObserverAbi(config: RpcConfig) {
+    if (config.observer.version !== 'current') throw new Error('This query requires a current Observer deployment');
+    return getABI('current', 'Observer');
+}
 
 export type { OnchainContext, PairSnapshot } from '../types';
 
@@ -35,16 +48,11 @@ export async function fetchOnchainContext(
 ): Promise<PairSnapshot> {
     const { blockNumber, blockTag } = options ?? {};
 
-    const [rawContext] = await config.publicClient.multicall({
-        contracts: [
-            {
-                address: config.observerAddress,
-                abi: CURRENT_OBSERVER_ABI,
-                functionName: 'fetchOnChainContext',
-                args: [instrumentAddress, expiry, traderAddress ?? zeroAddress, signedSize ?? 0n],
-            },
-        ],
-        allowFailure: false,
+    const rawContext = await rpcClient(config).readContract({
+        address: config.observer.address,
+        abi: currentObserverAbi(config),
+        functionName: 'fetchOnChainContext',
+        args: [instrumentAddress, expiry, traderAddress ?? zeroAddress, signedSize ?? 0n],
         blockNumber,
         blockTag,
     });
@@ -140,7 +148,7 @@ export async function fetchOnchainContext(
         blockInfo: ctx.blockInfo,
         portfolio,
         quotation: signedSize !== undefined ? ctx.quotation : undefined,
-        quoteState,
+        quoteState: includePortfolio ? quoteState : null,
     });
 }
 
@@ -152,9 +160,9 @@ export async function inquireByTick(
     options?: ReadOptions
 ): Promise<{ size: bigint; quotation: Quotation }> {
     const { blockNumber, blockTag } = options ?? {};
-    const [size, quotation] = await config.publicClient.readContract({
-        address: config.observerAddress,
-        abi: CURRENT_OBSERVER_ABI,
+    const [size, quotation] = await rpcClient(config).readContract({
+        address: config.observer.address,
+        abi: currentObserverAbi(config),
         functionName: 'inquireByTick',
         args: [instrumentAddress, expiry, tick],
         blockNumber,
@@ -174,9 +182,9 @@ export async function inquireByBaseSize(
     options?: ReadOptions
 ): Promise<Quotation> {
     const { blockNumber, blockTag } = options ?? {};
-    const [quotation] = (await config.publicClient.readContract({
-        address: config.observerAddress,
-        abi: CURRENT_OBSERVER_ABI,
+    const [quotation] = (await rpcClient(config).readContract({
+        address: config.observer.address,
+        abi: currentObserverAbi(config),
         functionName: 'inquireByBase',
         args: [instrumentAddress, expiry, signedSize],
         blockNumber,
@@ -195,9 +203,9 @@ export async function fetchLiquidityDetails(
 ): Promise<LiquidityDetails> {
     const { blockNumber, blockTag } = options ?? {};
 
-    const [rawAmm, rawTids, rawPearls, rawBlockInfo] = (await config.publicClient.readContract({
-        address: config.observerAddress,
-        abi: CURRENT_OBSERVER_ABI,
+    const [rawAmm, rawTids, rawPearls, rawBlockInfo] = (await rpcClient(config).readContract({
+        address: config.observer.address,
+        abi: getABI(config.observer.version, 'Observer'),
         functionName: 'liquidityDetails',
         args: [instrumentAddress, expiry, tickDelta],
         blockNumber,
@@ -250,7 +258,9 @@ export async function fetchOrderBookFromObserver(
     options?: FetchOrderBookOptions
 ): Promise<IFuturesOrderBookAllSteps | null> {
     const { length = 10, ...readOptions } = options ?? {};
+    if (readOptions.blockTag === 'pending') throw new Error('A pending order book cannot be pinned to a mined block');
     const context = await fetchOnchainContext(instrumentAddress, expiry, config, undefined, undefined, readOptions);
+    const pinned = { blockNumber: readOptions.blockNumber ?? BigInt(context.blockInfo.height) };
     const imr = context.instrumentSetting.initialMarginRatio;
     const ratios = getImrStepRatios(imr);
 
@@ -262,7 +272,7 @@ export async function fetchOrderBookFromObserver(
     const liquidityDetailsList = await Promise.all(
         ratioConfigs.map(({ tickDelta }) =>
             tickDelta > 0
-                ? fetchLiquidityDetails(instrumentAddress, expiry, tickDelta, config, readOptions)
+                ? fetchLiquidityDetails(instrumentAddress, expiry, tickDelta, config, pinned)
                 : Promise.resolve(null)
         )
     );
@@ -296,8 +306,6 @@ function sortByTickDesc(side: OrderDataFromApi[]): OrderDataFromApi[] {
 // ============================================================================
 
 const DEFAULT_ORDERBOOK_LENGTH = 10;
-
-const abs = (value: bigint): bigint => (value < 0n ? -value : value);
 
 function getImrStepRatios(imr: number): number[] {
     if (imr <= 100) {
@@ -375,90 +383,17 @@ function buildOrderBookSide(
     pageAdjustmentDelta: number,
     right: boolean
 ): OrderDataFromApi[] {
-    const page2BaseQuantity = new Map<number, bigint>();
-    const lastPageTick = new Map<number, number>();
-    let currentLiquidity = startingLiquidity;
-    let currentPX96 = currPX96;
-
-    for (let tick = currTick; right ? tick < currTick + tickDelta : tick > currTick - tickDelta; ) {
-        const page = calcPage(currTick, tick, pageAdjustmentDelta, size, right);
-        if (page >= length) {
-            break;
-        }
-
-        if (tick === currTick) {
-            let currBaseQuantity = page2BaseQuantity.get(page) ?? 0n;
-            const pearl = tick2Pearl.get(tick);
-            if (pearl) {
-                if ((right && pearl.left < 0n) || (!right && pearl.left > 0n)) {
-                    currBaseQuantity += abs(pearl.left);
-                }
-            }
-
-            const boundaryTick = right ? tick + 1 : tick;
-            const targetPX96 = tickToSqrtX96(boundaryTick);
-            const deltaBase = calcDeltaBase(currentPX96, targetPX96, currentLiquidity, !right);
-            currBaseQuantity += abs(deltaBase);
-            currentPX96 = targetPX96;
-
-            // When walking bids (right=false), reaching `boundaryTick = currTick` means we will cross `currTick`
-            // before moving further left. Apply liquidityNet at currTick so subsequent levels use correct liquidity,
-            // matching Oyster.swapCrossRange tick-cross semantics.
-            if (!right && pearl && pearl.liquidityNet !== 0n) {
-                currentLiquidity = currentLiquidity - pearl.liquidityNet;
-            }
-            page2BaseQuantity.set(page, currBaseQuantity);
-            lastPageTick.set(page, right ? boundaryTick : tick - 1);
-
-            tick = right ? tick + 1 : tick - 1;
-            continue;
-        }
-
-        let currBaseQuantity = page2BaseQuantity.get(page) ?? 0n;
-        lastPageTick.set(page, tick);
-
-        const pearl = tick2Pearl.get(tick);
-        if (pearl) {
-            if ((right && pearl.left < 0n) || (!right && pearl.left > 0n)) {
-                currBaseQuantity += abs(pearl.left);
-            }
-            const targetPX96 = tickToSqrtX96(tick);
-            currBaseQuantity += calcDeltaBase(currentPX96, targetPX96, currentLiquidity, false);
-            currentPX96 = targetPX96;
-            if (pearl.liquidityNet !== 0n) {
-                currentLiquidity = right
-                    ? currentLiquidity + pearl.liquidityNet
-                    : currentLiquidity - pearl.liquidityNet;
-            }
-            page2BaseQuantity.set(page, currBaseQuantity);
-        } else if (tick % size === 0) {
-            const targetPX96 = tickToSqrtX96(tick);
-            const deltaBase = calcDeltaBase(currentPX96, targetPX96, currentLiquidity, !right);
-            currBaseQuantity += abs(deltaBase);
-            currentPX96 = targetPX96;
-            page2BaseQuantity.set(page, currBaseQuantity);
-        }
-
-        tick = right ? tick + 1 : tick - 1;
-    }
-
-    const items: OrderDataFromApi[] = [];
-    for (const [page, baseQuantity] of page2BaseQuantity.entries()) {
-        const tickValue = lastPageTick.get(page);
-        if (tickValue === undefined) {
-            continue;
-        }
-        const price = tickToWad(tickValue);
-        const quoteSize = (price * baseQuantity) / WAD;
-        items.push({
-            tick: tickValue,
-            price,
-            baseQuantity,
-            quoteSize,
-            baseSum: 0n,
-            quoteSum: 0n,
-        });
-    }
+    const items: OrderDataFromApi[] = buildDepthLevels(
+        currPX96,
+        startingLiquidity,
+        currTick,
+        tickDelta,
+        tick2Pearl,
+        size,
+        length,
+        pageAdjustmentDelta,
+        right
+    ).map((level) => ({ ...level, quoteSize: (level.price * level.baseQuantity) / WAD, baseSum: 0n, quoteSum: 0n }));
 
     items.sort((a, b) => (right ? a.tick - b.tick : b.tick - a.tick));
 
@@ -473,37 +408,4 @@ function buildOrderBookSide(
             quoteSum,
         };
     });
-}
-
-function calcPage(
-    currTick: number,
-    tick: number,
-    pageAdjustmentDelta: number,
-    size: number,
-    right: boolean
-): number {
-    if (size <= 0) {
-        return 0;
-    }
-    const adjustedCurrTick = currTick - pageAdjustmentDelta;
-    const tmp = right ? tick - adjustedCurrTick : adjustedCurrTick - tick;
-    if (tmp <= 0) {
-        return 0;
-    }
-    return Math.ceil(tmp / size) - 1;
-}
-
-function calcDeltaBase(sqrtRatioAX96: bigint, sqrtRatioBX96: bigint, liquidity: bigint, roundUp: boolean): bigint {
-    let sqrtLower = sqrtRatioAX96;
-    let sqrtUpper = sqrtRatioBX96;
-    if (sqrtLower > sqrtUpper) {
-        [sqrtLower, sqrtUpper] = [sqrtUpper, sqrtLower];
-    }
-    const numerator1 = liquidity << 96n;
-    const numerator2 = sqrtUpper - sqrtLower;
-    if (roundUp) {
-        const first = mulDivRoundingUp(numerator1, numerator2, sqrtUpper);
-        return mulDivRoundingUp(first, 1n, sqrtLower);
-    }
-    return (numerator1 * numerator2) / sqrtUpper / sqrtLower;
 }

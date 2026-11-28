@@ -35,7 +35,11 @@ export function estimateAPY(
     }
 
     const tempRange = new Range(0n, 0n, 0n, amm.sqrtPX96, lowerTick, upperTick);
-    const { liquidity: assumeAddLiquidity } = tempRange.calcEntryDelta(amm.sqrtPX96, assumeAddMargin, initialMarginRatio);
+    const { liquidity: assumeAddLiquidity } = tempRange.calcEntryDelta(
+        amm.sqrtPX96,
+        assumeAddMargin,
+        initialMarginRatio
+    );
 
     const assumed24HrFee = (poolFee24h * assumeAddLiquidity) / amm.liquidity;
     const apyWad = wdiv(assumed24HrFee * 365n, assumeAddMargin);

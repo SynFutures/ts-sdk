@@ -1,5 +1,12 @@
 export const ERC20_WITH_PERMIT_ABI = [
     {
+        name: 'DOMAIN_SEPARATOR',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ type: 'bytes32' }],
+    },
+    {
         name: 'name',
         type: 'function',
         stateMutability: 'view',

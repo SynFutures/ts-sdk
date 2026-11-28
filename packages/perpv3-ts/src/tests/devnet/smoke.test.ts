@@ -18,13 +18,15 @@ describe('devnet smoke', () => {
         const rpcConfig: RpcConfig = {
             chainId: manifest.chainId,
             publicClient,
-            observerAddress: manifest.contracts.observer,
+            observer: { address: manifest.contracts.observer, version: 'current' },
         };
 
         const snapshot = await fetchOnchainContext(instrument.address, instrument.expiry, rpcConfig);
 
         expect(snapshot.expiry).toBe(PERP_EXPIRY);
-        expect(snapshot.instrumentSymbol).toBe(`${instrument.baseSymbol}-${instrument.quoteSymbol}-${instrument.marketType}`);
+        expect(snapshot.instrumentSymbol).toBe(
+            `${instrument.baseSymbol}-${instrument.quoteSymbol}-${instrument.marketType}`
+        );
         expect(snapshot.amm.liquidity).toBeGreaterThan(0n);
     });
 });

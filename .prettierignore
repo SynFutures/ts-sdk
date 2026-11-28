@@ -1,0 +1,16 @@
+# Generated or fixed regression data
+**/dist/**
+**/coverage/**
+**/node_modules/**
+**/devnet/.runtime/**
+**/devnet/state.json
+**/devnet/manifest.json
+**/devnet/state.meta.json
+**/src/abis/**
+**/src/tests/fixtures/**
+pnpm-lock.yaml
+vendor/*.tgz
+# Local work
+.worktrees/**
+docs/superpowers/**
+AGENTS.md

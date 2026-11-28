@@ -1,8 +1,10 @@
-import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { gunzipSync } from 'node:zlib';
 
-import { deployArtifact } from '@derivation-tech/viem-kit/utils';
+import { assertTransactionSuccess } from '@derivation-tech/viem-kit';
+import { publishSnapshot } from './snapshot.js';
+import { deployArtifact } from '@derivation-tech/viem-kit/node';
 import type { Abi, Address, Hex } from 'viem';
 import {
     concatHex,
@@ -20,7 +22,7 @@ import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { computeExpectedStateMeta, getDevnetPaths } from './devnet-meta.js';
-import { buildAnvilArgs, resolveAnvilCommand, waitForRpc } from './anvil.js';
+import { startAnvil, stopAnvil, jsonRpc } from './anvil.js';
 
 type JsonObject = Record<string, unknown>;
 
@@ -317,27 +319,6 @@ function loadArtifactFromFile(label: string, artifactPath: string): SolidityArti
     };
 }
 
-function linkBytecode(bytecode: Hex, linkReferences: LinkReferences, libraries: Record<string, Address>): Hex {
-    let hex = bytecode.startsWith('0x') ? bytecode.slice(2) : bytecode;
-
-    for (const fileName of Object.keys(linkReferences)) {
-        const libsInFile = linkReferences[fileName];
-        for (const libraryName of Object.keys(libsInFile)) {
-            const address = libraries[libraryName];
-            if (!address) throw new Error(`Missing library address for ${libraryName} (needed by ${fileName}).`);
-            const addressHex = address.toLowerCase().slice(2);
-
-            for (const { start, length } of libsInFile[libraryName]) {
-                const startIndex = start * 2;
-                const lengthHex = length * 2;
-                hex = hex.slice(0, startIndex) + addressHex.padStart(lengthHex, '0') + hex.slice(startIndex + lengthHex);
-            }
-        }
-    }
-
-    return `0x${hex}` as Hex;
-}
-
 type InitLiquiditySeed = {
     expiry: number;
     tickDeltaLower: number;
@@ -354,7 +335,12 @@ const WEEK_SECONDS = 7 * DAY_SECONDS;
 
 function alignTimestamp(timestamp: number): number {
     // (timestamp + 3 days) / 1 weeks * 1 weeks + 4 days + 8 hours - 3 days
-    return Math.floor((timestamp + 3 * DAY_SECONDS) / WEEK_SECONDS) * WEEK_SECONDS + 4 * DAY_SECONDS + 8 * HOUR_SECONDS - 3 * DAY_SECONDS;
+    return (
+        Math.floor((timestamp + 3 * DAY_SECONDS) / WEEK_SECONDS) * WEEK_SECONDS +
+        4 * DAY_SECONDS +
+        8 * HOUR_SECONDS -
+        3 * DAY_SECONDS
+    );
 }
 
 function resolveInitLiquiditySeed(seed: InitLiquiditySeed, nowTimestamp: number): InitLiquiditySeed {
@@ -375,44 +361,39 @@ function encodeAddArgs(seed: InitLiquiditySeed): readonly [Hex, Hex] {
     const page0 = (BigInt(seed.deadline) << 80n) | (limitTicks << 32n) | expiry;
 
     const page1 =
-        (BigInt(seed.tickDeltaLower) << 152n) |
-        (BigInt(seed.tickDeltaUpper) << 128n) |
-        BigInt(seed.amountWad);
+        (BigInt(seed.tickDeltaLower) << 152n) | (BigInt(seed.tickDeltaUpper) << 128n) | BigInt(seed.amountWad);
 
     return [toHex(page0, { size: 32 }), toHex(page1, { size: 32 })] as const;
 }
 
 async function main(): Promise<void> {
-    const { devnetRoot, presetPath, contractsArtifactsDir, statePath, manifestPath, metaPath } = getDevnetPaths();
+    const { devnetRoot, presetPath, contractsArtifactsDir } = getDevnetPaths();
     mkdirSync(devnetRoot, { recursive: true });
 
     const preset = parseDevnetPreset(readJsonFile(presetPath));
     const expectedMeta = computeExpectedStateMeta();
 
-    const rpcUrl = `http://${preset.anvil.host}:${preset.anvil.port}`;
-
-    rmSync(statePath, { force: true });
-    rmSync(manifestPath, { force: true });
-    rmSync(metaPath, { force: true });
-
-    const anvilArgs = buildAnvilArgs({
-        host: preset.anvil.host,
-        port: preset.anvil.port,
-        chainId: preset.anvil.chainId,
-        mnemonic: preset.anvil.mnemonic,
-        dumpStatePath: devnetRoot,
-    });
-
-    const { command: anvilCommand, prefixArgs } = resolveAnvilCommand();
-    const anvil = spawn(anvilCommand, [...prefixArgs, ...anvilArgs], { stdio: 'inherit' });
+    const outputArg = process.argv.indexOf('--output-dir');
+    if (outputArg >= 0 && !process.argv[outputArg + 1]) throw new Error('--output-dir requires a directory');
+    const outputDir = outputArg >= 0 ? path.resolve(process.argv[outputArg + 1]) : devnetRoot;
+    mkdirSync(outputDir, { recursive: true });
+    const staging = mkdtempSync(path.join(outputDir, '.regen-'));
+    let anvil: Awaited<ReturnType<typeof startAnvil>>['child'] | undefined;
     try {
-        await waitForRpc({ rpcUrl, timeoutMs: 15_000 });
-
+        const started = await startAnvil({
+            host: preset.anvil.host,
+            chainId: preset.anvil.chainId,
+            mnemonic: preset.anvil.mnemonic,
+        });
+        anvil = started.child;
+        const { rpcUrl } = started;
         const chain = preset.anvil.chainId === foundry.id ? foundry : { ...foundry, id: preset.anvil.chainId };
         const adminAccount = mnemonicToAccount(preset.anvil.mnemonic, { accountIndex: 0 });
         const proxyAdminAccount = mnemonicToAccount(preset.anvil.mnemonic, { accountIndex: 1 });
 
         const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+        const waitForTransaction = async (params: Parameters<typeof publicClient.waitForTransactionReceipt>[0]) =>
+            assertTransactionSuccess(await publicClient.waitForTransactionReceipt(params));
         const walletClient = createWalletClient({ chain, transport: http(rpcUrl), account: adminAccount });
 
         const artifactPaths = {
@@ -424,10 +405,7 @@ async function main(): Promise<void> {
             DexV2Market: path.join(contractsArtifactsDir, 'DexV2Market.sol/DexV2Market.json'),
             Config: path.join(contractsArtifactsDir, 'Config.sol/Config.json'),
             Gate: path.join(contractsArtifactsDir, 'Gate.sol/Gate.json'),
-            GelatoRelayRouter: path.join(
-                contractsArtifactsDir,
-                'GelatoRelayRouter.sol/GelatoRelayRouter.json'
-            ),
+            GelatoRelayRouter: path.join(contractsArtifactsDir, 'GelatoRelayRouter.sol/GelatoRelayRouter.json'),
             Helper: path.join(contractsArtifactsDir, 'Helper.sol/Helper.json'),
             EmergingFeederFactory: path.join(
                 contractsArtifactsDir,
@@ -439,7 +417,10 @@ async function main(): Promise<void> {
             LibQuery: path.join(contractsArtifactsDir, 'LibQuery.sol/LibQuery.json'),
             LibPeripheral: path.join(contractsArtifactsDir, 'LibPeripheral.sol/LibPeripheral.json'),
             Liquidity: path.join(contractsArtifactsDir, 'Liquidity.sol/Liquidity.json'),
-            MockChainlinkFeeder: path.join(contractsArtifactsDir, 'contracts/test/MockChainlinkFeeder.sol/MockChainlinkFeeder.json'),
+            MockChainlinkFeeder: path.join(
+                contractsArtifactsDir,
+                'contracts/test/MockChainlinkFeeder.sol/MockChainlinkFeeder.json'
+            ),
             Observer: path.join(contractsArtifactsDir, 'Observer.sol/Observer.json'),
             Oyster: path.join(contractsArtifactsDir, 'Oyster.sol/Oyster.json'),
             TestToken: path.join(contractsArtifactsDir, 'contracts/test/TestToken.sol/TestToken.json'),
@@ -469,7 +450,10 @@ async function main(): Promise<void> {
             Liquidity: loadArtifactFromFile('Liquidity', artifactPaths.Liquidity),
             Observer: loadArtifactFromFile('Observer', artifactPaths.Observer),
             Oyster: loadArtifactFromFile('Oyster', artifactPaths.Oyster),
-            TransparentUpgradeableProxy: loadArtifactFromFile('TransparentUpgradeableProxy', artifactPaths.TransparentUpgradeableProxy),
+            TransparentUpgradeableProxy: loadArtifactFromFile(
+                'TransparentUpgradeableProxy',
+                artifactPaths.TransparentUpgradeableProxy
+            ),
             InstrumentProxy: loadArtifactFromFile('InstrumentProxy', artifactPaths.InstrumentProxy),
             MockChainlinkFeeder: loadArtifactFromFile('MockChainlinkFeeder', artifactPaths.MockChainlinkFeeder),
             TestToken: loadArtifactFromFile('TestToken', artifactPaths.TestToken),
@@ -486,7 +470,7 @@ async function main(): Promise<void> {
                 artifact: artifactPath,
                 constructorArgs: [...constructorArgs],
                 linkReferenceMap,
-                confirmations: 1,
+                wait: { confirmations: 1 },
             });
             return parseAddress(contractAddress, `deployment:${label}`);
         };
@@ -568,17 +552,20 @@ async function main(): Promise<void> {
         });
         const config = await deployProxy('Config(proxy)', configImpl, proxyAdminAccount.address, configInitData);
 
-        const handlerImpl = await deployContract(
-            'GelatoRelayRouter(impl)',
-            artifactPaths.GelatoRelayRouter,
-            [preset.deployment.trustedForwarder]
-        );
+        const handlerImpl = await deployContract('GelatoRelayRouter(impl)', artifactPaths.GelatoRelayRouter, [
+            preset.deployment.trustedForwarder,
+        ]);
         const handlerInitData = encodeFunctionData({
             abi: artifacts.GelatoRelayRouter.abi,
             functionName: 'initialize',
             args: [],
         });
-        const handler = await deployProxy('GelatoRelayRouter(proxy)', handlerImpl, proxyAdminAccount.address, handlerInitData);
+        const handler = await deployProxy(
+            'GelatoRelayRouter(proxy)',
+            handlerImpl,
+            proxyAdminAccount.address,
+            handlerInitData
+        );
 
         const gateImpl = await deployContract('Gate(impl)', artifactPaths.Gate, [wrappedNative, config, handler]);
         const gateInitData = encodeFunctionData({ abi: artifacts.Gate.abi, functionName: 'initialize', args: [] });
@@ -600,7 +587,10 @@ async function main(): Promise<void> {
             Oyster: oysterLib,
         });
 
-        const beacon = await deployContract('Beacon', artifactPaths.Beacon, [instrumentImpl, proxyAdminAccount.address]);
+        const beacon = await deployContract('Beacon', artifactPaths.Beacon, [
+            instrumentImpl,
+            proxyAdminAccount.address,
+        ]);
 
         const observer = await deployContract('Observer', artifactPaths.Observer, [gate], {
             LibObserver: libObserverLib,
@@ -612,7 +602,10 @@ async function main(): Promise<void> {
             LibPeripheral: libPeripheralLib,
         });
 
-        const emergingFeederFactoryImpl = await deployContract('EmergingFeederFactory(impl)', artifactPaths.EmergingFeederFactory);
+        const emergingFeederFactoryImpl = await deployContract(
+            'EmergingFeederFactory(impl)',
+            artifactPaths.EmergingFeederFactory
+        );
         const emergingFeederFactoryInitData = encodeFunctionData({
             abi: artifacts.EmergingFeederFactory.abi,
             functionName: 'initialize',
@@ -646,7 +639,7 @@ async function main(): Promise<void> {
             });
         }
 
-        await publicClient.waitForTransactionReceipt({
+        await waitForTransaction({
             hash: await walletClient.writeContract({
                 address: config,
                 abi: artifacts.Config.abi,
@@ -658,13 +651,29 @@ async function main(): Promise<void> {
         const resolveMarketArtifact = (marketType: string) => {
             switch (marketType) {
                 case 'LINK':
-                    return { label: 'ChainlinkMarket', artifactPath: artifactPaths.ChainlinkMarket, abi: artifacts.ChainlinkMarket.abi };
+                    return {
+                        label: 'ChainlinkMarket',
+                        artifactPath: artifactPaths.ChainlinkMarket,
+                        abi: artifacts.ChainlinkMarket.abi,
+                    };
                 case 'EMG':
-                    return { label: 'EmergingMarket', artifactPath: artifactPaths.EmergingMarket, abi: artifacts.EmergingMarket.abi };
+                    return {
+                        label: 'EmergingMarket',
+                        artifactPath: artifactPaths.EmergingMarket,
+                        abi: artifacts.EmergingMarket.abi,
+                    };
                 case 'PYTH':
-                    return { label: 'PythMarket', artifactPath: artifactPaths.PythMarket, abi: artifacts.PythMarket.abi };
+                    return {
+                        label: 'PythMarket',
+                        artifactPath: artifactPaths.PythMarket,
+                        abi: artifacts.PythMarket.abi,
+                    };
                 case 'DEXV2':
-                    return { label: 'DexV2Market', artifactPath: artifactPaths.DexV2Market, abi: artifacts.DexV2Market.abi };
+                    return {
+                        label: 'DexV2Market',
+                        artifactPath: artifactPaths.DexV2Market,
+                        abi: artifacts.DexV2Market.abi,
+                    };
                 default:
                     throw new Error(`Unsupported marketType in preset: ${marketType}`);
             }
@@ -673,17 +682,25 @@ async function main(): Promise<void> {
         const markets = new Map<string, { address: Address; abi: Abi }>();
         for (const marketSpec of preset.deployment.markets) {
             const { label, artifactPath, abi } = resolveMarketArtifact(marketSpec.marketType);
-            const marketImpl = await deployContract(`${label}(impl:${marketSpec.marketType})`, artifactPath, [config, gate]);
+            const marketImpl = await deployContract(`${label}(impl:${marketSpec.marketType})`, artifactPath, [
+                config,
+                gate,
+            ]);
             let initData: Hex = '0x';
             if (marketSpec.marketType === 'DEXV2') {
                 initData = encodeFunctionData({ abi, functionName: 'initialize', args: [[]] });
             }
-            const market = await deployProxy(`${label}(proxy:${marketSpec.marketType})`, marketImpl, proxyAdminAccount.address, initData);
+            const market = await deployProxy(
+                `${label}(proxy:${marketSpec.marketType})`,
+                marketImpl,
+                proxyAdminAccount.address,
+                initData
+            );
             markets.set(marketSpec.marketType, { address: market, abi });
         }
 
         for (const [marketType, market] of markets) {
-            await publicClient.waitForTransactionReceipt({
+            await waitForTransaction({
                 hash: await walletClient.writeContract({
                     address: config,
                     abi: artifacts.Config.abi,
@@ -701,7 +718,9 @@ async function main(): Promise<void> {
 
                 const quoteDecimals = BigInt(quote.decimals);
                 if (quoteDecimals > 18n) {
-                    throw new Error(`Unsupported quote decimals > 18 for ${instrumentSpec.quoteSymbol}: ${quoteDecimals}`);
+                    throw new Error(
+                        `Unsupported quote decimals > 18 for ${instrumentSpec.quoteSymbol}: ${quoteDecimals}`
+                    );
                 }
                 const scaler = 10n ** (18n - quoteDecimals);
                 const requiredQuantity = (BigInt(instrumentSpec.initLiquidity.amountWad) + scaler - 1n) / scaler;
@@ -719,7 +738,7 @@ async function main(): Promise<void> {
 
             const mintQuantity = requiredQuantity * 100n;
 
-            await publicClient.waitForTransactionReceipt({
+            await waitForTransaction({
                 hash: await walletClient.writeContract({
                     address: quote.address,
                     abi: artifacts.TestToken.abi,
@@ -728,7 +747,7 @@ async function main(): Promise<void> {
                 }),
             });
 
-            await publicClient.waitForTransactionReceipt({
+            await waitForTransaction({
                 hash: await walletClient.writeContract({
                     address: quote.address,
                     abi: artifacts.TestToken.abi,
@@ -798,7 +817,7 @@ async function main(): Promise<void> {
                         heartBeat1: 16_777_215,
                     } as const;
 
-                    await publicClient.waitForTransactionReceipt({
+                    await waitForTransaction({
                         hash: await walletClient.writeContract({
                             address: market.address,
                             abi: market.abi,
@@ -816,7 +835,7 @@ async function main(): Promise<void> {
                 const addArgs = encodeAddArgs(initLiquidity);
 
                 if (!launchedInstruments.has(instrument)) {
-                    await publicClient.waitForTransactionReceipt({
+                    await waitForTransaction({
                         hash: await walletClient.writeContract({
                             address: gate,
                             abi: artifacts.Gate.abi,
@@ -826,7 +845,7 @@ async function main(): Promise<void> {
                     });
                     launchedInstruments.add(instrument);
                 } else {
-                    await publicClient.waitForTransactionReceipt({
+                    await waitForTransaction({
                         hash: await walletClient.writeContract({
                             address: instrument,
                             abi: artifacts.Instrument.abi,
@@ -856,7 +875,10 @@ async function main(): Promise<void> {
         const manifest = {
             chainId: preset.anvil.chainId,
             rpcUrl,
-            contractsPackage: { name: expectedMeta.contractsPackageName, version: expectedMeta.contractsPackageVersion },
+            contractsPackage: {
+                name: expectedMeta.contractsPackageName,
+                version: expectedMeta.contractsPackageVersion,
+            },
             accounts: { admin: { address: adminAccount.address }, proxyAdmin: { address: proxyAdminAccount.address } },
             contracts: {
                 config,
@@ -870,13 +892,26 @@ async function main(): Promise<void> {
             },
             tokens: {
                 wrappedNative,
-                quotes: Object.fromEntries(Array.from(quoteTokens, ([symbol, info]) => [symbol, { address: info.address, decimals: info.decimals }])),
+                quotes: Object.fromEntries(
+                    Array.from(quoteTokens, ([symbol, info]) => [
+                        symbol,
+                        { address: info.address, decimals: info.decimals },
+                    ])
+                ),
             },
             feeders: {
                 baseToUsd: Object.fromEntries(Array.from(baseToUsdFeeders, ([symbol, address]) => [symbol, address])),
-                quoteToUsd: Object.fromEntries(Array.from(quoteTokens, ([symbol, info]) => [symbol, info.quoteToUsdFeeder])),
+                quoteToUsd: Object.fromEntries(
+                    Array.from(quoteTokens, ([symbol, info]) => [symbol, info.quoteToUsdFeeder])
+                ),
             },
-            libraries: { Broker: brokerLib, LibQuery: libQueryLib, Liquidity: liquidityLib, Oyster: oysterLib, LibObserver: libObserverLib },
+            libraries: {
+                Broker: brokerLib,
+                LibQuery: libQueryLib,
+                Liquidity: liquidityLib,
+                Oyster: oysterLib,
+                LibObserver: libObserverLib,
+            },
             instruments,
             defaults: {
                 instrument: {
@@ -894,28 +929,24 @@ async function main(): Promise<void> {
             generatedAt: new Date().toISOString(),
         } as const;
 
-        anvil.kill('SIGINT');
-        await new Promise<void>((resolve, reject) => {
-            anvil.once('exit', (code) => {
-                if (code === 0 || code === null) resolve();
-                else reject(new Error(`Anvil exited with code ${code}`));
-            });
-        });
-
-        if (!existsSync(statePath)) {
-            throw new Error(`Anvil exited but did not write state file at ${statePath}`);
-        }
-
-        writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 4)}\n`);
-        writeFileSync(metaPath, `${JSON.stringify(meta, null, 4)}\n`);
-
-        process.stdout.write(`Devnet regenerated:\n- ${statePath}\n- ${manifestPath}\n- ${metaPath}\n`);
+        const dumpedState = await jsonRpc(rpcUrl, 'anvil_dumpState', []);
+        if (typeof dumpedState !== 'string' || !/^0x[0-9a-f]+$/i.test(dumpedState))
+            throw new Error('Invalid Anvil state dump');
+        const stateJson = gunzipSync(Buffer.from(dumpedState.slice(2), 'hex')).toString('utf8');
+        JSON.parse(stateJson);
+        writeFileSync(path.join(staging, 'state.json'), stateJson);
+        await stopAnvil(anvil);
+        writeFileSync(path.join(staging, 'manifest.json'), `${JSON.stringify(manifest, null, 4)}\n`);
+        writeFileSync(path.join(staging, 'state.meta.json'), `${JSON.stringify(meta, null, 4)}\n`);
+        publishSnapshot(staging, outputDir);
+        process.stdout.write(`Devnet regenerated at ${outputDir}\n`);
     } finally {
-        if (!anvil.killed) anvil.kill('SIGKILL');
+        await stopAnvil(anvil);
+        rmSync(staging, { recursive: true, force: true });
     }
 }
 
 main().catch((error) => {
-    process.stderr.write(`${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
+    process.stderr.write(`${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`);
     process.exit(1);
 });

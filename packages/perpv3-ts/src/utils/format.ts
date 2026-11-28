@@ -1,10 +1,9 @@
-import type { Address, Erc20TokenInfo } from '@derivation-tech/viem-kit';
+import type { Address } from '@derivation-tech/viem-kit';
 import { formatUnits, getAddress, isAddress, Multicall } from '@derivation-tech/viem-kit';
-import { formatInTimeZone } from 'date-fns-tz';
 import { sqrtX96ToWad, tickToSqrtX96 } from '../math';
 import { MAX_UINT_16, MAX_UINT_24, Q24 } from '../constants';
 import type { ParserDeps } from '../parsers/types';
-import { PERP_EXPIRY } from '../types';
+import { formatExpiryLabel } from './expiry';
 
 // ============================================================================
 // Exported Constants and Interfaces
@@ -52,8 +51,7 @@ export function formatTimestamp(value: bigint | number | string): string {
 }
 
 export function formatExpiry(expiry: number): string {
-    if (expiry === PERP_EXPIRY) return 'PERP';
-    return formatInTimeZone(new Date(expiry * 1000), 'UTC', 'yyyyMMdd');
+    return formatExpiryLabel(expiry, false);
 }
 
 export function formatRatio(value: bigint | number | string, fixedDecimals = 2): string {
@@ -117,7 +115,10 @@ export async function formatAddress(address: Address, deps?: ParserDeps): Promis
     return address;
 }
 
-export async function resolveTokenInfo(token: string, deps?: ParserDeps): Promise<Erc20TokenInfo | undefined> {
+export async function resolveTokenInfo(
+    token: string,
+    deps?: ParserDeps
+): Promise<Multicall.Erc20TokenMetadata | undefined> {
     if (!deps) return undefined;
     if (deps.getTokenInfo) {
         const info = await deps.getTokenInfo(token);
@@ -127,14 +128,7 @@ export async function resolveTokenInfo(token: string, deps?: ParserDeps): Promis
         const checksum = getAddress(token as Address);
         try {
             const [fetched] = await Multicall.getErc20TokenInfos(deps.publicClient, [checksum]);
-            if (fetched) {
-                return {
-                    address: checksum,
-                    decimals: fetched.decimals,
-                    symbol: fetched.symbol,
-                    name: fetched.name,
-                };
-            }
+            return fetched ?? undefined;
         } catch {
             // ignore
         }
@@ -149,10 +143,11 @@ export async function formatTokenAmount(
     fixedDecimals = 6
 ): Promise<string> {
     const info = await resolveTokenInfo(token, deps);
-    if (!info) {
-        return `${formatUnitsSafe(value, DEFAULT_DECIMALS, fixedDecimals)} ${isAddress(token) ? token : String(token)}`;
+    const label = info?.symbol || token;
+    if (info?.decimals === undefined) {
+        return `${toBigInt(value)} base units (${label})`;
     }
-    return `${formatUnitsSafe(value, info.decimals, fixedDecimals)} ${info.symbol}`;
+    return `${formatUnitsSafe(value, info.decimals, fixedDecimals)} ${label}`;
 }
 
 export function formatBoolean(value: boolean): string {
@@ -201,7 +196,7 @@ export function formatArray(values: unknown[], formatter: (value: unknown) => st
 
 function shortenDecimals(value: string, fixedDecimals = 6): string {
     if (!value.includes('.')) return value;
-    const [_integer, fraction] = value.split('.');
+    const [, fraction] = value.split('.');
     if (fraction.length <= fixedDecimals) return value;
     const trimmed = Number(value).toFixed(fixedDecimals);
     return trimmed;

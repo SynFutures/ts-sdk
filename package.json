@@ -7,41 +7,36 @@
     "license": "MIT",
     "scripts": {
         "preinstall": "node scripts/ensure-pnpm.cjs",
-        "nx": "nx run-many --target=build --all",
-        "test": "nx run-many --target=test --all",
+        "build": "pnpm -r run build",
+        "test": "pnpm run verify:governance && pnpm --filter @synfutures/perpv3-ts run test",
         "deps": "pnpm -r i",
-        "init": "./scripts/init.sh",
         "prepare": "husky",
-        "lint": "eslint",
-        "format": "prettier --write packages/**/*.ts",
+        "lint": "oxlint --type-aware --deny-warnings .",
+        "format": "prettier --write .",
         "clean": "pnpm -r clean",
         "release": "changeset publish",
-        "release:dry": "changeset version && changeset publish --dry-run",
-        "test:plugin-types": "tsc --noEmit --strict --skipLibCheck --target ES2020 --module commonjs scripts/governance-plugin-types.ts"
+        "release:dry": "changeset status",
+        "format:check": "prettier --check .",
+        "release:version": "changeset version && pnpm install --lockfile-only --ignore-scripts --no-frozen-lockfile",
+        "test:release": "node --test scripts/tests/*.test.cjs",
+        "build:governance": "pnpm --filter @synfutures/airdrop --filter \"@synfutures/*governance*\" run build",
+        "verify:governance": "pnpm run build:governance && pnpm --filter @synfutures/airdrop --filter \"@synfutures/*governance*\" run test",
+        "test:governance-consumers": "node scripts/verify-governance-consumers.cjs"
     },
     "devDependencies": {
-        "@changesets/cli": "^2.28.1",
-        "@eslint/js": "^9.9.1",
-        "@nx/eslint": "20.0.6",
-        "@nx/jest": "20.0.6",
-        "eslint": "^9.7.0",
-        "eslint-config-prettier": "^9.1.0",
-        "husky": "^9.1.6",
-        "lint-staged": "^16.2.3",
-        "nx": "20.0.6",
-        "prettier": "^3.3.3",
-        "typescript": "^5.5.3",
-        "typescript-eslint": "^8.3.0"
+        "@changesets/cli": "^3.0.3",
+        "@types/node": "22.20.7",
+        "husky": "^9.1.7",
+        "lint-staged": "^17.6.2",
+        "oxlint": "1.95.0",
+        "oxlint-tsgolint": "7.0.2008",
+        "prettier": "3.10.1",
+        "typescript": "catalog:",
+        "tsdown": "0.23.7"
     },
     "engines": {
-        "node": ">=18",
-        "pnpm": ">=8"
+        "node": ">=24 <25",
+        "pnpm": ">=12 <13"
     },
-    "pnpm": {
-        "peerDependencyRules": {
-            "allowedVersions": {
-                "eslint": "^9.2.0"
-            }
-        }
-    }
+    "packageManager": "pnpm@12.6.0"
 }

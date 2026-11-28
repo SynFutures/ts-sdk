@@ -1,0 +1,532 @@
+{
+    "trades": [
+        {
+            "name": "trade-margin-long",
+            "signedSize": "12000000000000000",
+            "quotation": {
+                "benchmark": "153660000000000000000",
+                "sqrtFairPX96": "982112590742975838296897558209",
+                "tick": 50349,
+                "mark": "153660000000000000000",
+                "entryNotional": "1843934968323275175",
+                "fee": "1290754477826293",
+                "minAmount": "185697722801101468",
+                "sqrtPostFairPX96": "982114771318799292974792295018",
+                "postTick": 50350
+            },
+            "context": {
+                "setting": {
+                    "symbol": "SOL-USDM-EMG",
+                    "config": "0x0000000000000000000000000000000000001004",
+                    "gate": "0x0000000000000000000000000000000000001000",
+                    "market": "0x0000000000000000000000000000000000001004",
+                    "quote": "0x0000000000000000000000000000000000001005",
+                    "decimals": 6,
+                    "initialMarginRatio": 1000,
+                    "maintenanceMarginRatio": 500,
+                    "placePaused": false,
+                    "fundingHour": 24,
+                    "disableOrderRebate": false,
+                    "param": {
+                        "minMarginAmount": "1000000000000000",
+                        "tradingFeeRatio": 4,
+                        "protocolFeeRatio": 3,
+                        "qtype": 1,
+                        "tip": "100000000000000000"
+                    }
+                },
+                "amm": {
+                    "expiry": 4294967295,
+                    "timestamp": 1763048109,
+                    "status": 1,
+                    "tick": 50349,
+                    "sqrtPX96": "982112590742975838296897558209",
+                    "liquidity": "66996789455639740773358",
+                    "totalLiquidity": "66996789455639740773358",
+                    "totalShort": "109097610137968958168699",
+                    "openInterests": "111731544618802760799420",
+                    "totalLong": "109000582125878083343020",
+                    "involvedFund": "5394610613004000000000000",
+                    "feeIndex": "1132480572284542413",
+                    "protocolFee": "129093054174985816444341",
+                    "longSocialLossIndex": "0",
+                    "shortSocialLossIndex": "0",
+                    "longFundingIndex": "2920812895983985913539",
+                    "shortFundingIndex": "9749087299161150366",
+                    "insuranceFund": "206207465512564296",
+                    "settlementPrice": "0"
+                },
+                "spacing": {
+                    "pearl": 1,
+                    "order": 1,
+                    "range": 50
+                },
+                "priceData": {
+                    "instrument": "0x0000000000000000000000000000000000001000",
+                    "expiry": 4294967295,
+                    "markPrice": "154050000000000000000",
+                    "spotPrice": "154050000000000000000",
+                    "benchmarkPrice": "154050000000000000000",
+                    "feeder0": "0x0000000000000000000000000000000000001006",
+                    "feeder1": "0x0000000000000000000000000000000000000000",
+                    "feeder0UpdatedAt": "1763047806",
+                    "feeder1UpdatedAt": "0"
+                },
+                "blockInfo": {
+                    "height": 693605,
+                    "timestamp": 1763048109
+                },
+                "portfolio": {
+                    "oids": [],
+                    "rids": [],
+                    "position": {
+                        "balance": "0",
+                        "size": "0",
+                        "entryNotional": "0",
+                        "entrySocialLossIndex": "0",
+                        "entryFundingIndex": "0"
+                    },
+                    "orders": [],
+                    "ranges": [],
+                    "ordersTaken": []
+                },
+                "quoteState": {
+                    "quote": "0x0000000000000000000000000000000000001005",
+                    "decimals": 6,
+                    "symbol": "USDM",
+                    "threshold": "2000000000",
+                    "reserve": "0",
+                    "balance": "274289898342",
+                    "allowance": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                    "fundFlow": {
+                        "totalIn": "807710101658",
+                        "totalOut": "0"
+                    },
+                    "pending": {
+                        "timestamp": 0,
+                        "native": false,
+                        "amount": "0",
+                        "exemption": "0"
+                    }
+                }
+            },
+            "input": {
+                "instrumentAddress": "0x0000000000000000000000000000000000001000",
+                "traderAddress": "0x0000000000000000000000000000000000001001",
+                "baseQuantity": "12000000000000000",
+                "side": 2,
+                "margin": "60000000000000000000",
+                "userSetting": {
+                    "deadline": 3600,
+                    "slippage": 50
+                }
+            },
+            "expected": {
+                "amount": "60000000000000000000",
+                "simulation": {
+                    "realized": "0",
+                    "postPosition": {
+                        "balance": "59998709245522173707",
+                        "size": "12000000000000000",
+                        "entryNotional": "1843934968323275175",
+                        "entrySocialLossIndex": "0",
+                        "entryFundingIndex": "2920812895983985913539"
+                    },
+                    "marginAdjusted": false
+                }
+            }
+        },
+        {
+            "name": "open-long-at-three-times-leverage",
+            "signedSize": "3000000000000000000",
+            "quotation": {
+                "benchmark": "1000000000000000000",
+                "sqrtFairPX96": "79228162514264337593543950336",
+                "tick": 0,
+                "mark": "1000000000000000000",
+                "entryNotional": "3000000000000000000",
+                "fee": "0",
+                "minAmount": "30000000000000000",
+                "sqrtPostFairPX96": "79228162514264337593543950336",
+                "postTick": 0
+            },
+            "context": {
+                "setting": {
+                    "symbol": "SOL-USDM-EMG",
+                    "config": "0x0000000000000000000000000000000000001004",
+                    "gate": "0x0000000000000000000000000000000000001000",
+                    "market": "0x0000000000000000000000000000000000001004",
+                    "quote": "0x0000000000000000000000000000000000001005",
+                    "decimals": 6,
+                    "initialMarginRatio": 1000,
+                    "maintenanceMarginRatio": 500,
+                    "placePaused": false,
+                    "fundingHour": 24,
+                    "disableOrderRebate": false,
+                    "param": {
+                        "minMarginAmount": "1000000000000000",
+                        "tradingFeeRatio": 4,
+                        "protocolFeeRatio": 3,
+                        "qtype": 1,
+                        "tip": "100000000000000000"
+                    }
+                },
+                "amm": {
+                    "expiry": 4294967295,
+                    "timestamp": 1763048109,
+                    "status": 1,
+                    "tick": 0,
+                    "sqrtPX96": "79228162514264337593543950336",
+                    "liquidity": "66996789455639740773358",
+                    "totalLiquidity": "66996789455639740773358",
+                    "totalShort": "109097610137968958168699",
+                    "openInterests": "111731544618802760799420",
+                    "totalLong": "109000582125878083343020",
+                    "involvedFund": "5394610613004000000000000",
+                    "feeIndex": "1132480572284542413",
+                    "protocolFee": "129093054174985816444341",
+                    "longSocialLossIndex": "0",
+                    "shortSocialLossIndex": "0",
+                    "longFundingIndex": "0",
+                    "shortFundingIndex": "0",
+                    "insuranceFund": "206207465512564296",
+                    "settlementPrice": "0"
+                },
+                "spacing": {
+                    "pearl": 1,
+                    "order": 1,
+                    "range": 50
+                },
+                "priceData": {
+                    "instrument": "0x0000000000000000000000000000000000001000",
+                    "expiry": 4294967295,
+                    "markPrice": "1000000000000000000",
+                    "spotPrice": "1000000000000000000",
+                    "benchmarkPrice": "1000000000000000000",
+                    "feeder0": "0x0000000000000000000000000000000000001006",
+                    "feeder1": "0x0000000000000000000000000000000000000000",
+                    "feeder0UpdatedAt": "1763047806",
+                    "feeder1UpdatedAt": "0"
+                },
+                "blockInfo": {
+                    "height": 693605,
+                    "timestamp": 1763048109
+                },
+                "portfolio": {
+                    "oids": [],
+                    "rids": [],
+                    "position": {
+                        "balance": "0",
+                        "size": "0",
+                        "entryNotional": "0",
+                        "entrySocialLossIndex": "0",
+                        "entryFundingIndex": "0"
+                    },
+                    "orders": [],
+                    "ranges": [],
+                    "ordersTaken": []
+                },
+                "quoteState": {
+                    "quote": "0x0000000000000000000000000000000000001005",
+                    "decimals": 6,
+                    "symbol": "USDM",
+                    "threshold": "2000000000",
+                    "reserve": "0",
+                    "balance": "274289898342",
+                    "allowance": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                    "fundFlow": {
+                        "totalIn": "807710101658",
+                        "totalOut": "0"
+                    },
+                    "pending": {
+                        "timestamp": 0,
+                        "native": false,
+                        "amount": "0",
+                        "exemption": "0"
+                    }
+                }
+            },
+            "input": {
+                "instrumentAddress": "0x0000000000000000000000000000000000001000",
+                "traderAddress": "0x0000000000000000000000000000000000001001",
+                "baseQuantity": "3000000000000000000",
+                "side": 2,
+                "targetLeverage": "3000000000000000000",
+                "userSetting": {
+                    "deadline": 3600,
+                    "slippage": 0
+                }
+            },
+            "expected": {
+                "amount": "1000000000000000003",
+                "simulation": {
+                    "realized": "0",
+                    "postPosition": {
+                        "balance": "1000000000000000003",
+                        "size": "3000000000000000000",
+                        "entryNotional": "3000000000000000000",
+                        "entrySocialLossIndex": "0",
+                        "entryFundingIndex": "0"
+                    },
+                    "marginAdjusted": false
+                }
+            }
+        },
+        {
+            "name": "increase-existing-short",
+            "signedSize": "-8000000000000000",
+            "quotation": {
+                "benchmark": "153660000000000000000",
+                "sqrtFairPX96": "982112590742975838296897558209",
+                "tick": 50349,
+                "mark": "153660000000000000000",
+                "entryNotional": "1229285429929728140",
+                "fee": "860499800950810",
+                "minAmount": "123788499800950810",
+                "sqrtPostFairPX96": "982111137031139640879691710541",
+                "postTick": 50349
+            },
+            "context": {
+                "setting": {
+                    "symbol": "SOL-USDM-EMG",
+                    "config": "0x0000000000000000000000000000000000001004",
+                    "gate": "0x0000000000000000000000000000000000001000",
+                    "market": "0x0000000000000000000000000000000000001004",
+                    "quote": "0x0000000000000000000000000000000000001005",
+                    "decimals": 6,
+                    "initialMarginRatio": 1000,
+                    "maintenanceMarginRatio": 500,
+                    "placePaused": false,
+                    "fundingHour": 24,
+                    "disableOrderRebate": false,
+                    "param": {
+                        "minMarginAmount": "1000000000000000000",
+                        "tradingFeeRatio": 4,
+                        "protocolFeeRatio": 3,
+                        "qtype": 1,
+                        "tip": "100000000000000000"
+                    }
+                },
+                "amm": {
+                    "expiry": 4294967295,
+                    "timestamp": 1763048109,
+                    "status": 1,
+                    "tick": 50349,
+                    "sqrtPX96": "982112590742975838296897558209",
+                    "liquidity": "66996789455639740773358",
+                    "totalLiquidity": "66996789455639740773358",
+                    "totalShort": "109097610137968958168699",
+                    "openInterests": "111731544618802760799420",
+                    "totalLong": "109000582125878083343020",
+                    "involvedFund": "5394610613004000000000000",
+                    "feeIndex": "1132480572284542413",
+                    "protocolFee": "129093054174985816444341",
+                    "longSocialLossIndex": "0",
+                    "shortSocialLossIndex": "0",
+                    "longFundingIndex": "2920812895983985913539",
+                    "shortFundingIndex": "9749087299161150366",
+                    "insuranceFund": "206207465512564296",
+                    "settlementPrice": "0"
+                },
+                "spacing": {
+                    "pearl": 1,
+                    "order": 1,
+                    "range": 50
+                },
+                "priceData": {
+                    "instrument": "0x0000000000000000000000000000000000001000",
+                    "expiry": 4294967295,
+                    "markPrice": "154050000000000000000",
+                    "spotPrice": "154050000000000000000",
+                    "benchmarkPrice": "154050000000000000000",
+                    "feeder0": "0x0000000000000000000000000000000000001006",
+                    "feeder1": "0x0000000000000000000000000000000000000000",
+                    "feeder0UpdatedAt": "1763047806",
+                    "feeder1UpdatedAt": "0"
+                },
+                "blockInfo": {
+                    "height": 693605,
+                    "timestamp": 1763048109
+                },
+                "portfolio": {
+                    "oids": [],
+                    "rids": [],
+                    "position": {
+                        "balance": "500000000000000000000",
+                        "size": "-15000000000000000",
+                        "entryNotional": "620000000000000000000",
+                        "entrySocialLossIndex": "0",
+                        "entryFundingIndex": "9738860647816918896"
+                    },
+                    "orders": [],
+                    "ranges": [],
+                    "ordersTaken": []
+                },
+                "quoteState": {
+                    "quote": "0x0000000000000000000000000000000000001005",
+                    "decimals": 6,
+                    "symbol": "USDM",
+                    "threshold": "2000000000",
+                    "reserve": "0",
+                    "balance": "274289898342",
+                    "allowance": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                    "fundFlow": {
+                        "totalIn": "807710101658",
+                        "totalOut": "0"
+                    },
+                    "pending": {
+                        "timestamp": 0,
+                        "native": false,
+                        "amount": "0",
+                        "exemption": "0"
+                    }
+                }
+            },
+            "input": {
+                "instrumentAddress": "0x0000000000000000000000000000000000001000",
+                "traderAddress": "0x0000000000000000000000000000000000001001",
+                "baseQuantity": "8000000000000000",
+                "userSetting": {
+                    "deadline": 3600,
+                    "slippage": 60
+                },
+                "margin": "0"
+            },
+            "expected": {
+                "amount": "0",
+                "simulation": {
+                    "realized": "153399770163472",
+                    "postPosition": {
+                        "balance": "499999292899969212662",
+                        "size": "-23000000000000000",
+                        "entryNotional": "621229285429929728140",
+                        "entrySocialLossIndex": "0",
+                        "entryFundingIndex": "9749087299161150366"
+                    },
+                    "marginAdjusted": false
+                }
+            }
+        }
+    ],
+    "marginAdjustment": {
+        "name": "adjust-margin-in",
+        "context": {
+            "setting": {
+                "symbol": "SOL-USDM-EMG",
+                "config": "0x0000000000000000000000000000000000001004",
+                "gate": "0x0000000000000000000000000000000000001000",
+                "market": "0x0000000000000000000000000000000000001004",
+                "quote": "0x0000000000000000000000000000000000001005",
+                "decimals": 6,
+                "initialMarginRatio": 1000,
+                "maintenanceMarginRatio": 500,
+                "placePaused": false,
+                "fundingHour": 24,
+                "disableOrderRebate": false,
+                "param": {
+                    "minMarginAmount": "1000000000000000000",
+                    "tradingFeeRatio": 4,
+                    "protocolFeeRatio": 3,
+                    "qtype": 1,
+                    "tip": "100000000000000000"
+                }
+            },
+            "amm": {
+                "expiry": 4294967295,
+                "timestamp": 1763048109,
+                "status": 1,
+                "tick": 50349,
+                "sqrtPX96": "982112590742975838296897558209",
+                "liquidity": "66996789455639740773358",
+                "totalLiquidity": "66996789455639740773358",
+                "totalShort": "109097610137968958168699",
+                "openInterests": "111731544618802760799420",
+                "totalLong": "109000582125878083343020",
+                "involvedFund": "5394610613004000000000000",
+                "feeIndex": "1132480572284542413",
+                "protocolFee": "129093054174985816444341",
+                "longSocialLossIndex": "0",
+                "shortSocialLossIndex": "0",
+                "longFundingIndex": "2920812895983985913539",
+                "shortFundingIndex": "9749087299161150366",
+                "insuranceFund": "206207465512564296",
+                "settlementPrice": "0"
+            },
+            "spacing": {
+                "pearl": 1,
+                "order": 1,
+                "range": 50
+            },
+            "priceData": {
+                "instrument": "0x0000000000000000000000000000000000001000",
+                "expiry": 4294967295,
+                "markPrice": "154050000000000000000",
+                "spotPrice": "154050000000000000000",
+                "benchmarkPrice": "154050000000000000000",
+                "feeder0": "0x0000000000000000000000000000000000001006",
+                "feeder1": "0x0000000000000000000000000000000000000000",
+                "feeder0UpdatedAt": "1763047806",
+                "feeder1UpdatedAt": "0"
+            },
+            "blockInfo": {
+                "height": 693605,
+                "timestamp": 1763048109
+            },
+            "portfolio": {
+                "oids": [],
+                "rids": [],
+                "position": {
+                    "balance": "400000000000000000000",
+                    "size": "12000000000000000",
+                    "entryNotional": "610000000000000000000",
+                    "entrySocialLossIndex": "0",
+                    "entryFundingIndex": "2920823129133826328134"
+                },
+                "orders": [],
+                "ranges": [],
+                "ordersTaken": []
+            },
+            "quoteState": {
+                "quote": "0x0000000000000000000000000000000000001005",
+                "decimals": 6,
+                "symbol": "USDM",
+                "threshold": "2000000000",
+                "reserve": "0",
+                "balance": "274289898342",
+                "allowance": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                "fundFlow": {
+                    "totalIn": "807710101658",
+                    "totalOut": "0"
+                },
+                "pending": {
+                    "timestamp": 0,
+                    "native": false,
+                    "amount": "0",
+                    "exemption": "0"
+                }
+            }
+        },
+        "input": {
+            "instrumentAddress": "0x0000000000000000000000000000000000001000",
+            "traderAddress": "0x0000000000000000000000000000000000001001",
+            "amount": "25000000000000000000",
+            "transferIn": true,
+            "userSetting": {
+                "deadline": 1800,
+                "slippage": 0
+            }
+        },
+        "expected": {
+            "net": "25000000000000000000",
+            "simulation": {
+                "postPosition": {
+                    "balance": "425000000000000000000",
+                    "size": "12000000000000000",
+                    "entryNotional": "610000000000000000000",
+                    "entrySocialLossIndex": "0",
+                    "entryFundingIndex": "2920823129133826328134"
+                }
+            }
+        }
+    }
+}

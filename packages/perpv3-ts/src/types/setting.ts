@@ -1,9 +1,11 @@
 import type { Address } from 'viem';
-import { abs, ratioToWad, sqrtX96ToTick, tickToWad, wadToTick, wdiv, wdivUp, wmul, wmulDown } from '../math';
+import { abs, ratioToWad, sqrtX96ToTick, tickToSqrtX96, tickToWad, wadToTick, wdiv, wdivUp, wmulDown } from '../math';
 import {
     DEFAULT_DEADLINE_SECONDS,
     DEFAULT_FUNDING_HOUR,
     MAX_TICK,
+    MIN_SQRT_RATIO,
+    MAX_SQRT_RATIO,
     MIN_TICK,
     ONE_RATIO,
     Q96,
@@ -12,6 +14,9 @@ import {
 } from '../constants';
 import { Errors, ErrorCode } from './error';
 import { Condition, Side, sideSign, type QuoteParam, type Setting } from './contract';
+
+const MAX_DEADLINE = 0xffff_ffff;
+export const MAX_SLIPPAGE = RATIO_BASE;
 
 export class UserSetting {
     /**
@@ -32,21 +37,38 @@ export class UserSetting {
     public readonly markPriceBufferInBps: number;
     public readonly strictMode?: boolean;
 
-    constructor(
-        deadline: number,
-        slippage: number,
-        leverage: bigint,
-        markPriceBufferInBps: number = 0,
-        strictMode?: boolean
-    ) {
-        // Validate leverage is positive
-        if (leverage <= 0n) {
-            throw Errors.invalidLeverage(leverage);
+    constructor({
+        deadlineSeconds,
+        slippageBps,
+        leverageWad,
+        markPriceBufferInBps = 0,
+        strictMode,
+    }: {
+        deadlineSeconds: number;
+        slippageBps: number;
+        leverageWad: bigint;
+        markPriceBufferInBps?: number;
+        strictMode?: boolean;
+    }) {
+        if (!Number.isSafeInteger(deadlineSeconds) || deadlineSeconds > MAX_DEADLINE) {
+            throw Errors.invalidDeadline(deadlineSeconds);
+        }
+        if (!Number.isInteger(slippageBps) || slippageBps < 0 || slippageBps > MAX_SLIPPAGE) {
+            throw Errors.invalidSlippage(slippageBps, MAX_SLIPPAGE);
+        }
+        if (!Number.isSafeInteger(markPriceBufferInBps) || markPriceBufferInBps < 0) {
+            throw Errors.validation(
+                'markPriceBufferInBps must be a non-negative safe integer',
+                ErrorCode.INVALID_PARAM
+            );
+        }
+        if (leverageWad <= 0n) {
+            throw Errors.invalidLeverage(leverageWad);
         }
 
-        this.deadlineSeconds = deadline;
-        this.slippage = slippage;
-        this.leverage = leverage;
+        this.deadlineSeconds = deadlineSeconds;
+        this.slippage = slippageBps;
+        this.leverage = leverageWad;
         this.markPriceBufferInBps = markPriceBufferInBps;
         this.strictMode = strictMode;
     }
@@ -68,10 +90,9 @@ export class UserSetting {
      */
     getDeadline(currentTimestamp?: number): number {
         const now = currentTimestamp ?? Math.floor(Date.now() / 1000);
-        if (this.deadlineSeconds && this.deadlineSeconds > 0) {
-            return now + this.deadlineSeconds;
-        }
-        return now + DEFAULT_DEADLINE_SECONDS;
+        const deadline = now + (this.deadlineSeconds > 0 ? this.deadlineSeconds : DEFAULT_DEADLINE_SECONDS);
+        if (!Number.isSafeInteger(now) || now < 0 || deadline > MAX_DEADLINE) throw Errors.invalidDeadline(deadline);
+        return deadline;
     }
 
     /**
@@ -80,6 +101,7 @@ export class UserSetting {
      */
     getTradeLimitTick(tradePrice: bigint, side: Side): number {
         const sign = sideSign(side);
+        if (sign < 0 && this.slippage === MAX_SLIPPAGE) return MIN_TICK;
         const limitPrice = (tradePrice * (ONE_RATIO + BigInt(sign * this.slippage))) / ONE_RATIO;
         const limitTick = wadToTick(limitPrice);
         return sign > 0 ? limitTick : limitTick + 1;
@@ -89,25 +111,23 @@ export class UserSetting {
      * Gets encoded liquidity limit ticks from sqrt price.
      * Uses the slippage tolerance from this UserSetting.
      */
-    getEncodedLiquidityLimitTicks(sqrtPX96: bigint): bigint {
-        const sqrtStrikePX96Lower = sqrtPX96 - wmulDown(sqrtPX96, ratioToWad(this.slippage));
-        const sqrtStrikePX96Upper = sqrtPX96 + wmulDown(sqrtPX96, ratioToWad(this.slippage));
-
-        // Encode limit ticks from sqrt strike prices
-        const INT24_MIN = -(1 << 23);
-        const INT24_MAX = (1 << 23) - 1;
-        const ZERO_TICK = 0n;
-        const normalize = (tick: number): bigint => {
-            const value = BigInt(tick);
-            return value >= 0 ? value : (1n << 24n) + value;
-        };
-
-        // Add +1 to lowerTick to ensure the range includes the current price when converting from sqrt price to tick.
-        // This accounts for rounding behavior in sqrtX96ToTick conversion.
-        const lowerTick = sqrtStrikePX96Lower === ZERO_TICK ? INT24_MIN : sqrtX96ToTick(sqrtStrikePX96Lower) + 1;
-        const upperTick = sqrtStrikePX96Upper === ZERO_TICK ? INT24_MAX : sqrtX96ToTick(sqrtStrikePX96Upper);
-
-        return (normalize(lowerTick) << 24n) + normalize(upperTick);
+    getEncodedLiquidityLimitTicks(sqrtPX96: bigint, currentTick = sqrtX96ToTick(sqrtPX96)): bigint {
+        const delta = wmulDown(sqrtPX96, ratioToWad(this.slippage));
+        let lower = currentTick;
+        let upper = currentTick;
+        if (delta > 0n) {
+            const lowerPrice = sqrtPX96 - delta;
+            const upperPrice = sqrtPX96 + delta;
+            if (lowerPrice <= MIN_SQRT_RATIO) {
+                lower = MIN_TICK;
+            } else {
+                const floor = sqrtX96ToTick(lowerPrice);
+                // Round inward, including an exact boundary and the observed AMM tick.
+                lower = Math.min(currentTick, tickToSqrtX96(floor) === lowerPrice ? floor : floor + 1);
+            }
+            upper = upperPrice >= MAX_SQRT_RATIO ? MAX_TICK : Math.max(currentTick, sqrtX96ToTick(upperPrice));
+        }
+        return (BigInt.asUintN(24, BigInt(lower)) << 24n) | BigInt.asUintN(24, BigInt(upper));
     }
 
     /**
@@ -130,7 +150,6 @@ export class UserSetting {
 
 const MIN_ORDER_MULTIPLIER = 2;
 const MIN_RANGE_MULTIPLIER = 10;
-export const MAX_SLIPPAGE = 10000;
 export const MAX_CANCEL_ORDER_COUNT = 8;
 
 export class InstrumentSetting {
@@ -308,24 +327,21 @@ export class InstrumentSetting {
      * Get limit order boundaries based on mark price and IMR
      */
     getLimitOrderBoundaries(markPrice: bigint): { maxTickUpper: number; minTickLower: number } {
-        const maxDiff = wmul(markPrice, ratioToWad(this.imr)) * 2n;
-        const rawUpperTick = wadToTick(markPrice + maxDiff);
-        const rawLowerTick = wadToTick(markPrice - maxDiff);
-        let maxTickUpper = this.orderSpacing * Math.floor(rawUpperTick / this.orderSpacing);
-        let minTickLower = this.orderSpacing * Math.ceil(rawLowerTick / this.orderSpacing);
-
-        // Check if raw ticks are within order limit (2 * IMR)
-        if (wdiv(abs(tickToWad(rawUpperTick) - markPrice), markPrice) > ratioToWad(this.imr) * 2n) {
-            maxTickUpper -= this.orderSpacing;
-        }
-
-        if (wdiv(abs(tickToWad(rawLowerTick) - markPrice), markPrice) > ratioToWad(this.imr) * 2n) {
-            minTickLower += this.orderSpacing;
-        }
-
+        const limit = ratioToWad(this.imr) * 2n;
+        // Search the aligned ticks themselves, including plateaus introduced by WAD rounding.
+        const firstMatchingTick = (matches: (deviation: bigint) => boolean) => {
+            let lo = Math.ceil(MIN_TICK / this.orderSpacing);
+            let hi = Math.floor(MAX_TICK / this.orderSpacing) + 1;
+            while (lo < hi) {
+                const mid = Math.floor((lo + hi) / 2);
+                if (matches(this.orderPriceDeviation(mid * this.orderSpacing, markPrice))) hi = mid;
+                else lo = mid + 1;
+            }
+            return lo * this.orderSpacing;
+        };
         return {
-            maxTickUpper,
-            minTickLower,
+            minTickLower: firstMatchingTick((deviation) => deviation >= -limit),
+            maxTickUpper: firstMatchingTick((deviation) => deviation > limit) - this.orderSpacing,
         };
     }
 
@@ -375,54 +391,18 @@ export class InstrumentSetting {
         ammTick: number,
         markPrice: bigint
     ): { minTick: number; maxTick: number } | null {
-        const imr = ratioToWad(this.imr);
-        const maxDeviation = imr * 2n;
+        const { minTickLower, maxTickUpper } = this.getLimitOrderBoundaries(markPrice);
+        const minTick =
+            side === Side.SHORT ? Math.max(minTickLower, this.alignTickStrictlyAbove(ammTick)) : minTickLower;
+        const maxTick =
+            side === Side.LONG ? Math.min(maxTickUpper, this.alignTickStrictlyBelow(ammTick)) : maxTickUpper;
+        return minTick <= maxTick ? { minTick, maxTick } : null;
+    }
 
-        if (side === Side.LONG) {
-            // LONG orders: ticks < ammTick, price deviation within [markPrice - 2*IMR*markPrice, markPrice]
-            const maxTick = ammTick - 1;
-            const minDeviationPrice = markPrice - wmul(markPrice, maxDeviation);
-            const minDeviationTick = wadToTick(minDeviationPrice);
-
-            // minDeviationTick is the lower bound, maxTick is the upper bound
-            const effectiveMinTick = Math.max(MIN_TICK, minDeviationTick);
-            const effectiveMaxTick = maxTick;
-
-            const alignedMinTick = this.alignTickStrictlyAbove(effectiveMinTick - 1);
-            const alignedMaxTick = this.alignTickStrictlyBelow(effectiveMaxTick + 1);
-
-            if (alignedMinTick < MIN_TICK || alignedMaxTick > MAX_TICK) {
-                return null;
-            }
-
-            if (alignedMinTick > alignedMaxTick) {
-                return null;
-            }
-
-            return { minTick: alignedMinTick, maxTick: alignedMaxTick };
-        } else {
-            // SHORT orders: ticks > ammTick, price deviation within [markPrice, markPrice + 2*IMR*markPrice]
-            const minTick = ammTick + 1;
-            const maxDeviationPrice = markPrice + wmul(markPrice, maxDeviation);
-            const maxDeviationTick = wadToTick(maxDeviationPrice);
-
-            // minTick is the lower bound, maxDeviationTick is the upper bound
-            const effectiveMinTick = minTick;
-            const effectiveMaxTick = Math.min(MAX_TICK, maxDeviationTick);
-
-            const alignedMinTick = this.alignTickStrictlyAbove(effectiveMinTick - 1);
-            const alignedMaxTick = this.alignTickStrictlyBelow(effectiveMaxTick + 1);
-
-            if (alignedMinTick < MIN_TICK || alignedMaxTick > MAX_TICK) {
-                return null;
-            }
-
-            if (alignedMinTick > alignedMaxTick) {
-                return null;
-            }
-
-            return { minTick: alignedMinTick, maxTick: alignedMaxTick };
-        }
+    private orderPriceDeviation(tick: number, markPrice: bigint): bigint {
+        const delta = tickToWad(tick) - markPrice;
+        const magnitude = wdiv(abs(delta), markPrice);
+        return delta < 0n ? -magnitude : magnitude;
     }
 
     /**
@@ -494,8 +474,7 @@ export class InstrumentSetting {
 
         // Check price deviation (within 2 * IMR)
         const imr = ratioToWad(this.imr);
-        const targetPrice = tickToWad(tick);
-        const priceDeviation = wdiv(abs(targetPrice - markPrice), markPrice);
+        const priceDeviation = abs(this.orderPriceDeviation(tick, markPrice));
         if (priceDeviation > imr * 2n) {
             return {
                 valid: false,

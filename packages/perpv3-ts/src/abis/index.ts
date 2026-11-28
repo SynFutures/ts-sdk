@@ -1,5 +1,3 @@
-import { base, blast } from 'viem/chains';
-
 import { CURRENT_GATE_ABI } from './latest/gate';
 import { LEGACY_GATE_ABI } from './legacy/gate';
 import { CURRENT_OBSERVER_ABI } from './latest/observer';
@@ -13,38 +11,29 @@ import { LEGACY_CEX_MARKET_ABI } from './legacy/cexMarket';
 import { DEX_V2_MARKET_ABI } from './latest/dexV2Market';
 import { LEGACY_DEX_V2_MARKET_ABI } from './legacy/dexV2Market';
 
-const LEGACY_NETWORKS: number[] = [base.id, blast.id];
+import type { Address } from 'viem';
 
-export const isLegacyChain = (chainId: number): boolean => LEGACY_NETWORKS.includes(chainId);
-
-export const getAbiVersion = (chainId: number): 'legacy' | 'current' => (isLegacyChain(chainId) ? 'legacy' : 'current');
-
-export interface ABISet {
-    Gate: typeof CURRENT_GATE_ABI | typeof LEGACY_GATE_ABI;
-    Observer: typeof CURRENT_OBSERVER_ABI | typeof LEGACY_OBSERVER_ABI;
-    Config: typeof CURRENT_CONFIG_ABI | typeof LEGACY_CONFIG_ABI;
-    Instrument: typeof CURRENT_INSTRUMENT_ABI | typeof LEGACY_INSTRUMENT_ABI;
-    CexMarket: typeof CEX_MARKET_ABI | typeof LEGACY_CEX_MARKET_ABI;
-    DexV2Market: typeof DEX_V2_MARKET_ABI | typeof LEGACY_DEX_V2_MARKET_ABI;
+export interface ContractDeployment {
+    readonly address: Address;
+    readonly version: AbiVersion;
 }
 
-export const getABISet = (chainId: number): ABISet => {
-    const useLegacy = isLegacyChain(chainId);
+export type AbiVersion = 'legacy' | 'current';
 
-    return {
-        Gate: useLegacy ? LEGACY_GATE_ABI : CURRENT_GATE_ABI,
-        Observer: useLegacy ? LEGACY_OBSERVER_ABI : CURRENT_OBSERVER_ABI,
-        Config: useLegacy ? LEGACY_CONFIG_ABI : CURRENT_CONFIG_ABI,
-        Instrument: useLegacy ? LEGACY_INSTRUMENT_ABI : CURRENT_INSTRUMENT_ABI,
-        CexMarket: useLegacy ? LEGACY_CEX_MARKET_ABI : CEX_MARKET_ABI,
-        DexV2Market: useLegacy ? LEGACY_DEX_V2_MARKET_ABI : DEX_V2_MARKET_ABI,
-    };
-};
+const deployments = {
+    current: { Gate:CURRENT_GATE_ABI, Observer:CURRENT_OBSERVER_ABI, Config:CURRENT_CONFIG_ABI, Instrument:CURRENT_INSTRUMENT_ABI, CexMarket:CEX_MARKET_ABI, DexV2Market:DEX_V2_MARKET_ABI },
+    legacy: { Gate:LEGACY_GATE_ABI, Observer:LEGACY_OBSERVER_ABI, Config:LEGACY_CONFIG_ABI, Instrument:LEGACY_INSTRUMENT_ABI, CexMarket:LEGACY_CEX_MARKET_ABI, DexV2Market:LEGACY_DEX_V2_MARKET_ABI },
+} as const;
 
-export const getABI = (chainId: number, contractName: keyof ABISet): unknown => {
-    const abiSet = getABISet(chainId);
-    return abiSet[contractName];
-};
+export type ABISet = typeof deployments[AbiVersion];
+
+export function getABISet<V extends AbiVersion>(version:V): typeof deployments[V] {
+    return deployments[version];
+}
+
+export function getABI<V extends AbiVersion,K extends keyof ABISet>(version:V, contractName:K): typeof deployments[V][K] {
+    return deployments[version][contractName];
+}
 
 export * from './latest/gate';
 export * from './legacy/gate';

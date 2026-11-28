@@ -373,8 +373,8 @@ export class Position {
 
             const longPos: Position = position1.size > ZERO ? position1 : position2;
             const shortPos: Position = position1.size > ZERO ? position2 : position1;
-            let closedLongNotional: bigint = ZERO;
-            let closedShortNotional: bigint = ZERO;
+            let closedLongNotional: bigint;
+            let closedShortNotional: bigint;
 
             if (combinedSize > ZERO) {
                 closedLongNotional = frac(longPos.entryNotional, closedSize, longPos.size);

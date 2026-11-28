@@ -1,5 +1,5 @@
-import type { Address } from 'viem';
-import { DEFAULT_PUBLIC_WS_URL } from './apis/constants';
+import { isAddressEqual, type Address } from 'viem';
+import { PublicWebsocketClient } from './apis/websocket';
 import type {
     InstrumentStreamData,
     MarketPairInfoChangedData,
@@ -14,18 +14,13 @@ import {
     inquireByBaseSize,
     inquireByTick,
     isApiConfig,
-    resolveApiConfig,
     type ApiConfig,
     type ReadOptions,
     type RpcConfig,
 } from './queries';
-import {
-    UserSetting,
-    type PairSnapshot,
-    type Quotation,
-} from './types';
-import { WebSocketManager } from './wss';
-import { httpClient as defaultHttpClient, MarketMakerModule, MarketModule } from './apis';
+import { UserSetting, type PairSnapshot, type Quotation } from './types';
+import { MarketMakerModule, MarketModule } from './apis';
+import { HttpClient } from './utils/http';
 
 /**
  * PerpClient is a scoped client for interacting with a specific trading pair (instrument + expiry).
@@ -41,12 +36,10 @@ export class PerpClient {
     private readonly _instrumentAddress: Address;
     private readonly _expiry: number;
     private readonly _rpcFallback?: RpcConfig;
-    private readonly wsManager: WebSocketManager;
-    private readonly wsUrl: string;
-    private readonly wsOptions?: PublicWebsocketClientOptions;
+    readonly websocket: PublicWebsocketClient;
 
-    private readonly _mm?: MarketMakerModule;
-    private readonly _market?: MarketModule;
+    readonly mm?: MarketMakerModule;
+    readonly market?: MarketModule;
 
     /**
      * Create a new PerpClient instance.
@@ -62,17 +55,17 @@ export class PerpClient {
         instrumentAddress: Address,
         expiry: number,
         options?: {
-            wsManager?: WebSocketManager; // Optional - defaults to singleton
-            wsUrl?: string;
-            wsOptions?: PublicWebsocketClientOptions;
             /**
              * Optional RPC config for falling back to onchain reads when API requests fail.
              * Only used when `config` is `ApiConfig`.
              */
             rpcFallback?: RpcConfig;
-        }
+        } & (
+            | { websocket?: PublicWebsocketClient; wsOptions?: never }
+            | { websocket?: never; wsOptions?: PublicWebsocketClientOptions }
+        )
     ) {
-        this._config = isApiConfig(config) ? resolveApiConfig(config) : config;
+        this._config = config;
         this._userSetting = userSetting;
         this._instrumentAddress = instrumentAddress;
         this._expiry = expiry;
@@ -82,16 +75,14 @@ export class PerpClient {
                 `rpcFallback.chainId (${this._rpcFallback.chainId}) must match ApiConfig.chainId (${this._config.chainId})`
             );
         }
-        this.wsManager = options?.wsManager ?? WebSocketManager.getInstance();
-        this.wsUrl = options?.wsUrl ?? DEFAULT_PUBLIC_WS_URL;
-        this.wsOptions = options?.wsOptions;
+        this.websocket = options?.websocket ?? new PublicWebsocketClient(options?.wsOptions);
         if (isApiConfig(this._config)) {
-            const client = this._config.httpClient ?? defaultHttpClient;
+            const client = new HttpClient(this._config);
             if (this._config.authInfo) {
-                this._mm = new MarketMakerModule(client, this._config.authInfo);
+                this.mm = new MarketMakerModule(client, this._config.authInfo);
             }
             if (this._config.signer) {
-                this._market = new MarketModule(client, this._config.signer);
+                this.market = new MarketModule(client, this._config.signer);
             }
         }
     }
@@ -125,192 +116,66 @@ export class PerpClient {
     }
 
     /**
-     * Gets the Market Maker module. Throws an error if not initialized.
-     */
-    get mm(): MarketMakerModule {
-        if (!this._mm) {
-            throw new Error('MarketMaker module is not initialized. Please check if the config is an API config and has authInfo.');
-        }
-        return this._mm;
-    }
-
-    /**
-     * Gets the Market module. Throws an error if not initialized.
-     */
-    get market(): MarketModule {
-        if (!this._market) {
-            throw new Error('Market module is not initialized. Please check if the config is an API config and has signer.');
-        }
-        return this._market;
-    }
-
-    /**
      * Check if this client is scoped to a specific pair.
      */
     isForPair(instrumentAddress: Address, expiry: number): boolean {
-        return this._instrumentAddress === instrumentAddress && this._expiry === expiry;
+        return this._expiry === expiry && isAddressEqual(this._instrumentAddress, instrumentAddress);
     }
 
     // ============================================================================
     // Query Methods
     // ============================================================================
 
-    /**
-     * Fetch on-chain context (snapshot) for this pair.
-     *
-     * If this client is created with an API config and `rpcFallback` is provided, this will use the API by default
-     * and fall back to RPC reads when the API request fails.
-     * @param traderAddress - Optional trader address to fetch portfolio
-     * @param signedSize - Optional signed size to fetch quotation
-     * @param options - Optional read options (blockNumber, blockTag) - only used for RPC config
-     * @returns PairSnapshot with required fields and optional quotation
-     */
-    async getSnapshot(traderAddress?: Address, signedSize?: bigint, options?: ReadOptions): Promise<PairSnapshot> {
-        if (isApiConfig(this._config) && this._rpcFallback) {
-            // Market API endpoints require an `ApiSigner`. When no signer is provided, skip the API path entirely and
-            // use `rpcFallback` directly (otherwise we'd just throw and catch to reach the same result).
-            if (!this._config.signer) {
-                return fetchOnchainContext(
-                    this._instrumentAddress,
-                    this._expiry,
-                    this._rpcFallback,
-                    traderAddress,
-                    signedSize,
-                    options
-                );
-            }
-
-            try {
-                return await fetchOnchainContext(
-                    this._instrumentAddress,
-                    this._expiry,
-                    this._config,
-                    traderAddress,
-                    signedSize
-                );
-            } catch (apiError) {
-                try {
-                    return await fetchOnchainContext(
-                        this._instrumentAddress,
-                        this._expiry,
-                        this._rpcFallback,
-                        traderAddress,
-                        signedSize,
-                        options
-                    );
-                } catch (rpcError) {
-                    throw new AggregateError(
-                        [apiError, rpcError],
-                        'PerpClient.getSnapshot failed: API request and rpcFallback request both failed'
-                    );
-                }
-            }
+    private async query<T>(
+        name: string,
+        options: ReadOptions | undefined,
+        read: (config: ApiConfig | RpcConfig) => Promise<T>
+    ): Promise<T> {
+        const rpc = this._rpcFallback;
+        if (!isApiConfig(this._config) || !rpc) return read(this._config);
+        if (!this._config.signer || options?.blockNumber !== undefined || options?.blockTag !== undefined)
+            return read(rpc);
+        let apiError: unknown;
+        try {
+            const result = await read(this._config);
+            if (result !== null) return result;
+            apiError = new Error('API returned null orderBook');
+        } catch (error) {
+            apiError = error;
         }
-
-        return fetchOnchainContext(this._instrumentAddress, this._expiry, this._config, traderAddress, signedSize, options);
+        try {
+            return await read(rpc);
+        } catch (error) {
+            throw new AggregateError(
+                [apiError, error],
+                `PerpClient.${name} failed: API request and rpcFallback request both failed`,
+                { cause: error }
+            );
+        }
     }
 
-    /**
-     * Inquire by tick for this pair.
-     * @param tick - Target tick
-     * @param options - Optional read options (blockNumber, blockTag) - only used for RPC config
-     * @returns Object with size and quotation
-     */
-    async getQuotation(tick: number, options?: ReadOptions): Promise<{ size: bigint; quotation: Quotation }> {
-        if (isApiConfig(this._config) && this._rpcFallback) {
-            // Market API endpoints require an `ApiSigner`. When no signer is provided, skip the API path entirely and
-            // use `rpcFallback` directly (otherwise we'd just throw and catch to reach the same result).
-            if (!this._config.signer) {
-                return inquireByTick(this._instrumentAddress, this._expiry, tick, this._rpcFallback, options);
-            }
-
-            try {
-                return await inquireByTick(this._instrumentAddress, this._expiry, tick, this._config);
-            } catch (apiError) {
-                try {
-                    return await inquireByTick(this._instrumentAddress, this._expiry, tick, this._rpcFallback, options);
-                } catch (rpcError) {
-                    throw new AggregateError(
-                        [apiError, rpcError],
-                        'PerpClient.getQuotation failed: API request and rpcFallback request both failed'
-                    );
-                }
-            }
-        }
-
-        return inquireByTick(this._instrumentAddress, this._expiry, tick, this._config, options);
+    getSnapshot(traderAddress?: Address, signedSize?: bigint, options?: ReadOptions): Promise<PairSnapshot> {
+        return this.query('getSnapshot', options, (config) =>
+            fetchOnchainContext(this.instrumentAddress, this.expiry, config, traderAddress, signedSize, options)
+        );
     }
 
-    /**
-     * Inquire by signed base size for this pair.
-     *
-     * If this client is created with an API config and `rpcFallback` is provided, this will use the API by default
-     * and fall back to RPC reads when the API request fails.
-     */
-    async inquire(signedSize: bigint, options?: ReadOptions): Promise<Quotation> {
-        if (isApiConfig(this._config) && this._rpcFallback) {
-            // Market API endpoints require an `ApiSigner`. When no signer is provided, skip the API path entirely and
-            // use `rpcFallback` directly (otherwise we'd just throw and catch to reach the same result).
-            if (!this._config.signer) {
-                return inquireByBaseSize(this._instrumentAddress, this._expiry, signedSize, this._rpcFallback, options);
-            }
-
-            try {
-                return await inquireByBaseSize(this._instrumentAddress, this._expiry, signedSize, this._config);
-            } catch (apiError) {
-                try {
-                    return await inquireByBaseSize(this._instrumentAddress, this._expiry, signedSize, this._rpcFallback, options);
-                } catch (rpcError) {
-                    throw new AggregateError(
-                        [apiError, rpcError],
-                        'PerpClient.inquire failed: API request and rpcFallback request both failed'
-                    );
-                }
-            }
-        }
-
-        return inquireByBaseSize(this._instrumentAddress, this._expiry, signedSize, this._config, options);
+    getQuotation(tick: number, options?: ReadOptions): Promise<{ size: bigint; quotation: Quotation }> {
+        return this.query('getQuotation', options, (config) =>
+            inquireByTick(this.instrumentAddress, this.expiry, tick, config, options)
+        );
     }
 
-    /**
-     * Fetch order book for this pair.
-     *
-     * If this client is created with an API config and `rpcFallback` is provided, this will use the API by default
-     * and fall back to RPC reads when the API request fails or returns null.
-     * @param length - Optional order book depth (default: 10) - only used for RPC
-     * @param options - Optional read options (blockNumber, blockTag) - only used for RPC config
-     * @returns Order book data with bids/asks
-     */
-    async getOrderBook(length?: number, options?: ReadOptions) {
-        if (isApiConfig(this._config) && this._rpcFallback) {
-            // Market API endpoints require an `ApiSigner`. When no signer is provided, skip the API path entirely and
-            // use `rpcFallback` directly (otherwise we'd just throw and catch to reach the same result).
-            if (!this._config.signer) {
-                return fetchOrderBook(this._instrumentAddress, this._expiry, this._rpcFallback, length, options);
-            }
+    inquire(signedSize: bigint, options?: ReadOptions): Promise<Quotation> {
+        return this.query('inquire', options, (config) =>
+            inquireByBaseSize(this.instrumentAddress, this.expiry, signedSize, config, options)
+        );
+    }
 
-            let apiError: unknown;
-            try {
-                const apiResult = await fetchOrderBook(this._instrumentAddress, this._expiry, this._config);
-                if (apiResult !== null) {
-                    return apiResult;
-                }
-                apiError = new Error('API returned null orderBook');
-            } catch (error) {
-                apiError = error;
-            }
-
-            try {
-                return await fetchOrderBook(this._instrumentAddress, this._expiry, this._rpcFallback, length, options);
-            } catch (rpcError) {
-                throw new AggregateError(
-                    [apiError, rpcError],
-                    'PerpClient.getOrderBook failed: API request and rpcFallback request both failed'
-                );
-            }
-        }
-
-        return fetchOrderBook(this._instrumentAddress, this._expiry, this._config, length, options);
+    getOrderBook(length?: number, options?: ReadOptions) {
+        return this.query('getOrderBook', options, (config) =>
+            fetchOrderBook(this.instrumentAddress, this.expiry, config, length, options)
+        );
     }
 
     // ============================================================================
@@ -323,16 +188,14 @@ export class PerpClient {
      * @returns Unsubscribe function
      */
     subscribeOrderBook(handler: (data: OrderBookStreamData) => void): () => void {
-        const subscription = this.wsManager.subscribeOrderBook(
-            this.wsUrl,
+        const subscription = this.websocket.subscribeOrderBook(
             {
                 chainId: this._config.chainId,
                 instrument: this._instrumentAddress,
                 expiry: this._expiry,
                 type: 'orderBook',
             },
-            handler,
-            this.wsOptions
+            handler
         );
         return () => subscription.unsubscribe();
     }
@@ -344,15 +207,13 @@ export class PerpClient {
      * @returns Unsubscribe function
      */
     subscribePortfolio(userAddress: Address, handler: (data: PortfolioStreamData) => void): () => void {
-        const subscription = this.wsManager.subscribePortfolio(
-            this.wsUrl,
+        const subscription = this.websocket.subscribePortfolio(
             {
                 chainId: this._config.chainId,
                 userAddress,
                 type: 'portfolio',
             },
-            handler,
-            this.wsOptions
+            handler
         );
         return () => subscription.unsubscribe();
     }
@@ -363,16 +224,14 @@ export class PerpClient {
      * @returns Unsubscribe function
      */
     subscribeInstrument(handler: (data: InstrumentStreamData | MarketPairInfoChangedData) => void): () => void {
-        const subscription = this.wsManager.subscribeInstrument(
-            this.wsUrl,
+        const subscription = this.websocket.subscribeInstrument(
             {
                 chainId: this._config.chainId,
                 instrument: this._instrumentAddress,
                 expiry: this._expiry,
                 type: 'instrument',
             },
-            handler,
-            this.wsOptions
+            handler
         );
         return () => subscription.unsubscribe();
     }
@@ -384,15 +243,13 @@ export class PerpClient {
      */
     subscribeTrades(handler: (data: TradesStreamData) => void): () => void {
         const pair = `${this._instrumentAddress.toLowerCase()}_${this._expiry}`;
-        const subscription = this.wsManager.subscribeTrades(
-            this.wsUrl,
+        const subscription = this.websocket.subscribeTrades(
             {
                 chainId: this._config.chainId,
                 pairs: [pair],
                 type: 'trades',
             },
-            handler,
-            this.wsOptions
+            handler
         );
         return () => subscription.unsubscribe();
     }

@@ -1,63 +1,59 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { ethers } = require('ethers');
-const { airdropPlugin, AirdropContracts, Airdrop__factory, MerkleDistributorWithDeadlineAbi } = require('../build');
-const { AirdropParser } = require('../build/parser');
-
-test('the raw ABI preserves its published CommonJS namespace and factory signatures', () => {
-    const raw = require('../build/abis/airdrop.json');
-    assert.deepEqual(Object.keys(MerkleDistributorWithDeadlineAbi), [...Object.keys(raw), 'default']);
-    assert.deepEqual(MerkleDistributorWithDeadlineAbi.default, raw);
-    for (const i of Object.keys(raw)) assert.equal(MerkleDistributorWithDeadlineAbi[i], raw[i]);
-    const abi = Airdrop__factory.createInterface();
-    assert.equal(abi.getSighash('withdraw'), new ethers.utils.Interface(raw).getSighash('withdraw'));
-});
-
-test('chain-selected and explicit distributors preserve reads, calldata and signer routing', async () => {
-    const account = '0x0000000000000000000000000000000000000001';
-    const custom = '0x0000000000000000000000000000000000000002';
-    const abi = Airdrop__factory.createInterface();
-    const calls = [];
-    const registered = [];
-    const receipt = { status: 1 };
-    const options = { signer: ethers.Wallet.createRandom() };
-    const provider = new ethers.providers.Web3Provider({ request: async ({ method, params }) => {
-        if (method === 'eth_chainId') return '0x1';
-        assert.equal(method, 'eth_call');
-        calls.push(params);
-        return abi.encodeFunctionResult('isClaimed', [true]);
-    } }, 1);
-    const host = {
-        ctx: {
-            chainId: 1, provider,
-            registerAddress: (address, name) => registered.push([address, name]),
-            registerContractParser: (address, parser) => {
-                assert.equal(address, AirdropContracts[1]);
-                assert.ok(parser instanceof AirdropParser);
-            },
-        },
-    };
-    const { airdrop } = airdropPlugin().install(host);
-    assert.equal(await airdrop.isClaimed(custom, 0), true);
-    await assert.rejects(airdrop.claim(custom, 0, '123', account, []), {
-        name: 'Error',
-        message: /install the transaction plugin.*host\.tx/i,
-    });
-    host.tx = { sendTx: async (tx, opts) => {
-        if (opts === undefined) return tx;
-        assert.equal(opts, options);
-        return receipt;
-    } };
-    for (const [address, prefix] of [[AirdropContracts[1], []], [custom, [custom]]]) {
-        assert.equal(await airdrop.isClaimed(...prefix, 0, { blockTag: 21 }), true);
-        assert.deepEqual(calls.at(-1), [{
-            to: address.toLowerCase(),
-            data: abi.encodeFunctionData('isClaimed', [0]),
-        }, '0x15']);
-        const tx = await airdrop.claim(...prefix, 0, '123', account, []);
-        assert.equal(tx.to, address);
-        assert.equal(tx.data, abi.encodeFunctionData('claim', [0, account, 123, []]));
-        assert.equal(await airdrop.claim(...prefix, 0, '123', account, [], options), receipt);
+const { createPublicClient, custom } = require('viem');
+const { mainnet, base } = require('viem/chains');
+const { createAirdropClient, airdropAbi } = require('../dist/index.cjs');
+const account = '0x' + '12'.repeat(20),
+    leaf = '0x' + '34'.repeat(32);
+const word = (n) => BigInt(n).toString(16).padStart(64, '0');
+test('constructs the original claim bytes on both deployments without invoking RPC', () => {
+    const args = { account, index: 0n, amount: 2n ** 200n, proof: [leaf] };
+    for (const [chain, to] of [
+        [mainnet, '0xAeACfdb15284bDf93155C3616CC4a65C2C93EdFC'],
+        [base, '0x2e28798f592392B1A1A735D405D43DDF327634F2'],
+    ]) {
+        const client = createAirdropClient(
+            createPublicClient({
+                chain,
+                transport: custom({
+                    request() {
+                        throw Error('unexpected RPC');
+                    },
+                }),
+            })
+        );
+        assert.deepEqual(client.buildClaim(args), {
+            to,
+            data: '0x2e7ba6ef' + word(0) + word(account) + word(args.amount) + word(128) + word(1) + leaf.slice(2),
+        });
     }
-    assert.deepEqual(registered, Array(3).fill([AirdropContracts[1], 'Airdrop']));
+    const client = createAirdropClient(
+        createPublicClient({
+            transport: custom({
+                request() {
+                    throw Error('unexpected RPC');
+                },
+            }),
+        })
+    );
+    assert.throws(() => client.buildClaim(args), /distributor/);
+    assert.equal(client.buildClaim({ ...args, distributor: account }).to, account);
+    assert.ok(airdropAbi.some((x) => x.name === 'Claimed'));
+});
+test('isClaimed passes an explicit distributor and block zero through eth_call', async () => {
+    const client = createAirdropClient(
+        createPublicClient({
+            chain: mainnet,
+            transport: custom({
+                request({ method, params }) {
+                    assert.equal(method, 'eth_call');
+                    assert.equal(params[0].to, account);
+                    assert.equal(params[0].data, '0x9e34070f' + word(0));
+                    assert.equal(params[1], '0x0');
+                    return '0x' + word(1);
+                },
+            }),
+        })
+    );
+    assert.equal(await client.isClaimed(0n, { distributor: account, blockNumber: 0n }), true);
 });

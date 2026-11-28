@@ -1,6 +1,4 @@
-import type { Address, Hash } from 'viem';
-import { createTestClient, createWalletClient, http } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
+import type { Address } from 'viem';
 
 import {
     AddInput,
@@ -18,7 +16,6 @@ import {
     WAD,
     encodeAddParam,
     encodeCancelParam,
-    encodeDepositParam,
     encodeFillParam,
     encodePlaceParam,
     encodeTradeParam,
@@ -28,13 +25,15 @@ import {
     wadToTick,
 } from '../../index';
 import { abs } from '../../math';
-import { createDevnetContext } from './devnet';
+import { createDevnetContext, createDevnetHelpers } from './devnet';
 
 const ctx = createDevnetContext();
 
 const futuresInstrument = ctx.manifest.instruments.find((instrument) => instrument.expiry !== PERP_EXPIRY);
 if (!futuresInstrument) {
-    throw new Error('Missing dated futures instrument in devnet manifest. Run: pnpm -C packages/perpv3-ts run devnet:regen');
+    throw new Error(
+        'Missing dated futures instrument in devnet manifest. Run: pnpm -C packages/perpv3-ts run devnet:regen'
+    );
 }
 
 const INSTRUMENT_ADDRESS = futuresInstrument.address;
@@ -46,6 +45,10 @@ if (!quoteInfo) {
 }
 
 const QUOTE_TOKEN = quoteInfo.address;
+const { createUserWallet, waitForTx, transferQuote, approveQuote, depositQuote, getQuoteBalance } = createDevnetHelpers(
+    ctx,
+    QUOTE_TOKEN
+);
 const QUOTE_UNIT = 10n ** BigInt(quoteInfo.decimals);
 
 const QUOTE_SCALER = 10n ** BigInt(18 - quoteInfo.decimals);
@@ -55,39 +58,7 @@ if (!MARKET_ADDRESS) {
     throw new Error(`Missing market address in manifest for marketType=${futuresInstrument.marketType}`);
 }
 
-const testClient = createTestClient({ chain: ctx.chain, mode: 'anvil', transport: http(ctx.manifest.rpcUrl) });
-
 const SETTLING_DURATION_SECONDS = 30 * 60;
-
-const ERC20_ABI = [
-    {
-        name: 'transfer',
-        type: 'function',
-        stateMutability: 'nonpayable',
-        inputs: [
-            { name: 'to', type: 'address' },
-            { name: 'amount', type: 'uint256' },
-        ],
-        outputs: [{ type: 'bool' }],
-    },
-    {
-        name: 'approve',
-        type: 'function',
-        stateMutability: 'nonpayable',
-        inputs: [
-            { name: 'spender', type: 'address' },
-            { name: 'amount', type: 'uint256' },
-        ],
-        outputs: [{ type: 'bool' }],
-    },
-    {
-        name: 'balanceOf',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [{ name: 'account', type: 'address' }],
-        outputs: [{ type: 'uint256' }],
-    },
-] as const;
 
 const MOCK_CHAINLINK_FEEDER_ABI = [
     {
@@ -105,54 +76,6 @@ const MOCK_CHAINLINK_FEEDER_ABI = [
         outputs: [],
     },
 ] as const;
-
-function createUserWallet(addressIndex: number) {
-    const account = mnemonicToAccount(ctx.preset.anvil.mnemonic, { addressIndex });
-    return createWalletClient({ chain: ctx.chain, transport: http(ctx.manifest.rpcUrl), account });
-}
-
-async function waitForTx(hash: Hash) {
-    await ctx.publicClient.waitForTransactionReceipt({ hash });
-}
-
-async function transferQuote(to: Address, amount: bigint) {
-    const hash = await ctx.walletClients.admin.writeContract({
-        address: QUOTE_TOKEN,
-        abi: ERC20_ABI,
-        functionName: 'transfer',
-        args: [to, amount],
-    });
-    await waitForTx(hash);
-}
-
-async function approveQuote(wallet: ReturnType<typeof createUserWallet>, amount: bigint) {
-    const hash = await wallet.writeContract({
-        address: QUOTE_TOKEN,
-        abi: ERC20_ABI,
-        functionName: 'approve',
-        args: [ctx.manifest.contracts.gate, amount],
-    });
-    await waitForTx(hash);
-}
-
-async function depositQuote(wallet: ReturnType<typeof createUserWallet>, amount: bigint) {
-    const hash = await wallet.writeContract({
-        address: ctx.manifest.contracts.gate,
-        abi: CURRENT_GATE_ABI,
-        functionName: 'deposit',
-        args: [encodeDepositParam(QUOTE_TOKEN, amount)],
-    });
-    await waitForTx(hash);
-}
-
-async function getQuoteBalance(address: Address): Promise<bigint> {
-    return await ctx.publicClient.readContract({
-        address: QUOTE_TOKEN,
-        abi: ERC20_ABI,
-        functionName: 'balanceOf',
-        args: [address],
-    });
-}
 
 async function getVaultBalance(address: Address): Promise<bigint> {
     return await ctx.publicClient.readContract({
@@ -259,13 +182,7 @@ async function executeTrade(
 ) {
     const before = await fetchOnchainContext(INSTRUMENT_ADDRESS, EXPIRY, ctx.rpcConfig, wallet.account.address);
 
-    const sizeCandidates = [
-        WAD / 10n,
-        WAD / 5n,
-        WAD / 2n,
-        WAD,
-        2n * WAD,
-    ] as const;
+    const sizeCandidates = [WAD / 10n, WAD / 5n, WAD / 2n, WAD, 2n * WAD] as const;
 
     let signedSize = rng.pick([1n, -1n]) * rng.pick(sizeCandidates);
     const positionSizeBefore = before.portfolio.position.size;
@@ -339,7 +256,7 @@ describe('devnet dated futures integration (ported from v3-contracts hardhat int
                 await depositQuote(wallet, depositAmount);
             }
 
-            const userSetting = new UserSetting(3600, 50, 4n * WAD);
+            const userSetting = new UserSetting({ deadlineSeconds: 3600, slippageBps: 50, leverageWad: 4n * WAD });
 
             const initialAmm = await fetchOnchainContext(
                 INSTRUMENT_ADDRESS,
@@ -390,7 +307,12 @@ describe('devnet dated futures integration (ported from v3-contracts hardhat int
             let placeBaseQuantity = rng.pick([WAD / 10n, WAD / 5n, WAD / 2n, WAD] as const);
             let placeParam: ReturnType<PlaceInput['simulate']>[0] | undefined;
             for (let attempt = 0; attempt < 8; attempt += 1) {
-                const placeInput = new PlaceInput(makerWallet.account.address, orderTick, placeBaseQuantity, Side.SHORT);
+                const placeInput = new PlaceInput(
+                    makerWallet.account.address,
+                    orderTick,
+                    placeBaseQuantity,
+                    Side.SHORT
+                );
                 try {
                     [placeParam] = placeInput.simulate(makerBeforePlace, userSetting);
                     break;
@@ -507,7 +429,9 @@ describe('devnet dated futures integration (ported from v3-contracts hardhat int
                 ctx.rpcConfig,
                 makerWallet.account.address
             );
-            const cancelTick = makerBeforeCancelPlace.instrumentSetting.alignTickStrictlyBelow(makerBeforeCancelPlace.amm.tick);
+            const cancelTick = makerBeforeCancelPlace.instrumentSetting.alignTickStrictlyBelow(
+                makerBeforeCancelPlace.amm.tick
+            );
             const cancelPlaceInput = new PlaceInput(makerWallet.account.address, cancelTick, WAD / 5n, Side.LONG);
             const [cancelPlaceParam] = cancelPlaceInput.simulate(makerBeforeCancelPlace, userSetting);
 
@@ -567,7 +491,7 @@ describe('devnet dated futures integration (ported from v3-contracts hardhat int
             }
 
             log(`enterSettling: +${toSettling}s`);
-            await testClient.increaseTime({ seconds: toSettling });
+            await ctx.advanceTime(toSettling);
             await waitForTx(
                 await ctx.walletClients.admin.writeContract({
                     address: INSTRUMENT_ADDRESS,
@@ -599,7 +523,12 @@ describe('devnet dated futures integration (ported from v3-contracts hardhat int
                 const targetTick = wadToTick(makerDuringSettling.priceData.markPrice);
                 await setSpotPrice(tickToWad(targetTick));
 
-                const closeQuotation = await inquireByBaseSize(INSTRUMENT_ADDRESS, EXPIRY, closeSignedSize, ctx.rpcConfig);
+                const closeQuotation = await inquireByBaseSize(
+                    INSTRUMENT_ADDRESS,
+                    EXPIRY,
+                    closeSignedSize,
+                    ctx.rpcConfig
+                );
                 const closeQuotationWithSize = new QuotationWithSize(closeSignedSize, closeQuotation);
                 const closeSide = closeSignedSize >= 0n ? Side.LONG : Side.SHORT;
                 const [closeTradeParam] = new TradeInput(
@@ -631,7 +560,7 @@ describe('devnet dated futures integration (ported from v3-contracts hardhat int
             // Trade during SETTLING (SDK simulation path) after aligning benchmark close to mark price.
             const markTick = wadToTick(settling.priceData.markPrice);
             await setSpotPrice(tickToWad(markTick + 1));
-            await testClient.increaseTime({ seconds: 60 });
+            await ctx.advanceTime(60);
             await waitForTx(
                 await ctx.walletClients.admin.writeContract({
                     address: INSTRUMENT_ADDRESS,
@@ -683,7 +612,7 @@ describe('devnet dated futures integration (ported from v3-contracts hardhat int
 
             // Finalize settlement.
             log(`finalizeSettlement: +${SETTLING_DURATION_SECONDS + 1}s`);
-            await testClient.increaseTime({ seconds: SETTLING_DURATION_SECONDS + 1 });
+            await ctx.advanceTime(SETTLING_DURATION_SECONDS + 1);
             await waitForTx(
                 await ctx.walletClients.admin.writeContract({
                     address: INSTRUMENT_ADDRESS,
@@ -748,7 +677,7 @@ describe('devnet dated futures integration (ported from v3-contracts hardhat int
         } catch (error) {
             const context = `seed=${seed} steps=${steps}\n${actionLog.join('\n')}`;
             const message = error instanceof Error ? error.message : String(error);
-            throw new Error(`${message}\n\n${context}`, { cause: error as unknown });
+            throw new Error(`${message}\n\n${context}`, { cause: error });
         }
     });
 });
