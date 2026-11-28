@@ -1,0 +1,742 @@
+import type {
+    BaseContract,
+    BigNumber,
+    BigNumberish,
+    BytesLike,
+    CallOverrides,
+    ContractTransaction,
+    Overrides,
+    PopulatedTransaction,
+    Signer,
+    utils,
+} from 'ethers';
+import type { FunctionFragment, Result, EventFragment } from './ethers';
+import type { Listener, Provider } from './ethers';
+import type { TypedEventFilter, TypedEvent, TypedListener, OnEvent, PromiseOrValue } from './common';
+export type QuoteParamStruct = {
+    minMarginAmount: PromiseOrValue<BigNumberish>;
+    tradingFeeRatio: PromiseOrValue<BigNumberish>;
+    protocolFeeRatio: PromiseOrValue<BigNumberish>;
+    stabilityFeeRatioParam: PromiseOrValue<BigNumberish>;
+    qtype: PromiseOrValue<BigNumberish>;
+    tip: PromiseOrValue<BigNumberish>;
+};
+export type QuoteParamStructOutput = [BigNumber, number, number, BigNumber, number, BigNumber] & {
+    minMarginAmount: BigNumber;
+    tradingFeeRatio: number;
+    protocolFeeRatio: number;
+    stabilityFeeRatioParam: BigNumber;
+    qtype: number;
+    tip: BigNumber;
+};
+export type MarketInfoStruct = {
+    mtype: PromiseOrValue<string>;
+    market: PromiseOrValue<string>;
+    beacon: PromiseOrValue<string>;
+};
+export type MarketInfoStructOutput = [string, string, string] & {
+    mtype: string;
+    market: string;
+    beacon: string;
+};
+export interface ConfigInterface extends utils.Interface {
+    functions: {
+        'blastPointsAddress()': FunctionFragment;
+        'blastPointsOperator()': FunctionFragment;
+        'disableLiquidatorWhitelist()': FunctionFragment;
+        'disableLpWhitelist()': FunctionFragment;
+        'enableLpWhitelistForQuote(address,bool)': FunctionFragment;
+        'getAllMarkets()': FunctionFragment;
+        'getMarketInfo(string)': FunctionFragment;
+        'getQuoteParam(address)': FunctionFragment;
+        'isAuthorizedLiquidator(address)': FunctionFragment;
+        'isAuthorizedLp(address,address)': FunctionFragment;
+        'liquidatorWhitelist(address)': FunctionFragment;
+        'lpWhitelist(address,address)': FunctionFragment;
+        'markets(uint256)': FunctionFragment;
+        'marketsLength()': FunctionFragment;
+        'openLiquidator()': FunctionFragment;
+        'openLp()': FunctionFragment;
+        'owner()': FunctionFragment;
+        'restrictLp(address)': FunctionFragment;
+        'setBlastPointsAddress(address)': FunctionFragment;
+        'setBlastPointsOperator(address)': FunctionFragment;
+        'setLiquidatorWhitelist(address[],bool[])': FunctionFragment;
+        'setLpWhiteList(address[],address[],bool[])': FunctionFragment;
+        'setMarketInfo(string,address,address)': FunctionFragment;
+        'setQuoteParam(address[],(uint128,uint16,uint16,uint64,uint8,uint128)[])': FunctionFragment;
+        'transferOwnership(address)': FunctionFragment;
+    };
+    getFunction(
+        nameOrSignatureOrTopic:
+            | 'blastPointsAddress'
+            | 'blastPointsOperator'
+            | 'disableLiquidatorWhitelist'
+            | 'disableLpWhitelist'
+            | 'enableLpWhitelistForQuote'
+            | 'getAllMarkets'
+            | 'getMarketInfo'
+            | 'getQuoteParam'
+            | 'isAuthorizedLiquidator'
+            | 'isAuthorizedLp'
+            | 'liquidatorWhitelist'
+            | 'lpWhitelist'
+            | 'markets'
+            | 'marketsLength'
+            | 'openLiquidator'
+            | 'openLp'
+            | 'owner'
+            | 'restrictLp'
+            | 'setBlastPointsAddress'
+            | 'setBlastPointsOperator'
+            | 'setLiquidatorWhitelist'
+            | 'setLpWhiteList'
+            | 'setMarketInfo'
+            | 'setQuoteParam'
+            | 'transferOwnership'
+    ): FunctionFragment;
+    encodeFunctionData(functionFragment: 'blastPointsAddress', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'blastPointsOperator', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'disableLiquidatorWhitelist', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'disableLpWhitelist', values?: undefined): string;
+    encodeFunctionData(
+        functionFragment: 'enableLpWhitelistForQuote',
+        values: [PromiseOrValue<string>, PromiseOrValue<boolean>]
+    ): string;
+    encodeFunctionData(functionFragment: 'getAllMarkets', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'getMarketInfo', values: [PromiseOrValue<string>]): string;
+    encodeFunctionData(functionFragment: 'getQuoteParam', values: [PromiseOrValue<string>]): string;
+    encodeFunctionData(functionFragment: 'isAuthorizedLiquidator', values: [PromiseOrValue<string>]): string;
+    encodeFunctionData(
+        functionFragment: 'isAuthorizedLp',
+        values: [PromiseOrValue<string>, PromiseOrValue<string>]
+    ): string;
+    encodeFunctionData(functionFragment: 'liquidatorWhitelist', values: [PromiseOrValue<string>]): string;
+    encodeFunctionData(
+        functionFragment: 'lpWhitelist',
+        values: [PromiseOrValue<string>, PromiseOrValue<string>]
+    ): string;
+    encodeFunctionData(functionFragment: 'markets', values: [PromiseOrValue<BigNumberish>]): string;
+    encodeFunctionData(functionFragment: 'marketsLength', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'openLiquidator', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'openLp', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'owner', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'restrictLp', values: [PromiseOrValue<string>]): string;
+    encodeFunctionData(functionFragment: 'setBlastPointsAddress', values: [PromiseOrValue<string>]): string;
+    encodeFunctionData(functionFragment: 'setBlastPointsOperator', values: [PromiseOrValue<string>]): string;
+    encodeFunctionData(
+        functionFragment: 'setLiquidatorWhitelist',
+        values: [PromiseOrValue<string>[], PromiseOrValue<boolean>[]]
+    ): string;
+    encodeFunctionData(
+        functionFragment: 'setLpWhiteList',
+        values: [PromiseOrValue<string>[], PromiseOrValue<string>[], PromiseOrValue<boolean>[]]
+    ): string;
+    encodeFunctionData(
+        functionFragment: 'setMarketInfo',
+        values: [PromiseOrValue<string>, PromiseOrValue<string>, PromiseOrValue<string>]
+    ): string;
+    encodeFunctionData(
+        functionFragment: 'setQuoteParam',
+        values: [PromiseOrValue<string>[], QuoteParamStruct[]]
+    ): string;
+    encodeFunctionData(functionFragment: 'transferOwnership', values: [PromiseOrValue<string>]): string;
+    decodeFunctionResult(functionFragment: 'blastPointsAddress', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'blastPointsOperator', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'disableLiquidatorWhitelist', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'disableLpWhitelist', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'enableLpWhitelistForQuote', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'getAllMarkets', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'getMarketInfo', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'getQuoteParam', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'isAuthorizedLiquidator', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'isAuthorizedLp', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'liquidatorWhitelist', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'lpWhitelist', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'markets', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'marketsLength', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'openLiquidator', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'openLp', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'owner', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'restrictLp', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'setBlastPointsAddress', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'setBlastPointsOperator', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'setLiquidatorWhitelist', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'setLpWhiteList', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'setMarketInfo', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'setQuoteParam', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Result;
+    events: {
+        'DisableLiquidatorWhitelist()': EventFragment;
+        'EnableLpWhitelistForQuote(address,bool)': EventFragment;
+        'DisableLpWhitelist()': EventFragment;
+        'OwnershipTransferred(address,address)': EventFragment;
+        'SetBlastPointsAddress(address)': EventFragment;
+        'SetBlastPointsOperator(address)': EventFragment;
+        'SetLiquidatorWhitelist(address,bool)': EventFragment;
+        'SetLpWhitelist(address,bool)': EventFragment;
+        'SetLpWhitelistForQuote(address,address,bool)': EventFragment;
+        'SetMarketInfo(string,address,address)': EventFragment;
+        'SetQuoteParam(address,tuple)': EventFragment;
+    };
+    getEvent(nameOrSignatureOrTopic: 'DisableLiquidatorWhitelist'): EventFragment;
+    getEvent(nameOrSignatureOrTopic: 'EnableLpWhitelistForQuote'): EventFragment;
+    getEvent(nameOrSignatureOrTopic: 'DisableLpWhitelist'): EventFragment;
+    getEvent(nameOrSignatureOrTopic: 'SetLpWhitelistForQuote'): EventFragment;
+    getEvent(nameOrSignatureOrTopic: 'OwnershipTransferred'): EventFragment;
+    getEvent(nameOrSignatureOrTopic: 'SetBlastPointsAddress'): EventFragment;
+    getEvent(nameOrSignatureOrTopic: 'SetBlastPointsOperator'): EventFragment;
+    getEvent(nameOrSignatureOrTopic: 'SetLiquidatorWhitelist'): EventFragment;
+    getEvent(nameOrSignatureOrTopic: 'SetLpWhitelist'): EventFragment;
+    getEvent(nameOrSignatureOrTopic: 'SetMarketInfo'): EventFragment;
+    getEvent(nameOrSignatureOrTopic: 'SetQuoteParam'): EventFragment;
+}
+export interface DisableLiquidatorWhitelistEventObject {}
+export type DisableLiquidatorWhitelistEvent = TypedEvent<[], DisableLiquidatorWhitelistEventObject>;
+export type DisableLiquidatorWhitelistEventFilter = TypedEventFilter<DisableLiquidatorWhitelistEvent>;
+export interface DisableLpWhitelistEventObject {}
+export type DisableLpWhitelistEvent = TypedEvent<[], DisableLpWhitelistEventObject>;
+export type DisableLpWhitelistEventFilter = TypedEventFilter<DisableLpWhitelistEvent>;
+export interface EnableLpWhitelistForQuoteEventObject {
+    quote: string;
+    restricted: boolean;
+}
+export type EnableLpWhitelistForQuoteEvent = TypedEvent<[string, boolean], EnableLpWhitelistForQuoteEventObject>;
+export type EnableLpWhitelistForQuoteEventFilter = TypedEventFilter<EnableLpWhitelistForQuoteEvent>;
+export interface OwnershipTransferredEventObject {
+    user: string;
+    newOwner: string;
+}
+export type OwnershipTransferredEvent = TypedEvent<[string, string], OwnershipTransferredEventObject>;
+export type OwnershipTransferredEventFilter = TypedEventFilter<OwnershipTransferredEvent>;
+export interface SetBlastPointsAddressEventObject {
+    blastPointsAddress: string;
+}
+export type SetBlastPointsAddressEvent = TypedEvent<[string], SetBlastPointsAddressEventObject>;
+export type SetBlastPointsAddressEventFilter = TypedEventFilter<SetBlastPointsAddressEvent>;
+export interface SetBlastPointsOperatorEventObject {
+    blastPointsOperator: string;
+}
+export type SetBlastPointsOperatorEvent = TypedEvent<[string], SetBlastPointsOperatorEventObject>;
+export type SetBlastPointsOperatorEventFilter = TypedEventFilter<SetBlastPointsOperatorEvent>;
+export interface SetLiquidatorWhitelistEventObject {
+    user: string;
+    authorized: boolean;
+}
+export type SetLiquidatorWhitelistEvent = TypedEvent<[string, boolean], SetLiquidatorWhitelistEventObject>;
+export type SetLiquidatorWhitelistEventFilter = TypedEventFilter<SetLiquidatorWhitelistEvent>;
+export interface SetLpWhitelistEventObject {
+    user: string;
+    authorized: boolean;
+}
+export type SetLpWhitelistEvent = TypedEvent<[string, boolean], SetLpWhitelistEventObject>;
+export type SetLpWhitelistEventFilter = TypedEventFilter<SetLpWhitelistEvent>;
+export interface SetLpWhitelistForQuoteEventObject {
+    quote: string;
+    user: string;
+    authorized: boolean;
+}
+export type SetLpWhitelistForQuoteEvent = TypedEvent<[string, string, boolean], SetLpWhitelistForQuoteEventObject>;
+export type SetLpWhitelistForQuoteEventFilter = TypedEventFilter<SetLpWhitelistForQuoteEvent>;
+export interface SetMarketInfoEventObject {
+    mtype: string;
+    market: string;
+    beacon: string;
+}
+export type SetMarketInfoEvent = TypedEvent<[string, string, string], SetMarketInfoEventObject>;
+export type SetMarketInfoEventFilter = TypedEventFilter<SetMarketInfoEvent>;
+export interface SetQuoteParamEventObject {
+    quote: string;
+    param: QuoteParamStructOutput;
+}
+export type SetQuoteParamEvent = TypedEvent<[string, QuoteParamStructOutput], SetQuoteParamEventObject>;
+export type SetQuoteParamEventFilter = TypedEventFilter<SetQuoteParamEvent>;
+export interface Config extends BaseContract {
+    connect(signerOrProvider: Signer | Provider | string): this;
+    attach(addressOrName: string): this;
+    deployed(): Promise<this>;
+    interface: ConfigInterface;
+    queryFilter<TEvent extends TypedEvent>(
+        event: TypedEventFilter<TEvent>,
+        fromBlockOrBlockhash?: string | number | undefined,
+        toBlock?: string | number | undefined
+    ): Promise<Array<TEvent>>;
+    listeners<TEvent extends TypedEvent>(eventFilter?: TypedEventFilter<TEvent>): Array<TypedListener<TEvent>>;
+    listeners(eventName?: string): Array<Listener>;
+    removeAllListeners<TEvent extends TypedEvent>(eventFilter: TypedEventFilter<TEvent>): this;
+    removeAllListeners(eventName?: string): this;
+    off: OnEvent<this>;
+    on: OnEvent<this>;
+    once: OnEvent<this>;
+    removeListener: OnEvent<this>;
+    functions: {
+        blastPointsAddress(overrides?: CallOverrides): Promise<[string]>;
+        blastPointsOperator(overrides?: CallOverrides): Promise<[string]>;
+        disableLiquidatorWhitelist(
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<ContractTransaction>;
+        disableLpWhitelist(
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<ContractTransaction>;
+        enableLpWhitelistForQuote(
+            quote: PromiseOrValue<string>,
+            enable: PromiseOrValue<boolean>,
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<ContractTransaction>;
+        getAllMarkets(overrides?: CallOverrides): Promise<[string[]]>;
+        getMarketInfo(mtype: PromiseOrValue<string>, overrides?: CallOverrides): Promise<[MarketInfoStructOutput]>;
+        getQuoteParam(quote: PromiseOrValue<string>, overrides?: CallOverrides): Promise<[QuoteParamStructOutput]>;
+        isAuthorizedLiquidator(user: PromiseOrValue<string>, overrides?: CallOverrides): Promise<[boolean]>;
+        isAuthorizedLp(
+            quote: PromiseOrValue<string>,
+            user: PromiseOrValue<string>,
+            overrides?: CallOverrides
+        ): Promise<[boolean]>;
+        liquidatorWhitelist(
+            user: PromiseOrValue<string>,
+            overrides?: CallOverrides
+        ): Promise<
+            [boolean] & {
+                authorized: boolean;
+            }
+        >;
+        lpWhitelist(
+            quote: PromiseOrValue<string>,
+            user: PromiseOrValue<string>,
+            overrides?: CallOverrides
+        ): Promise<
+            [boolean] & {
+                authorized: boolean;
+            }
+        >;
+        markets(arg0: PromiseOrValue<BigNumberish>, overrides?: CallOverrides): Promise<[string]>;
+        marketsLength(overrides?: CallOverrides): Promise<[BigNumber]>;
+        openLiquidator(overrides?: CallOverrides): Promise<[boolean]>;
+        openLp(overrides?: CallOverrides): Promise<[boolean]>;
+        owner(overrides?: CallOverrides): Promise<[string]>;
+        restrictLp(
+            quote: PromiseOrValue<string>,
+            overrides?: CallOverrides
+        ): Promise<
+            [boolean] & {
+                restricted: boolean;
+            }
+        >;
+        setBlastPointsAddress(
+            _blastPointsAddress: PromiseOrValue<string>,
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<ContractTransaction>;
+        setBlastPointsOperator(
+            _blastPointsOperator: PromiseOrValue<string>,
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<ContractTransaction>;
+        setLiquidatorWhitelist(
+            users: PromiseOrValue<string>[],
+            flags: PromiseOrValue<boolean>[],
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<ContractTransaction>;
+        setLpWhiteList(
+            quotes: PromiseOrValue<string>[],
+            users: PromiseOrValue<string>[],
+            flags: PromiseOrValue<boolean>[],
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<ContractTransaction>;
+        setMarketInfo(
+            mtype: PromiseOrValue<string>,
+            market: PromiseOrValue<string>,
+            beacon: PromiseOrValue<string>,
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<ContractTransaction>;
+        setQuoteParam(
+            coins: PromiseOrValue<string>[],
+            params: QuoteParamStruct[],
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<ContractTransaction>;
+        transferOwnership(
+            newOwner: PromiseOrValue<string>,
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<ContractTransaction>;
+    };
+    blastPointsAddress(overrides?: CallOverrides): Promise<string>;
+    blastPointsOperator(overrides?: CallOverrides): Promise<string>;
+    disableLiquidatorWhitelist(
+        overrides?: Overrides & {
+            from?: PromiseOrValue<string>;
+        }
+    ): Promise<ContractTransaction>;
+    disableLpWhitelist(
+        overrides?: Overrides & {
+            from?: PromiseOrValue<string>;
+        }
+    ): Promise<ContractTransaction>;
+    enableLpWhitelistForQuote(
+        quote: PromiseOrValue<string>,
+        enable: PromiseOrValue<boolean>,
+        overrides?: Overrides & {
+            from?: PromiseOrValue<string>;
+        }
+    ): Promise<ContractTransaction>;
+    getAllMarkets(overrides?: CallOverrides): Promise<string[]>;
+    getMarketInfo(mtype: PromiseOrValue<string>, overrides?: CallOverrides): Promise<MarketInfoStructOutput>;
+    getQuoteParam(quote: PromiseOrValue<string>, overrides?: CallOverrides): Promise<QuoteParamStructOutput>;
+    isAuthorizedLiquidator(user: PromiseOrValue<string>, overrides?: CallOverrides): Promise<boolean>;
+    isAuthorizedLp(
+        quote: PromiseOrValue<string>,
+        user: PromiseOrValue<string>,
+        overrides?: CallOverrides
+    ): Promise<boolean>;
+    liquidatorWhitelist(user: PromiseOrValue<string>, overrides?: CallOverrides): Promise<boolean>;
+    lpWhitelist(
+        quote: PromiseOrValue<string>,
+        user: PromiseOrValue<string>,
+        overrides?: CallOverrides
+    ): Promise<boolean>;
+    markets(arg0: PromiseOrValue<BigNumberish>, overrides?: CallOverrides): Promise<string>;
+    marketsLength(overrides?: CallOverrides): Promise<BigNumber>;
+    openLiquidator(overrides?: CallOverrides): Promise<boolean>;
+    openLp(overrides?: CallOverrides): Promise<boolean>;
+    owner(overrides?: CallOverrides): Promise<string>;
+    setBlastPointsAddress(
+        _blastPointsAddress: PromiseOrValue<string>,
+        overrides?: Overrides & {
+            from?: PromiseOrValue<string>;
+        }
+    ): Promise<ContractTransaction>;
+    setBlastPointsOperator(
+        _blastPointsOperator: PromiseOrValue<string>,
+        overrides?: Overrides & {
+            from?: PromiseOrValue<string>;
+        }
+    ): Promise<ContractTransaction>;
+    restrictLp(quote: PromiseOrValue<string>, overrides?: CallOverrides): Promise<boolean>;
+    setLiquidatorWhitelist(
+        users: PromiseOrValue<string>[],
+        flags: PromiseOrValue<boolean>[],
+        overrides?: Overrides & {
+            from?: PromiseOrValue<string>;
+        }
+    ): Promise<ContractTransaction>;
+    setLpWhiteList(
+        quotes: PromiseOrValue<string>[],
+        users: PromiseOrValue<string>[],
+        flags: PromiseOrValue<boolean>[],
+        overrides?: Overrides & {
+            from?: PromiseOrValue<string>;
+        }
+    ): Promise<ContractTransaction>;
+    setMarketInfo(
+        mtype: PromiseOrValue<string>,
+        market: PromiseOrValue<string>,
+        beacon: PromiseOrValue<string>,
+        overrides?: Overrides & {
+            from?: PromiseOrValue<string>;
+        }
+    ): Promise<ContractTransaction>;
+    setQuoteParam(
+        coins: PromiseOrValue<string>[],
+        params: QuoteParamStruct[],
+        overrides?: Overrides & {
+            from?: PromiseOrValue<string>;
+        }
+    ): Promise<ContractTransaction>;
+    transferOwnership(
+        newOwner: PromiseOrValue<string>,
+        overrides?: Overrides & {
+            from?: PromiseOrValue<string>;
+        }
+    ): Promise<ContractTransaction>;
+    callStatic: {
+        blastPointsAddress(overrides?: CallOverrides): Promise<string>;
+        blastPointsOperator(overrides?: CallOverrides): Promise<string>;
+        disableLiquidatorWhitelist(overrides?: CallOverrides): Promise<void>;
+        disableLpWhitelist(overrides?: CallOverrides): Promise<void>;
+        enableLpWhitelistForQuote(
+            quote: PromiseOrValue<string>,
+            enable: PromiseOrValue<boolean>,
+            overrides?: CallOverrides
+        ): Promise<void>;
+        getAllMarkets(overrides?: CallOverrides): Promise<string[]>;
+        getMarketInfo(mtype: PromiseOrValue<string>, overrides?: CallOverrides): Promise<MarketInfoStructOutput>;
+        getQuoteParam(quote: PromiseOrValue<string>, overrides?: CallOverrides): Promise<QuoteParamStructOutput>;
+        isAuthorizedLiquidator(user: PromiseOrValue<string>, overrides?: CallOverrides): Promise<boolean>;
+        isAuthorizedLp(
+            quote: PromiseOrValue<string>,
+            user: PromiseOrValue<string>,
+            overrides?: CallOverrides
+        ): Promise<boolean>;
+        liquidatorWhitelist(user: PromiseOrValue<string>, overrides?: CallOverrides): Promise<boolean>;
+        lpWhitelist(
+            quote: PromiseOrValue<string>,
+            user: PromiseOrValue<string>,
+            overrides?: CallOverrides
+        ): Promise<boolean>;
+        markets(arg0: PromiseOrValue<BigNumberish>, overrides?: CallOverrides): Promise<string>;
+        marketsLength(overrides?: CallOverrides): Promise<BigNumber>;
+        openLiquidator(overrides?: CallOverrides): Promise<boolean>;
+        openLp(overrides?: CallOverrides): Promise<boolean>;
+        owner(overrides?: CallOverrides): Promise<string>;
+        setBlastPointsAddress(_blastPointsAddress: PromiseOrValue<string>, overrides?: CallOverrides): Promise<void>;
+        setBlastPointsOperator(_blastPointsOperator: PromiseOrValue<string>, overrides?: CallOverrides): Promise<void>;
+        restrictLp(quote: PromiseOrValue<string>, overrides?: CallOverrides): Promise<boolean>;
+        setLiquidatorWhitelist(
+            users: PromiseOrValue<string>[],
+            flags: PromiseOrValue<boolean>[],
+            overrides?: CallOverrides
+        ): Promise<void>;
+        setLpWhiteList(
+            quotes: PromiseOrValue<string>[],
+            users: PromiseOrValue<string>[],
+            flags: PromiseOrValue<boolean>[],
+            overrides?: CallOverrides
+        ): Promise<void>;
+        setMarketInfo(
+            mtype: PromiseOrValue<string>,
+            market: PromiseOrValue<string>,
+            beacon: PromiseOrValue<string>,
+            overrides?: CallOverrides
+        ): Promise<void>;
+        setQuoteParam(
+            coins: PromiseOrValue<string>[],
+            params: QuoteParamStruct[],
+            overrides?: CallOverrides
+        ): Promise<void>;
+        transferOwnership(newOwner: PromiseOrValue<string>, overrides?: CallOverrides): Promise<void>;
+    };
+    filters: {
+        'DisableLiquidatorWhitelist()'(): DisableLiquidatorWhitelistEventFilter;
+        DisableLiquidatorWhitelist(): DisableLiquidatorWhitelistEventFilter;
+        'DisableLpWhitelist()'(): DisableLpWhitelistEventFilter;
+        DisableLpWhitelist(): DisableLpWhitelistEventFilter;
+        'EnableLpWhitelistForQuote(address,bool)'(
+            quote?: null,
+            restricted?: null
+        ): EnableLpWhitelistForQuoteEventFilter;
+        EnableLpWhitelistForQuote(quote?: null, restricted?: null): EnableLpWhitelistForQuoteEventFilter;
+        'OwnershipTransferred(address,address)'(
+            user?: PromiseOrValue<string> | null,
+            newOwner?: PromiseOrValue<string> | null
+        ): OwnershipTransferredEventFilter;
+        OwnershipTransferred(
+            user?: PromiseOrValue<string> | null,
+            newOwner?: PromiseOrValue<string> | null
+        ): OwnershipTransferredEventFilter;
+        'SetBlastPointsAddress(address)'(blastPointsAddress?: null): SetBlastPointsAddressEventFilter;
+        SetBlastPointsAddress(blastPointsAddress?: null): SetBlastPointsAddressEventFilter;
+        'SetBlastPointsOperator(address)'(blastPointsOperator?: null): SetBlastPointsOperatorEventFilter;
+        SetBlastPointsOperator(blastPointsOperator?: null): SetBlastPointsOperatorEventFilter;
+        'SetLiquidatorWhitelist(address,bool)'(user?: null, authorized?: null): SetLiquidatorWhitelistEventFilter;
+        SetLiquidatorWhitelist(user?: null, authorized?: null): SetLiquidatorWhitelistEventFilter;
+        'SetLpWhitelist(address,bool)'(user?: null, authorized?: null): SetLpWhitelistEventFilter;
+        SetLpWhitelist(user?: null, authorized?: null): SetLpWhitelistEventFilter;
+        'SetLpWhitelistForQuote(address,address,bool)'(
+            quote?: null,
+            user?: null,
+            authorized?: null
+        ): SetLpWhitelistForQuoteEventFilter;
+        SetLpWhitelistForQuote(quote?: null, user?: null, authorized?: null): SetLpWhitelistForQuoteEventFilter;
+        'SetMarketInfo(string,address,address)'(mtype?: null, market?: null, beacon?: null): SetMarketInfoEventFilter;
+        SetMarketInfo(mtype?: null, market?: null, beacon?: null): SetMarketInfoEventFilter;
+        'SetQuoteParam(address,tuple)'(quote?: null, param?: null): SetQuoteParamEventFilter;
+        SetQuoteParam(quote?: null, param?: null): SetQuoteParamEventFilter;
+    };
+    estimateGas: {
+        blastPointsAddress(overrides?: CallOverrides): Promise<BigNumber>;
+        blastPointsOperator(overrides?: CallOverrides): Promise<BigNumber>;
+        disableLiquidatorWhitelist(
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<BigNumber>;
+        disableLpWhitelist(
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<BigNumber>;
+        enableLpWhitelistForQuote(
+            quote: PromiseOrValue<string>,
+            enable: PromiseOrValue<boolean>,
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<BigNumber>;
+        getAllMarkets(overrides?: CallOverrides): Promise<BigNumber>;
+        getMarketInfo(mtype: PromiseOrValue<string>, overrides?: CallOverrides): Promise<BigNumber>;
+        getQuoteParam(quote: PromiseOrValue<string>, overrides?: CallOverrides): Promise<BigNumber>;
+        isAuthorizedLiquidator(user: PromiseOrValue<string>, overrides?: CallOverrides): Promise<BigNumber>;
+        isAuthorizedLp(
+            quote: PromiseOrValue<string>,
+            user: PromiseOrValue<string>,
+            overrides?: CallOverrides
+        ): Promise<BigNumber>;
+        liquidatorWhitelist(user: PromiseOrValue<string>, overrides?: CallOverrides): Promise<BigNumber>;
+        lpWhitelist(
+            quote: PromiseOrValue<string>,
+            user: PromiseOrValue<string>,
+            overrides?: CallOverrides
+        ): Promise<BigNumber>;
+        markets(arg0: PromiseOrValue<BigNumberish>, overrides?: CallOverrides): Promise<BigNumber>;
+        marketsLength(overrides?: CallOverrides): Promise<BigNumber>;
+        openLiquidator(overrides?: CallOverrides): Promise<BigNumber>;
+        openLp(overrides?: CallOverrides): Promise<BigNumber>;
+        owner(overrides?: CallOverrides): Promise<BigNumber>;
+        setBlastPointsAddress(
+            _blastPointsAddress: PromiseOrValue<string>,
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<BigNumber>;
+        setBlastPointsOperator(
+            _blastPointsOperator: PromiseOrValue<string>,
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<BigNumber>;
+        restrictLp(quote: PromiseOrValue<string>, overrides?: CallOverrides): Promise<BigNumber>;
+        setLiquidatorWhitelist(
+            users: PromiseOrValue<string>[],
+            flags: PromiseOrValue<boolean>[],
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<BigNumber>;
+        setLpWhiteList(
+            quotes: PromiseOrValue<string>[],
+            users: PromiseOrValue<string>[],
+            flags: PromiseOrValue<boolean>[],
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<BigNumber>;
+        setMarketInfo(
+            mtype: PromiseOrValue<string>,
+            market: PromiseOrValue<string>,
+            beacon: PromiseOrValue<string>,
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<BigNumber>;
+        setQuoteParam(
+            coins: PromiseOrValue<string>[],
+            params: QuoteParamStruct[],
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<BigNumber>;
+        transferOwnership(
+            newOwner: PromiseOrValue<string>,
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<BigNumber>;
+    };
+    populateTransaction: {
+        blastPointsAddress(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+        blastPointsOperator(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+        disableLiquidatorWhitelist(
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<PopulatedTransaction>;
+        disableLpWhitelist(
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<PopulatedTransaction>;
+        enableLpWhitelistForQuote(
+            quote: PromiseOrValue<string>,
+            enable: PromiseOrValue<boolean>,
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<PopulatedTransaction>;
+        getAllMarkets(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+        getMarketInfo(mtype: PromiseOrValue<string>, overrides?: CallOverrides): Promise<PopulatedTransaction>;
+        getQuoteParam(quote: PromiseOrValue<string>, overrides?: CallOverrides): Promise<PopulatedTransaction>;
+        isAuthorizedLiquidator(user: PromiseOrValue<string>, overrides?: CallOverrides): Promise<PopulatedTransaction>;
+        isAuthorizedLp(
+            quote: PromiseOrValue<string>,
+            user: PromiseOrValue<string>,
+            overrides?: CallOverrides
+        ): Promise<PopulatedTransaction>;
+        liquidatorWhitelist(user: PromiseOrValue<string>, overrides?: CallOverrides): Promise<PopulatedTransaction>;
+        lpWhitelist(
+            quote: PromiseOrValue<string>,
+            user: PromiseOrValue<string>,
+            overrides?: CallOverrides
+        ): Promise<PopulatedTransaction>;
+        markets(arg0: PromiseOrValue<BigNumberish>, overrides?: CallOverrides): Promise<PopulatedTransaction>;
+        marketsLength(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+        openLiquidator(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+        openLp(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+        owner(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+        restrictLp(quote: PromiseOrValue<string>, overrides?: CallOverrides): Promise<PopulatedTransaction>;
+        setBlastPointsAddress(
+            _blastPointsAddress: PromiseOrValue<string>,
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<PopulatedTransaction>;
+        setBlastPointsOperator(
+            _blastPointsOperator: PromiseOrValue<string>,
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<PopulatedTransaction>;
+        setLiquidatorWhitelist(
+            users: PromiseOrValue<string>[],
+            flags: PromiseOrValue<boolean>[],
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<PopulatedTransaction>;
+        setLpWhiteList(
+            quotes: PromiseOrValue<string>[],
+            users: PromiseOrValue<string>[],
+            flags: PromiseOrValue<boolean>[],
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<PopulatedTransaction>;
+        setMarketInfo(
+            mtype: PromiseOrValue<string>,
+            market: PromiseOrValue<string>,
+            beacon: PromiseOrValue<string>,
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<PopulatedTransaction>;
+        setQuoteParam(
+            coins: PromiseOrValue<string>[],
+            params: QuoteParamStruct[],
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<PopulatedTransaction>;
+        transferOwnership(
+            newOwner: PromiseOrValue<string>,
+            overrides?: Overrides & {
+                from?: PromiseOrValue<string>;
+            }
+        ): Promise<PopulatedTransaction>;
+    };
+}

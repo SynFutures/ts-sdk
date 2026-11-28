@@ -61,3 +61,5 @@ jobs:
         run: pnpm test
       - name: Build
         run: pnpm run nx
+      - name: Check plugin consumer types
+        run: pnpm run test:plugin-types

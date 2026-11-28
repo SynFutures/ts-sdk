@@ -146,3 +146,6 @@ dist
 
 # Devnet test runtime files
 packages/perpv3-ts/devnet/.runtime/
+/packages/*/build/
+/packages/*/legacy-plugin-host.d.ts
+/packages/*/legacy-host-types/

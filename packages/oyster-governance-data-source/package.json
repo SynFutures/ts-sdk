@@ -1,0 +1,52 @@
+{
+    "name": "@synfutures/oyster-governance-data-source",
+    "version": "0.0.83",
+    "description": "SynFutures V3 governance subgraph plugin",
+    "author": "SynFutures",
+    "license": "MIT",
+    "main": "build/index.js",
+    "types": "build/index.d.ts",
+    "files": [
+        "build",
+        "src",
+        "legacy-plugin-host.d.ts",
+        "legacy-host-types"
+    ],
+    "scripts": {
+        "build": "node ../../scripts/stage-plugin-host.cjs && tsc -p tsconfig.json",
+        "test": "node --test test/*.test.cjs",
+        "prepack": "npm run build"
+    },
+    "dependencies": {
+        "@derivation-tech/web3-core": "^1.0.43",
+        "@types/lodash": "^4.17.0",
+        "ethers": "^5.7.2",
+        "lodash": "^4.17.21"
+    },
+    "devDependencies": {
+        "typescript": "^5.9.3"
+    },
+    "nx": {
+        "targets": {
+            "build": {
+                "inputs": [
+                    "default",
+                    "^default",
+                    "{workspaceRoot}/scripts/legacy-plugin-host.d.ts",
+                    "{workspaceRoot}/scripts/stage-plugin-host.cjs",
+                    "{workspaceRoot}/scripts/legacy-host-types/**/*"
+                ],
+                "outputs": [
+                    "{projectRoot}/build",
+                    "{projectRoot}/legacy-plugin-host.d.ts",
+                    "{projectRoot}/legacy-host-types"
+                ]
+            },
+            "test": {
+                "dependsOn": [
+                    "build"
+                ]
+            }
+        }
+    }
+}
