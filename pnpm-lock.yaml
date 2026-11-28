@@ -174,7 +174,7 @@ catalogs:
 overrides:
   glob@>=9 <=14.0.1: ^14.0.2
   minimatch@>=7 <11.0.1: ^11.0.1
-  '@derivation-tech/viem-kit': file:./vendor/derivation-tech-viem-kit-1.0.0-rc.5.tgz
+  '@derivation-tech/viem-kit': file:./vendor/derivation-tech-viem-kit-1.0.0-rc.6.tgz
 
 importers:
 
@@ -305,8 +305,8 @@ importers:
   packages/perpv3-ts:
     dependencies:
       '@derivation-tech/viem-kit':
-        specifier: file:../../vendor/derivation-tech-viem-kit-1.0.0-rc.5.tgz
-        version: file:vendor/derivation-tech-viem-kit-1.0.0-rc.5.tgz(viem@2.58.7(typescript@7.0.2))
+        specifier: file:../../vendor/derivation-tech-viem-kit-1.0.0-rc.6.tgz
+        version: file:vendor/derivation-tech-viem-kit-1.0.0-rc.6.tgz(viem@2.58.7(typescript@7.0.2))
       viem:
         specifier: 'catalog:'
         version: 2.58.7(typescript@7.0.2)
@@ -615,9 +615,9 @@ packages:
     resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
     engines: {node: '>=0.1.90'}
 
-  '@derivation-tech/viem-kit@file:vendor/derivation-tech-viem-kit-1.0.0-rc.5.tgz':
-    resolution: {integrity: sha512-+el9GAntBufCOguxt/VOLDIrVAM+LS/YSrnZy7RwqWmJRddWCM5Y2MaPCsDCWs6qIH28CyGACeonPjHM04KlIQ==, tarball: file:vendor/derivation-tech-viem-kit-1.0.0-rc.5.tgz}
-    version: 1.0.0-rc.5
+  '@derivation-tech/viem-kit@file:vendor/derivation-tech-viem-kit-1.0.0-rc.6.tgz':
+    resolution: {integrity: sha512-Ii1EuLIdgV3XDEB6lX1q2Gq38OyMJ4U8xXkuQVyIBq3DFGJVIJbsO1AN4ZJH+PeHCH8UdBDs9+/STT0h0gyadA==, tarball: file:vendor/derivation-tech-viem-kit-1.0.0-rc.6.tgz}
+    version: 1.0.0-rc.6
     engines: {node: '>=22'}
     peerDependencies:
       '@derivation-tech/viem-ledger': ^0.2.1
@@ -627,10 +627,10 @@ packages:
         optional: true
 
   '@derivation-tech/web3-core@1.0.30':
-    resolution: {integrity: sha512-P2GclHJefYM5uRb/sjKOg9aX8vFrLfuv1t+q5Vo7Alw+sL4zELJlTfPIy4pRL0k0f+hAYsG6Xv/HJENHWovyrg==}
+    resolution: {integrity: sha512-P2GclHJefYM5uRb/sjKOg9aX8vFrLfuv1t+q5Vo7Alw+sL4zELJlTfPIy4pRL0k0f+hAYsG6Xv/HJENHWovyrg==, tarball: http://18.167.68.54:4873/@derivation-tech/web3-core/-/web3-core-1.0.30.tgz}
 
   '@derivation-tech/web3-core@1.0.44':
-    resolution: {integrity: sha512-EfkE2bqHGjfeMMFw8OqRluhwQtHL9r/RWI087E+pcJjExQV+tE6Cd1qQHT4EwwDxX5RdoMupT3kW2XYJ90g8oQ==, tarball: https://registry.npmjs.org/@derivation-tech/web3-core/-/web3-core-1.0.44.tgz}
+    resolution: {integrity: sha512-/GuOciGvp2PWdb2NeLpcIHizpxEtMzpGppEAM6ZN9jG7M1iCdxQIT4PUocnIX859o6zHH+BWfBIfJiA8L3FWag==, tarball: http://18.167.68.54:4873/@derivation-tech/web3-core/-/web3-core-1.0.44.tgz}
 
   '@emnapi/core@2.0.0-beta.2':
     resolution: {integrity: sha512-MzCVoWtcg4Pm2B3je5mMvYMvj3MmBKw+fU7vbsJc9/iT8ip6/eYIHo/Dsm/mr+wsHB6SEyJDuxB09Yy6r/8+4A==}
@@ -1682,7 +1682,7 @@ packages:
     resolution: {integrity: sha512-V6Mnml8v09QALx6K0elJ7o9K/MkVDtW3t6L+7Ou/JcWtb3xwId2AH4FeOceySd2JaO87IMw4+6vSZxLm34LPbw==}
 
   '@synfutures/governance-sdk@0.0.5':
-    resolution: {integrity: sha512-kiBy5V7uw8oiAX+IXKL0fVK7FpMg30Q49m+PuoRlslTWLzyOHfVL3xky4bwzKLP1dyf2Qc6aNOEudh0BD8z40g==}
+    resolution: {integrity: sha512-kiBy5V7uw8oiAX+IXKL0fVK7FpMg30Q49m+PuoRlslTWLzyOHfVL3xky4bwzKLP1dyf2Qc6aNOEudh0BD8z40g==, tarball: http://18.167.68.54:4873/@synfutures/governance-sdk/-/governance-sdk-0.0.5.tgz}
 
   '@synfutures/v3-contracts@0.0.2':
     resolution: {integrity: sha512-bTaYIvi1ffcdziEV93tUGfjDfnF82PEiYmLgcQOX9v3Ih7BZ+J6JgjA6SMhnNnmYbwVEFfUuBeRhhgkhsTfPDw==, tarball: http://18.167.68.54:4873/@synfutures/v3-contracts/-/v3-contracts-0.0.2.tgz}
@@ -3862,7 +3862,7 @@ snapshots:
   '@colors/colors@1.5.0':
     optional: true
 
-  '@derivation-tech/viem-kit@file:vendor/derivation-tech-viem-kit-1.0.0-rc.5.tgz(viem@2.58.7(typescript@7.0.2))':
+  '@derivation-tech/viem-kit@file:vendor/derivation-tech-viem-kit-1.0.0-rc.6.tgz(viem@2.58.7(typescript@7.0.2))':
     dependencies:
       viem: 2.58.7(typescript@7.0.2)
 
