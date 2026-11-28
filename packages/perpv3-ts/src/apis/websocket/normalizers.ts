@@ -205,6 +205,46 @@ function decodeOrderBookLevels(value: unknown, label: string): OrderBookLevel[] 
     });
 }
 
+function decodeMarketListItem(value: unknown, index: number): MarketListItem {
+    const label = `marketListChanged.data[${index}]`;
+    const row = requireRecord(value, label);
+    const item: MarketListItem = {};
+    if (row.instrumentAddr !== undefined)
+        item.instrumentAddr = requireAddress(row, 'instrumentAddr', `${label}.instrumentAddr`);
+    if (row.expiry !== undefined) {
+        item.expiry = typeof row.expiry === 'string' ? row.expiry : requireNumber(row, 'expiry', `${label}.expiry`);
+    }
+    for (const key of [
+        'symbol',
+        'fairPrice',
+        'markPrice',
+        'fairPriceChange24h',
+        'baseVolume24h',
+        'openInterests',
+        'tvl',
+        'volume24hUsd',
+        'tvlUsd',
+        'openInterestsUsd',
+        'longOi',
+        'shortOi',
+        'fundingRatePerHour',
+        'quoteVolume24h',
+        'fullSymbol',
+        'marketType',
+        'poolFee24h',
+        'spotPrice',
+    ] as const) {
+        if (row[key] !== undefined) item[key] = requireString(row, key, `${label}.${key}`);
+    }
+    for (const key of ['updateTime', 'maxLeverage', 'condition', 'ammStatus'] as const) {
+        if (row[key] !== undefined) item[key] = requireNumber(row, key, `${label}.${key}`);
+    }
+    for (const key of ['baseToken', 'quoteToken', 'periods1hFunding', 'last1hFunding'] as const) {
+        if (row[key] !== undefined) item[key] = requireRecord(row[key], `${label}.${key}`);
+    }
+    return item;
+}
+
 export function decodeCommonStreamData(
     data: GenericStreamData,
     stream: string,
@@ -213,9 +253,7 @@ export function decodeCommonStreamData(
     const chainId = optionalNumber(data, 'chainId') ?? params.chainId;
 
     if (stream === 'marketListChanged') {
-        const items = requireArray(data.data, 'marketListChanged.data').map(
-            (item, index) => requireRecord(item, `marketListChanged.data[${index}]`) as MarketListItem
-        );
+        const items = requireArray(data.data, 'marketListChanged.data').map(decodeMarketListItem);
         return { chainId, data: items };
     }
 

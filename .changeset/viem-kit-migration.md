@@ -51,3 +51,5 @@ Migrate the SDK to the refactored `@derivation-tech/viem-kit` 1.0 API and remove
 - Explicit block reads require RPC. RPC order books use the context block for every depth level. An account-free snapshot has a null quote state, and estimated prices expose their source.
 - API configuration accepts native fetch options. Signed module availability is explicit on `PerpClient.market` and `PerpClient.mm`. Each client owns its WebSocket unless a shared client is passed explicitly.
 - Wire normalization and HTTP URL helpers are internal. MM endpoints validate rows and pagination before exposing typed results.
+
+Liquidity limits include the observed AMM tick at zero slippage. Limit order ranges and single-tick checks share the same aligned price bounds. Scaled order simulations report the minimum total for their allocation ratios and expose per-level failures alongside the existing order slots. Observer snapshots use a single contract read and work with viem clients without chain metadata.

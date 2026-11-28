@@ -53,3 +53,4 @@ Reject malformed data instead of substituting defaults.
 - User volume details expose per-instrument volume and token information. A null details list from an empty account decodes to an empty array.
 - Market candle requests normalize instrument addresses so checksum and lowercase forms select the same indexed candles.
 - Token amounts in parsed descriptions use labeled base units when token precision is unavailable.
+- Each market-list WebSocket row validates its declared optional fields before typed dispatch.

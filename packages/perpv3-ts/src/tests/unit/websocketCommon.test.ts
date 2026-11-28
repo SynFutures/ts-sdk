@@ -52,6 +52,35 @@ describe('PublicWebsocketClient common subscription', () => {
         client.close();
     });
 
+    it.each([
+        ['markPrice', {}],
+        ['instrumentAddr', 123],
+        ['baseToken', []],
+        ['updateTime', 'bad'],
+        ['expiry', false],
+    ])('rejects an invalid %s in a later row and preserves the raw frame', (field, value) => {
+        const sockets: FakeWebSocket[] = [];
+        const invalid = jest.fn();
+        const client = new PublicWebsocketClient({
+            wsFactory: createFakeWebSocketFactory(sockets),
+            pingIntervalMs: 0,
+            onInvalidStreamData: invalid,
+        });
+        const typed = jest.fn();
+        const raw = jest.fn();
+        client.subscribeCommon({ chainId: 143, type: 'common' }, typed);
+        client.subscribeRaw({ type: 'common', params: { chainId: 143 } }, raw, 'marketListChanged');
+        sockets[0].open();
+        const data = [{ expiry: 'PERP', markPrice: '0', updateTime: 0 }, { [String(field)]: value }];
+        sockets[0].message(JSON.stringify({ stream: 'marketListChanged', data }));
+        expect(typed).not.toHaveBeenCalled();
+        expect(invalid.mock.calls[0][0].error.message).toContain(`marketListChanged.data[1].${field}`);
+        expect(raw.mock.calls[0][0].data).toEqual(data);
+        sockets[0].message(JSON.stringify({ stream: 'marketListChanged', data: [{}, data[0]] }));
+        expect(typed.mock.calls[0][0].data).toEqual([{}, data[0]]);
+        client.close();
+    });
+
     it('isolates untagged market lists by chain across raw and typed subscriptions and reconnects', () => {
         const sockets: FakeWebSocket[] = [];
         const client = new PublicWebsocketClient({ wsFactory: createFakeWebSocketFactory(sockets), pingIntervalMs: 0 });
