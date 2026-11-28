@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict'),
     test = require('node:test');
 const { createHash } = require('node:crypto');
-const { createPublicClient, custom, encodeAbiParameters, parseAbiParameters } = require('viem');
+const { createPublicClient, custom, encodeAbiParameters, encodeFunctionData, parseAbiParameters } = require('viem');
 const { mainnet, sepolia, base } = require('viem/chains');
 const { createGovernanceClient, governanceVaultAbi } = require('../dist/index.cjs');
 const { createTgeClient } = require('../dist/tge.cjs');
@@ -70,4 +70,30 @@ test('TGE always honors caller deployment, builds offline and estimates without 
     assert.deepEqual(await tge.estimateRequest(tx, { gas: 0n }), { ...tx, gas: 0n });
     assert.equal(calls.length, 3);
     assert.equal(createTgeClient(pub).governance, undefined);
+});
+
+test('TGE reads the total staked from its configured vault at the requested block', async () => {
+    const totalStaked = 2n ** 100n;
+    const publicClient = createPublicClient({
+        chain: mainnet,
+        transport: custom({
+            request({ method, params }) {
+                assert.equal(method, 'eth_call');
+                assert.equal(params[0].to, customVault);
+                assert.equal(
+                    params[0].data,
+                    encodeFunctionData({ abi: governanceVaultAbi, functionName: 'totalStaking' })
+                );
+                assert.equal(params[1], '0x9');
+                return encodeAbiParameters(parseAbiParameters('uint128'), [totalStaked]);
+            },
+        }),
+    });
+    const tge = createTgeClient(publicClient, {
+        vault: customVault,
+        multicall: multi,
+        graphUrl: 'https://example.invalid',
+    });
+
+    assert.equal(await tge.governance.getTotalStaking({ blockNumber: 9n }), totalStaked);
 });

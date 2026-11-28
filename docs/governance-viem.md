@@ -43,6 +43,8 @@ const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
 Supply your RPC URL, wallet client, account and block number. Builders produce unsigned `{ to, data }` offline. Your application chooses the sender, gas policy, confirmation count and how to handle a reverted receipt. Use the original contract index in `position.pendingUnstakes[i].index` for `buildRelease`; the display list is sorted by creation time.
 
+Use `getTotalStaking({ blockNumber })` on the staking client in place of `stakingVault.totalStaking()`. On a TGE client configured for staking, call `tge.governance.getTotalStaking()` for the latest total. Both return a bigint in the staking token's base units.
+
 Use bigint for raw token amounts, block numbers, claim and release indices. Format values for display with `formatUnits`. Convert bigints to decimal strings at JSON boundaries. Voting-power and boost simulations accept named stake changes and use Unix seconds for `lastUnstakeTime` and `now`. A subgraph event's `timestamp` and `logIndex` remain numbers.
 
 ## Port a TGE claim

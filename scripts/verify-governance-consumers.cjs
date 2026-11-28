@@ -19,7 +19,8 @@ const consumers = {
         import { createTgeClient } from '@synfutures/governance-sdk/tge';
         const stake = createGovernanceClient(client).buildRelease(0n);
         const tge = createTgeClient(client,{vault:account,multicall:account,graphUrl:'https://example.invalid'});
-        if(stake.to === tge.governance.vault || tge.governance.vault !== account) throw Error('Invalid deployments');`,
+        if(stake.to === tge.governance.vault || tge.governance.vault !== account) throw Error('Invalid deployments');
+        if(typeof tge.governance.getTotalStaking !== 'function') throw Error('Missing total staking read');`,
 };
 const common = `import {createPublicClient,custom} from 'viem';
 import {mainnet} from 'viem/chains';

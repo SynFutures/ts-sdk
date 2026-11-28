@@ -16,6 +16,7 @@ export interface StakingClient {
     buildStake(amount: bigint): { to: Address; data: Hex };
     buildUnstake(amount: bigint): { to: Address; data: Hex };
     buildRelease(index: bigint): { to: Address; data: Hex };
+    getTotalStaking(options?: { blockNumber?: bigint }): Promise<bigint>;
     getStakingInfo(account: Address, options?: { blockNumber?: bigint }): Promise<StakingInfo>;
 }
 export function stakingClient(
@@ -33,6 +34,8 @@ export function stakingClient(
         buildStake: (amount) => build('stake', amount),
         buildUnstake: (amount) => build('unstake', amount),
         buildRelease: (index) => build('release', index),
+        getTotalStaking: ({ blockNumber } = {}) =>
+            publicClient.readContract({ address: vault, abi, functionName: 'totalStaking', blockNumber }),
         async getStakingInfo(account, { blockNumber } = {}) {
             const calls = [
                 { target: vault, callData: encodeFunctionData({ abi, functionName: 'pendingDuration' }) },
