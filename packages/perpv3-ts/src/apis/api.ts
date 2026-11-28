@@ -138,8 +138,9 @@ export const fetchFuturesInstrumentInquireByTick = async (
 export const fetchFuturesInstrumentInquireByNotional = async (
     params: FetchFuturesInstrumentInquireByNotionalInput,
     signer: ApiSigner,
+    client: HttpClient = httpClient,
 ): Promise<FetchFuturesInstrumentInquireByNotionalResponse> => {
-    const market = new MarketModule(httpClient, signer);
+    const market = new MarketModule(client, signer);
     return market.fetchFuturesInstrumentInquireByNotional(params);
 };
 
